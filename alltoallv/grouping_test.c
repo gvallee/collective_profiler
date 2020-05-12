@@ -79,9 +79,10 @@ int grouping_test(void)
         },
     };
 
-    for (int i = 0; i < 4; i++) {
+    int i, j, k, l;
+    for (i = 0; i < 4; i++) {
         fprintf(stdout, "*** Running test %d\n", i);
-        for (int j = 0; j < tests[i].num_points; j++)
+        for (j = 0; j < tests[i].num_points; j++)
         {
             fprintf(stdout, "-> Adding %d\n", tests[i].points[j]);
             add_datapoint(j, tests[i].points);
@@ -96,9 +97,9 @@ int grouping_test(void)
             return 1;
         }
         group_t *ptr = gps;
-        for (int k = 0; k < num_gps; k++)
+        for (k = 0; k < num_gps; k++)
         {
-            for (int l = 0; l < ptr->size; l++)
+            for (l = 0; l < ptr->size; l++)
             {
                 if (ptr->size != tests[i].groups_result[k].size) {
                     fprintf(stderr, "*** [ERROR] Returned group #%d has %d elements while expecting %d\n", k, ptr->size, tests[i].groups_result[k].size);

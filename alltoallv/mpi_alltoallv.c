@@ -46,8 +46,8 @@ static avTimingsNode_t *op_timing_exec_tail = NULL;
 static int world_size = -1;
 static int myrank = -1;
 static int avCalls = 0;
-char myhostname[HOSTNAME_LEN];
-char *hostnames = NULL; // Only used by rank0
+//char myhostname[HOSTNAME_LEN];
+//char *hostnames = NULL; // Only used by rank0
 
 // Buffers used to store data through all alltoallv calls
 int *sbuf = NULL;
@@ -143,7 +143,8 @@ static void insert_op_exec_times_data(double *timings, int size)
 	assert(newNode);
 
 	newNode->size = size;
-	for (int i = 0; i < size; i++)
+        int i;
+	for (i = 0; i < size; i++)
 	{
 		newNode->timings[i] = timings[i];
 	}
@@ -165,14 +166,16 @@ static void display_groups(group_t *gps, int num_gps)
 	group_t *ptr = gps;
 
 	fprintf(f, "Number of groups: %d\n\n", num_gps);
-	for (int i = 0; i < num_gps; i++)
+        int i;
+	for (i = 0; i < num_gps; i++)
 	{
 		fprintf(f, "#### Group %d\n", i);
 		fprintf(f, "Number of ranks: %d\n", ptr->size);
 		fprintf(f, "Smaller data size: %d\n", ptr->min);
 		fprintf(f, "Bigger data size: %d\n", ptr->max);
 		fprintf(f, "Ranks: ");
-		for (int i = 0; i < ptr->size; i++)
+                int i;
+		for (i = 0; i < ptr->size; i++)
 		{
 			fprintf(f, "%d ", ptr->elts[i]);
 		}
@@ -278,7 +281,7 @@ static void print_data(int *buf, int size, int type_size)
 
 	// Group information for the send data (using the sums)
 	fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
-	for (int j = 0; j < size; j++)
+	for (j = 0; j < size; j++)
 	{
 		if (add_datapoint(j, sums))
 		{
@@ -331,7 +334,8 @@ static void display_data()
 	while (tPtr != NULL)
 	{
 		fprintf(f, "## Alltoallv call #%d\n", i);
-		for (int i = 0; i < tPtr->size; i++)
+                int i;
+		for (i = 0; i < tPtr->size; i++)
 		{
 			fprintf(f, "Rank %d: %f\n", i, tPtr->timings[i]);
 		}
@@ -342,7 +346,8 @@ static void display_data()
 
 static void display_per_host_data(int size)
 {
-	for (int i = 0; i < world_size; i++)
+	int i;
+	for (i = 0; i < world_size; i++)
 	{
 	}
 }
@@ -351,10 +356,10 @@ int MPI_Init(int *argc, char ***argv)
 {
 	int ret;
 	char buf[200];
-
-	gethostname(myhostname, HOSTNAME_LEN);
+	//gethostname(myhostname, HOSTNAME_LEN);
 
 	ret = PMPI_Init(argc, argv);
+
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
@@ -372,8 +377,15 @@ int MPI_Init(int *argc, char ***argv)
 
 	if (f == NULL && myrank == 0)
 	{
-		sprintf(buf, "profile_alltoallv.%d.md", myrank);
+		if (getenv("A2A_PROFILING_OUTPUT_DIR")) {
+			sprintf(buf, "/global/home/users/geoffroy/projects/VAR/output/profile_alltoallv.%d.pid%d.md", myrank, getpid());
+			exit(42);
+		} else {
+			sprintf(buf, "profile_alltoallv.%d.pid%d.md", myrank, getpid());
+			exit(42);
+		}
 		f = fopen(buf, "w");
+		//f = stderr;
 		assert(f != NULL);
 	}
 
@@ -413,17 +425,21 @@ int MPI_Finalize()
 		}
 		op_timing_exec_tail = NULL;
 
+#if 0
 		fprintf(f, "# Hostnames\n");
-		for (int i = 0; i < world_size; i++)
+                int i;
+		for (i = 0; i < world_size; i++)
 		{
 			char h[HOSTNAME_LEN];
 			int offset = HOSTNAME_LEN * i;
-			for (int j = 0; j < HOSTNAME_LEN; j++)
+                        int j;
+			for (j = 0; j < HOSTNAME_LEN; j++)
 			{
 				h[j] = hostnames[offset + j];
 			}
 			fprintf(f, "Rank %d: %s\n", i, h);
 		}
+#endif
 
 		// Free all the memory allocated during MPI_Init() for profiling purposes
 		if (rbuf != NULL)
@@ -438,10 +454,12 @@ int MPI_Finalize()
 		{
 			free(op_exec_times);
 		}
+#if 0
 		if (hostnames)
 		{
 			free(hostnames);
 		}
+#endif
 
 		if (f != NULL)
 		{
@@ -464,10 +482,12 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls
 	MPI_Comm_size(comm, &size);
 	avCalls++;
 
+#if 0
 	if (myrank == 0)
 	{
 		hostnames = (char *)malloc(size * HOSTNAME_LEN * sizeof(char));
 	}
+#endif
 
 	double t_start = MPI_Wtime();
 	ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
@@ -478,7 +498,7 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls
 	MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
 	MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
 	MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
-	MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
+	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
 	if (myrank == 0)
 	{

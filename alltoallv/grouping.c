@@ -291,8 +291,9 @@ static double get_gp_median(group_t *gp, int *values)
 static double get_mean(int size, int *data, int *values)
 {
     int sum = 0;
+    int i;
 
-    for (int i = 0; i < size; i++)
+    for (i = 0; i < size; i++)
     {
         sum += values[data[i]];
     }
@@ -415,7 +416,8 @@ static int add_datapoint_to_group(group_t *gp, int rank, int val, int *values)
     }
 
     // We add points again but in reverse order of what was previously done
-    for (int i = gp->size - 1; i >= 0; i++)
+    int i;
+    for (i = gp->size - 1; i >= 0; i++)
     {
         if (add_datapoint(data_points[i], values))
         {
@@ -430,8 +432,9 @@ static int add_datapoint_to_group(group_t *gp, int rank, int val, int *values)
 static int get_gp_sum(group_t *gp, int *values)
 {
     int sum = 0;
+    int i;
 
-    for (int i = 0; i < gp->size; i++)
+    for (i = 0; i < gp->size; i++)
     {
         sum += values[gp->elts[i]];
     }
@@ -458,7 +461,8 @@ static group_t *split_group(group_t *gp, int index_split, int *values)
         tail_gp = ng;
     }
 
-    for (int i = index_split + 1; i < gp->size; i++)
+    int i;
+    for (i = index_split + 1; i < gp->size; i++)
     {
         DEBUG_GROUPING("[%s:%d] Adding %d to new group (value = %d)...\n", __FILE__, __LINE__, gp->elts[i], values[gp->elts[i]]);
         add_elt_to_group(ng, gp->elts[i], values);
@@ -493,15 +497,17 @@ static int balance_group_with_new_element(group_t *gp, int rank, int val, int *v
     }
     DEBUG_GROUPING("[%s:%d] New element (%d) goes at index %d\n", __FILE__, __LINE__, rank, i);
 
-    for (int n = 0; n < i; n++)
+    int n;
+    for (n = 0; n < i; n++)
     {
         vals[n] = gp->elts[n];
     }
     vals[i] = rank;
 
+    int j;
     if (i < gp->size)
     {
-        for (int j = i; j < gp->size; j++)
+        for (j = i; j < gp->size; j++)
         {
             vals[j + 1] = gp->elts[j];
         }
