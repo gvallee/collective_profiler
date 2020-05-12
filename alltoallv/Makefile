@@ -9,5 +9,10 @@ grouping_test: grouping.o grouping_test.c
 liballtoallv.so: grouping.o mpi_alltoallv.c
 	mpicc -g -shared -fPIC mpi_alltoallv.c -o liballtoallv.so
 
+check: check_grouping
+
+check_grouping: grouping_test
+	./grouping_test
+
 clean:
-	@rm -f liballtoallv.so grouping.o grouping_test
+	@rm -f *.so grouping_test *.o
