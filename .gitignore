@@ -50,3 +50,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# The profiles the tool generates
+profile_alltoallv.*.md
