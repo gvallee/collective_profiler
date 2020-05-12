@@ -178,6 +178,7 @@ static void display_groups(group_t *gps, int num_gps)
 		}
 		fprintf(f, "\n");
 		i++;
+		ptr = ptr->next;
 	}
 }
 
