@@ -11,6 +11,8 @@
 #include <assert.h>
 #include <unistd.h>
 
+#include "grouping.h"
+
 #define DEBUG 0
 #define HOSTNAME_LEN 16
 #define DEFAULT_MSG_SIZE_THRESHOLD 200 // The default threshold between small and big messages
@@ -158,6 +160,27 @@ static void insert_op_exec_times_data(double *timings, int size)
 	}
 }
 
+static void display_groups(group_t *gps, int num_gps)
+{
+	group_t *ptr = gps;
+
+	fprintf(f, "Number of groups: %d\n\n", num_gps);
+	for (int i = 0; i < num_gps; i++)
+	{
+		fprintf(f, "#### Group %d\n", i);
+		fprintf(f, "Number of ranks: %d\n", ptr->size);
+		fprintf(f, "Smaller data size: %d\n", ptr->min);
+		fprintf(f, "Bigger data size: %d\n", ptr->max);
+		fprintf(f, "Ranks: ");
+		for (int i = 0; i < ptr->size; i++)
+		{
+			fprintf(f, "%d ", ptr->elts[i]);
+		}
+		fprintf(f, "\n");
+		i++;
+	}
+}
+
 static void print_data(int *buf, int size, int type_size)
 {
 	int i, j, num = 0;
@@ -229,8 +252,8 @@ static void print_data(int *buf, int size, int type_size)
 		double ratio_zeros = zeros[i] * 100 / size;
 		fprintf(f, "Rank %d: %d/%d (%f%%) zero(s)\n", i, zeros[i], size, ratio_zeros);
 	}
-	double ratio_zeros = (total_zeros*100)/(size*size);
-	fprintf(f, "Total: %d/%d (%f%%)\n", total_zeros, size*size, ratio_zeros);
+	double ratio_zeros = (total_zeros * 100) / (size * size);
+	fprintf(f, "Total: %d/%d (%f%%)\n", total_zeros, size * size, ratio_zeros);
 	fprintf(f, "\n");
 
 	fprintf(f, "### Data size min/max\n");
@@ -250,6 +273,27 @@ static void print_data(int *buf, int size, int type_size)
 	}
 	double total_ratio_small_msgs = (total_small_msgs * 100) / (size * size);
 	fprintf(f, "Total small messages: %d/%d (%f%%)", total_small_msgs, size * size, total_ratio_small_msgs);
+	fprintf(f, "\n");
+
+	// Group information for the send data (using the sums)
+	fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
+	for (int j = 0; j < size; j++)
+	{
+		if (add_datapoint(j, sums))
+		{
+			fprintf(stderr, "[ERROR] unable to group send data\n");
+			return;
+		}
+	}
+	int num_gps = 0;
+	group_t *gps = NULL;
+	if (get_groups(&gps, &num_gps))
+	{
+		fprintf(stderr, "[ERROR] unable to get groups\n");
+		return;
+	}
+	display_groups(gps, num_gps);
+	grouping_fini();
 	fprintf(f, "\n");
 
 	free(sums);
