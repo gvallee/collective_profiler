@@ -4,11 +4,11 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#define DEBUG (0)
+#define GROUPING_DEBUG (0)
 #define DEBUG_GROUPING(fmt, ...)               \
     do                                         \
     {                                          \
-        if (DEBUG > 0)                         \
+        if (GROUPING_DEBUG > 0)                \
         {                                      \
             fprintf(stdout, fmt, __VA_ARGS__); \
         }                                      \
