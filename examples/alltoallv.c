@@ -46,6 +46,13 @@ main(int argc, char **argv)
         send_buffer[i] = i + 10 * world_rank;
     }
 
+    for (int i = 0; i < world_size; i++) {
+        send_count[i] = i;
+        recv_count[i] = world_rank;
+        recv_displ[i] = i * world_rank;
+        send_displ[i] = (i * (i + 1) / 2);
+    }
+
     MPICHECK(MPI_Alltoallv(send_buffer, send_count, send_displ, MPI_INT,
                            recv_buffer, recv_count, recv_displ, MPI_INT,
                            MPI_COMM_WORLD));
