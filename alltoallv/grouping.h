@@ -4,7 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#define GROUPING_DEBUG (0)
+#define GROUPING_DEBUG (1)
 #define DEBUG_GROUPING(fmt, ...)               \
     do                                         \
     {                                          \

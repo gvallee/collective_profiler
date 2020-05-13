@@ -191,11 +191,11 @@ static int add_elt_to_group(group_t *gp, int rank, int *values)
         add_and_shift(gp, rank, i);
     }
 
-    DEBUG_GROUPING("[%s:%d] Updating group's metadata...\n", __FILE__, __LINE__);
+    DEBUG_GROUPING("[%s:%d] Updating group's metadata (first rank is %d)...\n", __FILE__, __LINE__, rank);
+    gp->size++;
     gp->min = values[gp->elts[0]];
     gp->max = values[gp->elts[gp->size - 1]];
-    gp->size++;
-    DEBUG_GROUPING("[%s:%d] Element successfully added (size: %d)\n", __FILE__, __LINE__, gp->size);
+    DEBUG_GROUPING("[%s:%d] Element successfully added (size: %d; min: %d, max: %d)\n", __FILE__, __LINE__, gp->size, gp->min, gp->max);
     return 0;
 }
 
@@ -245,7 +245,7 @@ static int add_group(group_t *gp)
         gp->next = gp;
     }
 
-#if DEBUG
+#if GROUPING_DEBUG
     fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups());
 #endif
 
@@ -281,6 +281,110 @@ static double get_median(int size, int *data, int *values)
     DEBUG_GROUPING("[%s:%d] even number of elements (%d), returning element between %d (val=%d) and %d (val=%d) - sum: %d - median: %f\n",
                    __FILE__, __LINE__, size, idx1, values[data[idx1]], idx2, values[data[idx2]], sum, median);
     return median;
+}
+
+static double get_median_with_additional_point(group_t *gp, int rank, int val, int *values)
+{
+    int candidate_rank;
+    int middle = gp->size / 2;
+
+    DEBUG_GROUPING("[%s:%d] Concidering add rank %d (value: %d) to group with min=%d and max=%d\n", __FILE__, __LINE__, rank, val, gp->min, gp->max);
+    if (gp->size == 1) {
+
+        return ((double)(values[gp->elts[0]] + val)) / 2;
+    }
+
+    if (get_remainder(gp->size + 1, 2) == 0)
+    {
+        // Odd total number of data points, even number of elements already in the group
+        // Regardless of where the extra data point would land in the sorted list
+        // of the group's elements, the point in the middle of the group's elements
+        // will always be used.
+        int value1 = -1, value2 = -1; // the two values used to calculate the median
+        int index = middle;
+        candidate_rank = gp->elts[index];
+        DEBUG_GROUPING("[%s:%d] Odd total number of points, even number of elements already in group\n", __FILE__, __LINE__);
+        DEBUG_GROUPING("[%s:%d] Pivot is at index %d; rank: %d, value: %d (middle: %d)\n", __FILE__, __LINE__, index, candidate_rank, values[candidate_rank], middle);
+        if (values[candidate_rank] > val && val > values[candidate_rank - 1])
+        {
+            // The extra element goes in between the middle of the group's elements and the element to its left.
+            // It shifts the element to the left to calculate the median
+            value1 = val;
+            value2 = values[candidate_rank];
+        }
+        if (values[candidate_rank] > val && val < values[candidate_rank - 1])
+        {
+            // The extra element falls toward the begining of the group's elements; it shifts the two elements
+            // required to calculate the median
+            value1 = values[candidate_rank - 1];
+            value2 = values[candidate_rank];
+        }
+        if (values[candidate_rank] < val && val < values[candidate_rank + 1])
+        {
+            // The extra element falls in between the middle of the group's elements and the element to its right.
+            value1 = values[candidate_rank];
+            value2 = val;
+        }
+        if (values[candidate_rank] < val && val > values[candidate_rank + 1])
+        {
+            // The extra element falls toward the end of the group's elements.
+            value1 = values[candidate_rank];
+            value2 = values[candidate_rank + 1];
+        }
+        if (values[candidate_rank] == val) {
+            // If the extra element has the same value than the middle of the group's elements, it will be added
+            // right in the middle, shifting the second half of the group's elements starting by the elements to
+            // the left
+            value1 = val;
+            value2 = values[candidate_rank]; 
+        }
+        if (values[candidate_rank + 1] == val) {
+            // If the extra elements has the same value then the middle + 1 of the group's elements, it will be
+            // added to the right of the middle, shifting the second half of the group's elements starting by the
+            // elements to the right
+            value1 = val;
+            value2 = values[candidate_rank + 1];
+        }
+        if (value1 == -1 || value2 == -1)
+        {
+            int i;
+            fprintf(stderr, "[%s:%d] unable to calculate median for the following group and new point rank: %d/value: %d\n", __FILE__, __LINE__, rank, val);
+            for(i = 0; i <gp->size; i++)
+            {
+                fprintf(stderr, "-> elt %d: rank: %d, value: %d\n", i, gp->elts[i], values[gp->elts[i]]);
+            }
+        }
+
+        int sum = value1 + value2;
+        double median = ((double)(sum)) / 2;
+        DEBUG_GROUPING("[%s:%d] With new data point, even number of elements (%d), returning element between value %d and %d - sum: %d - median: %f\n",
+                       __FILE__, __LINE__, gp->size + 1, value1, value2, sum, median);
+        return median;
+    }
+    else
+    {
+        // Even total number of data points, odd number of elements already in group
+        int index = middle - 1;
+        candidate_rank = gp->elts[index];
+        DEBUG_GROUPING("[%s:%d] Even total number of points, odd number of elements already in group\n", __FILE__, __LINE__);
+        DEBUG_GROUPING("[%s:%d] Pivot is at index %d; rank: %d, value: %d\n", __FILE__, __LINE__, index, candidate_rank, values[candidate_rank]);
+        if (values[candidate_rank] > val) {
+            // The new value falls to the left of the two elements from the original group that are candidate
+            return (double)values[candidate_rank];
+        }
+        if (values[candidate_rank + 1] < val) {
+            // The new value falls to the right of the two elements from the original group that are candidate
+            return (double)values[candidate_rank + 1];
+        }
+        if (values[candidate_rank] <= val && values[candidate_rank + 1] >= val)
+        {
+            // The new element falls right in the middle of the new group
+            return (double)val;
+        }
+    }
+
+    // We should not actually get here
+    return -1;
 }
 
 static double get_gp_median(group_t *gp, int *values)
@@ -469,8 +573,9 @@ static group_t *split_group(group_t *gp, int index_split, int *values)
     }
 
     gp->size = index_split;
+    gp->max = values[gp->elts[index_split - 1]];
     DEBUG_GROUPING("[%s:%d] Split successful\n", __FILE__, __LINE__);
-#if DEBUG
+#if GROUPING_DEBUG
     fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups());
 #endif
 
@@ -480,7 +585,7 @@ static group_t *split_group(group_t *gp, int index_split, int *values)
 static int balance_group_with_new_element(group_t *gp, int rank, int val, int *values)
 {
     DEBUG_GROUPING("[%s:%d] Balancing group with new element (rank/value = %d/%d)...\n", __FILE__, __LINE__, rank, val);
-    int vals[gp->size + 1];
+    //int vals[gp->size + 1];
 
     // We calculate the mean for the group + the element
     double sum = (double)get_gp_sum(gp, values);
@@ -488,39 +593,8 @@ static int balance_group_with_new_element(group_t *gp, int rank, int val, int *v
     double mean = sum / (gp->size + 1);
 
     // Now we calculate the median
-    double median;
-    // We prepare a sorted array with all the data
-    int i = 0;
-    while (i < gp->size && values[gp->elts[i]] < values[rank])
-    {
-        i++;
-    }
-    DEBUG_GROUPING("[%s:%d] New element (%d) goes at index %d\n", __FILE__, __LINE__, rank, i);
-
-    int n;
-    for (n = 0; n < i; n++)
-    {
-        vals[n] = gp->elts[n];
-    }
-    vals[i] = rank;
-
-    int j;
-    if (i < gp->size)
-    {
-        for (j = i; j < gp->size; j++)
-        {
-            vals[j + 1] = gp->elts[j];
-        }
-    }
-
-#if DEBUG
-    for (int k = 0; k < gp->size + 1; k++)
-        fprintf(stdout, "%d ", vals[k]);
-    fprintf(stdout, "\n");
-#endif
-
     DEBUG_GROUPING("[%s:%d] Getting the median for the potential new group...\n", __FILE__, __LINE__);
-    median = get_median(gp->size + 1, vals, values);
+    double median = get_median_with_additional_point(gp, rank, val, values);
     DEBUG_GROUPING("[%s:%d] Mean: %f; median: %f\n", __FILE__, __LINE__, mean, median);
     if (affinity_is_okay(mean, median))
     {
@@ -528,6 +602,13 @@ static int balance_group_with_new_element(group_t *gp, int rank, int val, int *v
     }
     else
     {
+        // We figure out where we need to split the group
+        int i = 0;
+        while (i < gp->size && values[gp->elts[i]] < values[rank])
+        {
+            i++;
+        }
+
         if (i < gp->size)
         {
             DEBUG_GROUPING("[%s:%d] Splitting group at index %d\n", __FILE__, __LINE__, i);
@@ -569,12 +650,12 @@ int add_datapoint(int rank, int *values)
     }
     else
     {
+        DEBUG_GROUPING("[%s:%d] Adding element (val:%d) to existing group (min: %d; max: %d)\n", __FILE__, __LINE__, val, gp->min, gp->max);
         if (balance_group_with_new_element(gp, rank, val, values))
         {
             fprintf(stderr, "[%s:%d][ERROR] unable to balance group\n", __FILE__, __LINE__);
             return -1;
         }
-
     }
 
     return 0;
