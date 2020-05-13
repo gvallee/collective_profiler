@@ -27,7 +27,7 @@
 
 #include "grouping.h"
 
-#define DEFAULT_GP_SIZE (20)
+#define DEFAULT_GP_SIZE (1024)
 
 const float DEFAULT_MEAN_MEDIAN_DEVIATION = 0.1; // max of 10% of deviation
 
@@ -141,7 +141,8 @@ static int add_and_shift(group_t *gp, int rank, int index)
 
 static int add_elt_to_group(group_t *gp, int rank, int *values)
 {
-    DEBUG_GROUPING("[%s:%d] Adding element %d-%d to group with min=%d and max=%d\n", __FILE__, __LINE__, rank, values[rank], gp->min, gp->max);
+    int val = values[rank];
+    DEBUG_GROUPING("[%s:%d] Adding element %d-%d to group with min=%d and max=%d\n", __FILE__, __LINE__, rank, val, gp->min, gp->max);
 
     // When necessary, initialize the group
     if (gp->elts == NULL)
@@ -173,18 +174,52 @@ static int add_elt_to_group(group_t *gp, int rank, int *values)
     // The array is ordered
     DEBUG_GROUPING("[%s:%d] Inserting new element in group's elements\n", __FILE__, __LINE__);
     int i = 0;
-    while (i < gp->size && values[gp->elts[i]] < values[rank])
+    // It is not unusual to have the same values coming over and over
+    // so we check with the max value of the group, it actually saves
+    // time quite often
+    if (val >= gp->max)
     {
-        i++;
+        i = gp->size;
     }
+    else
+    {
+#if 0
+        // binary search
+        bool converged = false;
+        int idx = gp->size / 2;
+        fprintf(stderr, "-> checking index %d (size: %d)\n", idx, gp->size);
+        while (!converged && idx != 0) {
+            if (values[gp->elts[idx]] == val) {
+                converged = true;
+                i = idx;
+            }
+            if (values[gp->elts[idx + 1]] == val) {
+                converged = true;
+                i = idx + 2;
+            }
+            if (values[gp->elts[idx]] < val && values[gp->elts[idx + 1]] > val) {
+                converged = true;
+                i = idx + 1;
+            }
+            idx = idx / 2;
+        }
+#else
+        while (i < gp->size && values[gp->elts[i]] <= values[rank])
+        {
+            i++;
+        }
+#endif
+    }
+
     if (i == gp->size)
     {
         // We add the new value at the end of the array
+        DEBUG_GROUPING("[%s:%d] Inserting element at the end of the group\n", __FILE__, __LINE__);
         gp->elts[i] = rank;
     }
     else
     {
-        DEBUG_GROUPING("[%s:%d] Shifting elements within the group...\n", __FILE__, __LINE__);
+        DEBUG_GROUPING("[%s:%d] Shifting elements within the group at index %d...\n", __FILE__, __LINE__, i);
         add_and_shift(gp, rank, i);
     }
 
@@ -550,10 +585,13 @@ static int balance_group_with_new_element(grouping_engine_t *e, group_t *gp, int
             group_t *new_group = split_group(e, gp, i, values);
             // We find the group that is the closest to the element to add
             int d1 = get_distance_from_group(values[rank], gp);
-            int d2 = get_distance_from_group( values[rank], new_group);
-            if (d2 < d1) {
+            int d2 = get_distance_from_group(values[rank], new_group);
+            if (d2 < d1)
+            {
                 add_elt_to_group(new_group, rank, values);
-            } else {
+            }
+            else
+            {
                 add_elt_to_group(gp, rank, values);
             }
         }
