@@ -8,6 +8,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <unistd.h>
 
@@ -18,6 +19,7 @@
 #define DEFAULT_MSG_SIZE_THRESHOLD 200	   // The default threshold between small and big messages
 #define SYNC 0							   // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
+#define NUM_CALL_START_PROFILING (0)	   // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALLV_CALLS says when we stop profiling
 
 // A few switches to enable/disable a bunch of capabilities
 #define ENABLE_LIVE_GROUPING (0)	   // Switch to enable/disable live grouping (can be very time consuming)
@@ -63,9 +65,9 @@ static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
 static int world_size = -1;
 static int myrank = -1;
-static int avCalls = 0; // Total number of alltoallv calls that we went through
+static int avCalls = 0;		  // Total number of alltoallv calls that we went through
 static int avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
-static int avCallStart = -1; // Number of alltoallv call during which we started to gather data
+static int avCallStart = -1;  // Number of alltoallv call during which we started to gather data
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
@@ -628,9 +630,23 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int i, j;
 	int localrank;
 	int ret;
+	bool need_profile = true;
 
-	if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCallsLogged < DEFAULT_LIMIT_ALLTOALLV_CALLS)
+	// Check if we need to profile that specific call
+	if (avCalls < NUM_CALL_START_PROFILING)
 	{
+		need_profile = false;
+	}
+	else
+	{
+		if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCallsLogged >= DEFAULT_LIMIT_ALLTOALLV_CALLS) {
+			need_profile = false;
+		}
+	}
+
+	if (need_profile)
+	{
+
 		if (avCallStart == -1)
 		{
 			avCallStart = avCalls;
