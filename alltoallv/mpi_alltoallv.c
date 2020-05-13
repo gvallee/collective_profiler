@@ -24,6 +24,7 @@
 #define POSTMORTEM_GROUPING (0)		   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 #define ENABLE_MSG_SIZE_ANALYSIS (0)   // Switch to enable/disable live analysis of message size
 #define ENABLE_DISPLAY_OF_RAW_DATA (0) // Switch to enable/disable the display of raw data (can be very time consuming)
+#define ENABLE_PER_RANK_STATS (0)	   // SWitch to enable/disable per-rank data (can be very expensive)
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD"
@@ -317,10 +318,14 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	fprintf(f, "\n");
 
 	fprintf(f, "### Amount of data per rank\n");
+#if ENABLE_PER_RANK_STATS
 	for (i = 0; i < size; i++)
 	{
 		fprintf(f, "Rank %d: %d bytes\n", i, sums[i] * type_size);
 	}
+#else
+	fprintf(f, "Per-rank data is disabled\n");
+#endif
 	fprintf(f, "\n");
 
 	fprintf(f, "### Number of zeros\n");
@@ -329,8 +334,13 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	{
 		total_zeros += zeros[i];
 		double ratio_zeros = zeros[i] * 100 / size;
+#if ENABLE_PER_RANK_STATS
 		fprintf(f, "Rank %d: %d/%d (%f%%) zero(s)\n", i, zeros[i], size, ratio_zeros);
 	}
+#else
+	}
+	fprintf(f, "Per-rank data is disabled\n");
+#endif
 	double ratio_zeros = (total_zeros * 100) / (size * size);
 	fprintf(f, "Total: %d/%d (%f%%)\n", total_zeros, size * size, ratio_zeros);
 	fprintf(f, "\n");
@@ -436,11 +446,15 @@ static void display_data()
 	while (tPtr != NULL)
 	{
 		fprintf(f, "## Alltoallv call #%d\n", i);
+#if ENABLE_PER_RANK_STATS
 		int i;
 		for (i = 0; i < tPtr->size; i++)
 		{
 			fprintf(f, "Rank %d: %f\n", i, tPtr->timings[i]);
 		}
+#else
+		fprintf(f, "Per-rank data is disabled\n");
+#endif
 		fprintf(f, "\n");
 		tPtr = tPtr->next;
 	}
