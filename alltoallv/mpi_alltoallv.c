@@ -63,7 +63,9 @@ static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
 static int world_size = -1;
 static int myrank = -1;
-static int avCalls = 0;
+static int avCalls = 0; // Total number of alltoallv calls that we went through
+static int avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
+static int avCallStart = -1; // Number of alltoallv call during which we started to gather data
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
@@ -540,6 +542,7 @@ int _mpi_finalize()
 		{
 			fprintf(f, "# Summary\n");
 			fprintf(f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
+			fprintf(f, "Alltoallv call range: [%d-%d]\n", avCallStart, avCallStart + avCalls);
 			display_data();
 		}
 
@@ -626,8 +629,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int localrank;
 	int ret;
 
-	if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCalls < DEFAULT_LIMIT_ALLTOALLV_CALLS)
+	if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCallsLogged < DEFAULT_LIMIT_ALLTOALLV_CALLS)
 	{
+		if (avCallStart == -1)
+		{
+			avCallStart = avCalls;
+		}
 		MPI_Comm_rank(comm, &localrank);
 		MPI_Comm_size(comm, &size);
 
@@ -659,10 +666,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			fflush(f);
 		}
 		avCalls++;
+		avCallsLogged++;
 	}
 	else
 	{
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+		avCalls++;
 	}
 
 #if SYNC
