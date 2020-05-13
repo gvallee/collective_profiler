@@ -17,7 +17,7 @@
 #define HOSTNAME_LEN 16
 #define DEFAULT_MSG_SIZE_THRESHOLD 200 // The default threshold between small and big messages
 #define SYNC 0						   // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
-#define DEFAULT_LIMIT_ALLTOALLV_CALLS (256)
+#define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
 
 // A few switches to enable/disable a bunch of capabilities
 #define ENABLE_LIVE_GROUPING (0)	 // Switch to enable/disable live grouping (can be very time consuming)
@@ -517,7 +517,7 @@ int _mpi_finalize()
 		if (f != NULL)
 		{
 			fprintf(f, "# Summary\n");
-			fprintf(f, "Total number of alltoallv calls = %d\n\n", avCalls);
+			fprintf(f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
 			display_data();
 		}
 
@@ -604,9 +604,10 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int localrank;
 	int ret;
 
-	MPI_Comm_rank(comm, &localrank);
-	MPI_Comm_size(comm, &size);
-	avCalls++;
+	if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCalls < DEFAULT_LIMIT_ALLTOALLV_CALLS)
+	{
+		MPI_Comm_rank(comm, &localrank);
+		MPI_Comm_size(comm, &size);
 
 #if 0
 	if (myrank == 0)
@@ -615,25 +616,31 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 #endif
 
-	double t_start = MPI_Wtime();
-	ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
-	double t_end = MPI_Wtime();
-	double t_op = t_end - t_start;
+		double t_start = MPI_Wtime();
+		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+		double t_end = MPI_Wtime();
+		double t_op = t_end - t_start;
 
-	// Gather a bunch of counters
-	MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
-	MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
-	MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
-	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
+		// Gather a bunch of counters
+		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
+		MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
+		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
+		//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
-	if (myrank == 0)
+		if (myrank == 0)
+		{
+			if (DEBUG)
+				fprintf(f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
+
+			insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype));
+			insert_op_exec_times_data(op_exec_times, size);
+			fflush(f);
+		}
+		avCalls++;
+	}
+	else
 	{
-		if (DEBUG)
-			fprintf(f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
-
-		insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype));
-		insert_op_exec_times_data(op_exec_times, size);
-		fflush(f);
+		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 	}
 
 #if SYNC
