@@ -313,7 +313,9 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 #endif
 			num++;
 		}
+#if ENABLE_DISPLAY_OF_RAW_DATA
 		fprintf(f, "\n");
+#endif
 	}
 	fprintf(f, "\n");
 
@@ -447,8 +449,8 @@ static void display_data()
 	{
 		fprintf(f, "## Alltoallv call #%d\n", i);
 #if ENABLE_PER_RANK_STATS
-		int i;
-		for (i = 0; i < tPtr->size; i++)
+		int j;
+		for (j = 0; j < tPtr->size; j++)
 		{
 			fprintf(f, "Rank %d: %f\n", i, tPtr->timings[i]);
 		}
@@ -457,6 +459,7 @@ static void display_data()
 #endif
 		fprintf(f, "\n");
 		tPtr = tPtr->next;
+		i++;
 	}
 }
 
