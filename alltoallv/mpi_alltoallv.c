@@ -18,7 +18,16 @@
 #define DEFAULT_MSG_SIZE_THRESHOLD 200 // The default threshold between small and big messages
 #define SYNC 0						   // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (256)
-#define DISABLE_GROUPING (1)
+#define DISABLE_LIVE_GROUPING (1)	// Switch to enable/disable live grouping (can be very time consuming)
+#define POSTMORTEM_GROUPING (0) // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
+
+#define OUTPUT_DIR_ENVDIR "A2A_PROFILING_OUTPUT_DIR" // Name of the environment variable to specify where output files will be created
+
+enum
+{
+	SEND_CTX = 0,
+	RECV_CTX
+};
 
 // Data type for storing comm size, alltoallv counts, send/recv count, etc
 typedef struct avSRCountNode
@@ -199,7 +208,43 @@ static void display_groups(group_t *gps, int num_gps)
 	}
 }
 
-static void print_data(int *buf, int size, int type_size)
+static char *save_sums(int ctx, int *sums, int size)
+{
+	char *filename = malloc(256 * sizeof(char));
+	FILE *fp;
+	int i;
+	char *prefix;
+
+	if (ctx == SEND_CTX)
+	{
+		prefix = "send";
+	}
+	else
+	{
+		prefix = "recv";
+	}
+
+	if (getenv(OUTPUT_DIR_ENVDIR))
+	{
+
+		sprintf(filename, "%s/%s-sums.pid%d.txt", getenv(OUTPUT_DIR_ENVDIR), prefix, getpid());
+	}
+	else
+	{
+		sprintf(filename, "%s-sums.pid%d.txt", prefix, getpid());
+	}
+
+	fp = fopen(filename, "w");
+	fprintf(fp, "Rank\tAmount of data (bytes)\n");
+	for (i = 0; i < size; i++)
+	{
+		fprintf(fp, "%d\t%d\n", i, sums[i]);
+	}
+	fclose(fp);
+	return filename;
+}
+
+static void print_data(int ctx, int *buf, int size, int type_size)
 {
 	int i, j, num = 0;
 
@@ -302,7 +347,13 @@ static void print_data(int *buf, int size, int type_size)
 	else
 	{
 		fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
-#if DISABLE_GROUPING
+#if POSTMORTEM_GROUPING
+		char *filename = save_sums(ctx, sums, size);
+		fprintf(f, "Saved in %s for post-mortem analysis\n", filename);
+		free(filename);
+#endif
+
+#if DISABLE_LIVE_GROUPING
 		fprintf(f, "DISABLED\n");
 #else
 		for (j = 0; j < size; j++)
@@ -323,7 +374,7 @@ static void print_data(int *buf, int size, int type_size)
 		display_groups(gps, num_gps);
 		grouping_fini(&e);
 #endif
-			fprintf(f, "\n");
+		fprintf(f, "\n");
 	}
 
 	free(sums);
@@ -347,9 +398,9 @@ static void display_data()
 		fprintf(f, "comm size = %d, alltoallv calls = %d\n\n", srCountPtr->size, srCountPtr->count);
 
 		fprintf(f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
-		print_data(srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+		print_data(SEND_CTX, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 		fprintf(f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
-		print_data(srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+		print_data(RECV_CTX, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 		srCountPtr = srCountPtr->next;
 	}
 
@@ -403,9 +454,9 @@ int _mpi_init(int *argc, char ***argv)
 
 	if (f == NULL && myrank == 0)
 	{
-		if (getenv("A2A_PROFILING_OUTPUT_DIR"))
+		if (getenv(OUTPUT_DIR_ENVDIR))
 		{
-			sprintf(buf, "%s/profile_alltoallv.%d.pid%d.md", getenv("A2A_PROFILING_OUTPUT_DIR"), myrank, getpid());
+			sprintf(buf, "%s/profile_alltoallv.%d.pid%d.md", getenv(OUTPUT_DIR_ENVDIR), myrank, getpid());
 		}
 		else
 		{
