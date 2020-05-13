@@ -18,10 +18,15 @@
 #define DEFAULT_MSG_SIZE_THRESHOLD 200 // The default threshold between small and big messages
 #define SYNC 0						   // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (256)
-#define DISABLE_LIVE_GROUPING (1)	// Switch to enable/disable live grouping (can be very time consuming)
-#define POSTMORTEM_GROUPING (0) // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 
-#define OUTPUT_DIR_ENVDIR "A2A_PROFILING_OUTPUT_DIR" // Name of the environment variable to specify where output files will be created
+// A few switches to enable/disable a bunch of capabilities
+#define DISABLE_LIVE_GROUPING (1) // Switch to enable/disable live grouping (can be very time consuming)
+#define POSTMORTEM_GROUPING (0)	  // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
+#define ENABLE_MSG_SIZE_ANALYSIS (0) // Switch to enable/disable live analysis of message size
+
+// A few environment variables to control a few things at runtime
+#define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD"
+#define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR" // Name of the environment variable to specify where output files will be created
 
 enum
 {
@@ -224,10 +229,10 @@ static char *save_sums(int ctx, int *sums, int size)
 		prefix = "recv";
 	}
 
-	if (getenv(OUTPUT_DIR_ENVDIR))
+	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
 
-		sprintf(filename, "%s/%s-sums.pid%d.txt", getenv(OUTPUT_DIR_ENVDIR), prefix, getpid());
+		sprintf(filename, "%s/%s-sums.pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), prefix, getpid());
 	}
 	else
 	{
@@ -250,29 +255,34 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 
 	int *zeros = (int *)calloc(size, sizeof(int));
 	int *sums = (int *)calloc(size, sizeof(int));
+#if ENABLE_MSG_SIZE_ANALYSIS
 	int *mins = (int *)calloc(size, sizeof(int));
 	int *maxs = (int *)calloc(size, sizeof(int));
 	int *small_messages = (int *)calloc(size, sizeof(int));
 	int msg_size_threshold = DEFAULT_MSG_SIZE_THRESHOLD;
 
-	assert(f);
-	assert(zeros);
-	assert(sums);
 	assert(mins);
 	assert(maxs);
 	assert(small_messages);
 
-	char *env_var = getenv("MSG_SIZE_THRESHOLD");
-	if (env_var != NULL)
+	if (getenv(MSG_SIZE_THRESHOLD_ENVVAR) != NULL)
 	{
-		msg_size_threshold = atoi(env_var);
+		msg_size_threshold = atoi(getenv(MSG_SIZE_THRESHOLD_ENVVAR));
 	}
+#endif
+
+	assert(f);
+	assert(zeros);
+	assert(sums);
+
 
 	fprintf(f, "### Raw counters\n");
 	for (i = 0; i < size; i++)
 	{
+#if ENABLE_MSG_SIZE_ANALYSIS
 		mins[i] = buf[num];
 		maxs[i] = buf[num];
+#endif
 		for (j = 0; j < size; j++)
 		{
 			sums[i] += buf[num];
@@ -280,6 +290,7 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 			{
 				zeros[i]++;
 			}
+#if ENABLE_MSG_SIZE_ANALYSIS
 			if (buf[num] < mins[i])
 			{
 				mins[i] = buf[num];
@@ -292,6 +303,7 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 			{
 				small_messages[i]++;
 			}
+#endif
 
 			fprintf(f, "%d ", buf[num]);
 			num++;
@@ -320,13 +332,18 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	fprintf(f, "\n");
 
 	fprintf(f, "### Data size min/max\n");
+#if ENABLE_MSG_SIZE_ANALYSIS
 	for (i = 0; i < size; i++)
 	{
 		fprintf(f, "Rank %d: Min = %d bytes; max = %d bytes\n", i, mins[i] * type_size, maxs[i] * type_size);
 	}
+#else
+	fprintf(f, "DISABLED\n");
+#endif
 	fprintf(f, "\n");
 
 	fprintf(f, "### Small vs. large messages\n");
+#if ENABLE_MSG_SIZE_ANALYSIS
 	int total_small_msgs = 0;
 	for (i = 0; i < size; i++)
 	{
@@ -336,6 +353,9 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	}
 	double total_ratio_small_msgs = (total_small_msgs * 100) / (size * size);
 	fprintf(f, "Total small messages: %d/%d (%f%%)", total_small_msgs, size * size, total_ratio_small_msgs);
+#else
+	fprintf(f, "DISABLED\n");
+#endif
 	fprintf(f, "\n");
 
 	// Group information for the send data (using the sums)
@@ -379,9 +399,11 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 
 	free(sums);
 	free(zeros);
+#if ENABLE_MSG_SIZE_ANALYSIS
 	free(mins);
 	free(maxs);
 	free(small_messages);
+#endif
 }
 
 static void display_data()
@@ -454,9 +476,9 @@ int _mpi_init(int *argc, char ***argv)
 
 	if (f == NULL && myrank == 0)
 	{
-		if (getenv(OUTPUT_DIR_ENVDIR))
+		if (getenv(OUTPUT_DIR_ENVVAR))
 		{
-			sprintf(buf, "%s/profile_alltoallv.%d.pid%d.md", getenv(OUTPUT_DIR_ENVDIR), myrank, getpid());
+			sprintf(buf, "%s/profile_alltoallv.%d.pid%d.md", getenv(OUTPUT_DIR_ENVVAR), myrank, getpid());
 		}
 		else
 		{
