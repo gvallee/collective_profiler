@@ -190,6 +190,7 @@ static int add_elt_to_group(group_t *gp, int rank, int *values)
 
     DEBUG_GROUPING("[%s:%d] Updating group's metadata (first rank is %d)...\n", __FILE__, __LINE__, rank);
     gp->size++;
+    gp->cached_sum += values[rank];
     gp->min = values[gp->elts[0]];
     gp->max = values[gp->elts[gp->size - 1]];
     DEBUG_GROUPING("[%s:%d] Element successfully added (size: %d; min: %d, max: %d)\n", __FILE__, __LINE__, gp->size, gp->min, gp->max);
@@ -396,24 +397,11 @@ static double get_gp_median(group_t *gp, int *values)
     return get_median(gp->size, gp->elts, values);
 }
 
-static double get_mean(int size, int *data, int *values)
-{
-    int sum = 0;
-    int i;
-
-    for (i = 0; i < size; i++)
-    {
-        sum += values[data[i]];
-    }
-
-    double mean = (double)((double)(sum) / (double)(size));
-    DEBUG_GROUPING("[%s:%d] Sum = %d; size = %d, mean = %f\n", __FILE__, __LINE__, sum, size, mean);
-    return mean;
-}
-
 static double get_gp_mean(group_t *gp, int *values)
 {
-    return get_mean(gp->size, gp->elts, values);
+    double mean = (double)((double)(gp->cached_sum) / (double)(gp->size));
+    DEBUG_GROUPING("[%s:%d] Sum = %d; size = %d, mean = %f\n", __FILE__, __LINE__, gp->cached_sum, gp->size, mean);
+    return mean;
 }
 
 static bool affinity_is_okay(double mean, double median)
@@ -492,68 +480,11 @@ static void free_gp(group_t *gp)
     free(gp);
 }
 
-static int add_datapoint_to_group(grouping_engine_t *e, group_t *gp, int rank, int val, int *values)
-{
-    DEBUG_GROUPING("[%s:%d] Adding data point %d-%d\n", __FILE__, __LINE__, rank, val)
-    // The group's array of values is ordered
-    if (add_elt_to_group(gp, rank, values))
-    {
-        fprintf(stderr, "[%s:%d][ERROR] unable to add new data point to group\n", __FILE__, __LINE__);
-        return -1;
-    }
-
-    if (group_is_balanced(gp, values))
-    {
-        // If the group is still balanced, we are done.
-        // If not, we remove the continue with the second half of the
-        // function which deals with an imbalanced group.
-        return 0;
-    }
-
-    DEBUG_GROUPING("[%s:%d] Group is unbalanced\n", __FILE__, __LINE__);
-
-    // If the mean and median deviate too much, we split the group: the group
-    // is destroyed and we add the data points one by one to the other groups
-    // on each side. The algorithm will converge with eventually groups with
-    // only a few data points.
-    int *data_points = gp->elts;
-    if (unlink_gp(e, gp))
-    {
-        fprintf(stderr, "[%s:%d][ERROR] unable to unlink group\n", __FILE__, __LINE__);
-        return -1;
-    }
-
-    // We add points again but in reverse order of what was previously done
-    int i;
-    for (i = gp->size - 1; i >= 0; i++)
-    {
-        if (add_datapoint(e, data_points[i], values))
-        {
-            fprintf(stderr, "[%s:%d][ERROR] unable to add data point while rebalancing group\n", __FILE__, __LINE__);
-            return -1;
-        }
-    }
-
-    free_gp(gp);
-}
-
-static int get_gp_sum(group_t *gp, int *values)
-{
-    int sum = 0;
-    int i;
-
-    for (i = 0; i < gp->size; i++)
-    {
-        sum += values[gp->elts[i]];
-    }
-
-    return sum;
-}
-
 static group_t *split_group(grouping_engine_t *e, group_t *gp, int index_split, int *values)
 {
     // Create the new group
     group_t *ng = create_group(gp->elts[index_split], values[gp->elts[index_split]], values);
+    gp->cached_sum = gp->cached_sum - values[gp->elts[index_split]];
     ng->prev = gp;
     ng->next = gp->next;
     if (gp->next != NULL)
@@ -574,11 +505,12 @@ static group_t *split_group(grouping_engine_t *e, group_t *gp, int index_split, 
     {
         DEBUG_GROUPING("[%s:%d] Adding %d to new group (value = %d)...\n", __FILE__, __LINE__, gp->elts[i], values[gp->elts[i]]);
         add_elt_to_group(ng, gp->elts[i], values);
+        gp->cached_sum = gp->cached_sum - values[gp->elts[i]];
     }
 
     gp->size = index_split;
     gp->max = values[gp->elts[index_split - 1]];
-    DEBUG_GROUPING("[%s:%d] Split successful\n", __FILE__, __LINE__);
+    DEBUG_GROUPING("[%s:%d] Split successful (new cached sum of initial group: %d)\n", __FILE__, __LINE__, gp->cached_sum);
 #if GROUPING_DEBUG
     fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups(e));
 #endif
@@ -592,8 +524,7 @@ static int balance_group_with_new_element(grouping_engine_t *e, group_t *gp, int
     //int vals[gp->size + 1];
 
     // We calculate the mean for the group + the element
-    double sum = (double)get_gp_sum(gp, values);
-    sum += val;
+    double sum = (double)gp->cached_sum + val;
     double mean = sum / (gp->size + 1);
 
     // Now we calculate the median

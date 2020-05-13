@@ -38,6 +38,7 @@ typedef struct group
     int *elts;
     int min;
     int max;
+    int cached_sum;
 } group_t;
 
 /*
