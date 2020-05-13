@@ -20,8 +20,8 @@
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (256)
 
 // A few switches to enable/disable a bunch of capabilities
-#define DISABLE_LIVE_GROUPING (1) // Switch to enable/disable live grouping (can be very time consuming)
-#define POSTMORTEM_GROUPING (0)	  // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
+#define ENABLE_LIVE_GROUPING (0)	 // Switch to enable/disable live grouping (can be very time consuming)
+#define POSTMORTEM_GROUPING (0)		 // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 #define ENABLE_MSG_SIZE_ANALYSIS (0) // Switch to enable/disable live analysis of message size
 
 // A few environment variables to control a few things at runtime
@@ -275,7 +275,6 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	assert(zeros);
 	assert(sums);
 
-
 	fprintf(f, "### Raw counters\n");
 	for (i = 0; i < size; i++)
 	{
@@ -359,6 +358,13 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	fprintf(f, "\n");
 
 	// Group information for the send data (using the sums)
+	fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
+#if POSTMORTEM_GROUPING
+	char *filename = save_sums(ctx, sums, size);
+	fprintf(f, "Data saved in %s for post-mortem analysis\n", filename);
+	free(filename);
+#endif
+#if ENABLE_LIVE_GROUPING
 	grouping_engine_t *e;
 	if (grouping_init(&e))
 	{
@@ -366,16 +372,6 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 	}
 	else
 	{
-		fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
-#if POSTMORTEM_GROUPING
-		char *filename = save_sums(ctx, sums, size);
-		fprintf(f, "Saved in %s for post-mortem analysis\n", filename);
-		free(filename);
-#endif
-
-#if DISABLE_LIVE_GROUPING
-		fprintf(f, "DISABLED\n");
-#else
 		for (j = 0; j < size; j++)
 		{
 			if (add_datapoint(e, j, sums))
@@ -393,9 +389,11 @@ static void print_data(int ctx, int *buf, int size, int type_size)
 		}
 		display_groups(gps, num_gps);
 		grouping_fini(&e);
-#endif
 		fprintf(f, "\n");
 	}
+#else
+	fprintf(f, "DISABLED\n\n");
+#endif
 
 	free(sums);
 	free(zeros);
