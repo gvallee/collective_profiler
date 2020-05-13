@@ -57,14 +57,14 @@ double *op_exec_times = NULL;
 /* FORTRAN BINDINGS */
 extern int mpi_fortran_in_place_;
 #define OMPI_IS_FORTRAN_IN_PLACE(addr) \
-        (addr == (void*) &mpi_fortran_in_place_)
+	(addr == (void *)&mpi_fortran_in_place_)
 extern int mpi_fortran_bottom_;
 #define OMPI_IS_FORTRAN_BOTTOM(addr) \
-        (addr == (void*) &mpi_fortran_bottom_)
+	(addr == (void *)&mpi_fortran_bottom_)
 #define OMPI_INT_2_FINT(a) a
 #define OMPI_FINT_2_INT(a) a
-#define OMPI_F2C_IN_PLACE(addr)    (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
-#define OMPI_F2C_BOTTOM(addr)      (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
+#define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
+#define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
 
 // Compare if two arrays are identical.
 static int same_data(int *dest, int *src, int size)
@@ -155,7 +155,7 @@ static void insert_op_exec_times_data(double *timings, int size)
 	assert(newNode);
 
 	newNode->size = size;
-        int i;
+	int i;
 	for (i = 0; i < size; i++)
 	{
 		newNode->timings[i] = timings[i];
@@ -178,7 +178,7 @@ static void display_groups(group_t *gps, int num_gps)
 	group_t *ptr = gps;
 
 	fprintf(f, "Number of groups: %d\n\n", num_gps);
-        int i;
+	int i;
 	for (i = 0; i < num_gps; i++)
 	{
 		fprintf(f, "#### Group %d\n", i);
@@ -186,7 +186,7 @@ static void display_groups(group_t *gps, int num_gps)
 		fprintf(f, "Smaller data size: %d\n", ptr->min);
 		fprintf(f, "Bigger data size: %d\n", ptr->max);
 		fprintf(f, "Ranks: ");
-                int i;
+		int i;
 		for (i = 0; i < ptr->size; i++)
 		{
 			fprintf(f, "%d ", ptr->elts[i]);
@@ -292,25 +292,33 @@ static void print_data(int *buf, int size, int type_size)
 	fprintf(f, "\n");
 
 	// Group information for the send data (using the sums)
-	fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
-	for (j = 0; j < size; j++)
+	grouping_engine_t *e;
+	if (grouping_init(&e))
 	{
-		if (add_datapoint(j, sums))
+		fprintf(stderr, "[ERROR] unable to initialize grouping\n");
+	}
+	else
+	{
+		fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
+		for (j = 0; j < size; j++)
 		{
-			fprintf(stderr, "[ERROR] unable to group send data\n");
+			if (add_datapoint(e, j, sums))
+			{
+				fprintf(stderr, "[ERROR] unable to group send data\n");
+				return;
+			}
+		}
+		int num_gps = 0;
+		group_t *gps = NULL;
+		if (get_groups(e, &gps, &num_gps))
+		{
+			fprintf(stderr, "[ERROR] unable to get groups\n");
 			return;
 		}
+		display_groups(gps, num_gps);
+		grouping_fini(&e);
+		fprintf(f, "\n");
 	}
-	int num_gps = 0;
-	group_t *gps = NULL;
-	if (get_groups(&gps, &num_gps))
-	{
-		fprintf(stderr, "[ERROR] unable to get groups\n");
-		return;
-	}
-	display_groups(gps, num_gps);
-	grouping_fini();
-	fprintf(f, "\n");
 
 	free(sums);
 	free(zeros);
@@ -346,7 +354,7 @@ static void display_data()
 	while (tPtr != NULL)
 	{
 		fprintf(f, "## Alltoallv call #%d\n", i);
-                int i;
+		int i;
 		for (i = 0; i < tPtr->size; i++)
 		{
 			fprintf(f, "Rank %d: %f\n", i, tPtr->timings[i]);
@@ -363,7 +371,6 @@ static void display_per_host_data(int size)
 	{
 	}
 }
-
 
 int _mpi_init(int *argc, char ***argv)
 {
@@ -390,9 +397,12 @@ int _mpi_init(int *argc, char ***argv)
 
 	if (f == NULL && myrank == 0)
 	{
-		if (getenv("A2A_PROFILING_OUTPUT_DIR")) {
+		if (getenv("A2A_PROFILING_OUTPUT_DIR"))
+		{
 			sprintf(buf, "%s/profile_alltoallv.%d.pid%d.md", getenv("A2A_PROFILING_OUTPUT_DIR"), myrank, getpid());
-		} else {
+		}
+		else
+		{
 
 			sprintf(buf, "profile_alltoallv.%d.pid%d.md", myrank, getpid());
 		}
@@ -414,11 +424,12 @@ int MPI_Init(int *argc, char ***argv)
 int mpi_init_(MPI_Fint *ierr)
 {
 	int c_ierr;
-    int argc = 0;
-    char **argv = NULL;
+	int argc = 0;
+	char **argv = NULL;
 
 	c_ierr = _mpi_init(&argc, &argv);
-    if (NULL != ierr) *ierr = OMPI_INT_2_FINT(c_ierr);
+	if (NULL != ierr)
+		*ierr = OMPI_INT_2_FINT(c_ierr);
 }
 
 // During Finalize, it prints all stored data to a file.
@@ -502,13 +513,14 @@ int MPI_Finalize()
 
 void mpi_finalize_(MPI_Fint *ierr)
 {
-    int c_ierr = _mpi_finalize();
-    if (NULL != ierr) *ierr = OMPI_INT_2_FINT(c_ierr);
+	int c_ierr = _mpi_finalize();
+	if (NULL != ierr)
+		*ierr = OMPI_INT_2_FINT(c_ierr);
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
-				  MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
-				  const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
+				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
 {
 	int size;
 	int i, j;
@@ -564,28 +576,29 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls
 }
 
 void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fint *sendtype,
-            void *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
-            MPI_Fint *comm, MPI_Fint *ierr)
+					void *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
+					MPI_Fint *comm, MPI_Fint *ierr)
 {
-    int c_ierr;
-    MPI_Comm c_comm;
-    MPI_Datatype c_sendtype, c_recvtype;
+	int c_ierr;
+	MPI_Comm c_comm;
+	MPI_Datatype c_sendtype, c_recvtype;
 
-    c_comm = PMPI_Comm_f2c(*comm);
-    c_sendtype = PMPI_Type_f2c(*sendtype);
-    c_recvtype = PMPI_Type_f2c(*recvtype);
-     
-    sendbuf = (char *) OMPI_F2C_IN_PLACE(sendbuf);
-    sendbuf = (char *) OMPI_F2C_BOTTOM(sendbuf);
-    recvbuf = (char *) OMPI_F2C_BOTTOM(recvbuf);
+	c_comm = PMPI_Comm_f2c(*comm);
+	c_sendtype = PMPI_Type_f2c(*sendtype);
+	c_recvtype = PMPI_Type_f2c(*recvtype);
 
-    c_ierr = MPI_Alltoallv(sendbuf,
-                          (int*)OMPI_FINT_2_INT(sendcount),
-						  (int*)OMPI_FINT_2_INT(sdispls),
-                          c_sendtype,
-                          recvbuf,
-                          (int*)OMPI_FINT_2_INT(recvcount),
-						  (int*)OMPI_FINT_2_INT(rdispls),
-                          c_recvtype, c_comm);
-    if (NULL != ierr) *ierr = OMPI_INT_2_FINT(c_ierr);
+	sendbuf = (char *)OMPI_F2C_IN_PLACE(sendbuf);
+	sendbuf = (char *)OMPI_F2C_BOTTOM(sendbuf);
+	recvbuf = (char *)OMPI_F2C_BOTTOM(recvbuf);
+
+	c_ierr = MPI_Alltoallv(sendbuf,
+						   (int *)OMPI_FINT_2_INT(sendcount),
+						   (int *)OMPI_FINT_2_INT(sdispls),
+						   c_sendtype,
+						   recvbuf,
+						   (int *)OMPI_FINT_2_INT(recvcount),
+						   (int *)OMPI_FINT_2_INT(rdispls),
+						   c_recvtype, c_comm);
+	if (NULL != ierr)
+		*ierr = OMPI_INT_2_FINT(c_ierr);
 }

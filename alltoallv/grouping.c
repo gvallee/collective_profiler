@@ -31,15 +31,12 @@
 
 const float DEFAULT_MEAN_MEDIAN_DEVIATION = 0.1; // max of 10% of deviation
 
-group_t *head_gp = NULL;
-group_t *tail_gp = NULL;
+int add_datapoint(grouping_engine_t *e, int rank, int *values);
 
-int add_datapoint(int rank, int *values);
-
-static int count_groups()
+static int count_groups(grouping_engine_t *e)
 {
     int count = 0;
-    group_t *ptr = head_gp;
+    group_t *ptr = e->head_gp;
 
     if (ptr == NULL)
     {
@@ -87,9 +84,9 @@ static int get_distance_from_group(int val, group_t *gp)
  * group and the min of another group, we calculate the distance to each and
  * select the closest group
  */
-static group_t *lookup_group(int val)
+static group_t *lookup_group(grouping_engine_t *e, int val)
 {
-    group_t *ptr = head_gp;
+    group_t *ptr = e->head_gp;
 
     while (ptr != NULL)
     {
@@ -100,13 +97,13 @@ static group_t *lookup_group(int val)
         }
 
         // the value is beyond the last group
-        if (ptr->max < val && ptr == tail_gp)
+        if (ptr->max < val && ptr == e->tail_gp)
         {
             return ptr;
         }
 
         // the value is before the first group
-        if (ptr->min > val && ptr == head_gp)
+        if (ptr->min > val && ptr == e->head_gp)
         {
             return ptr;
         }
@@ -115,7 +112,7 @@ static group_t *lookup_group(int val)
         {
             int d1 = get_distance_from_group(val, ptr);
             int d2 = get_distance_from_group(val, ptr->next);
-            if (d1 >= d2)
+            if (d1 <= d2)
             {
                 return ptr;
             }
@@ -144,7 +141,7 @@ static int add_and_shift(group_t *gp, int rank, int index)
 
 static int add_elt_to_group(group_t *gp, int rank, int *values)
 {
-    DEBUG_GROUPING("[%s:%d] Adding element %d-%d to group\n", __FILE__, __LINE__, rank, values[rank]);
+    DEBUG_GROUPING("[%s:%d] Adding element %d-%d to group with min=%d and max=%d\n", __FILE__, __LINE__, rank, values[rank], gp->min, gp->max);
 
     // When necessary, initialize the group
     if (gp->elts == NULL)
@@ -213,18 +210,18 @@ static group_t *create_group(int rank, int val, int *values)
     return new_group;
 }
 
-static int add_group(group_t *gp)
+static int add_group(grouping_engine_t *e, group_t *gp)
 {
-    group_t *ptr = head_gp;
+    group_t *ptr = e->head_gp;
 
-    if (head_gp == NULL)
+    if (e->head_gp == NULL)
     {
         // No group yet
-        head_gp = tail_gp = gp;
+        e->head_gp = e->tail_gp = gp;
         return 0;
     }
 
-    while (ptr != NULL && (ptr->max < gp->min))
+    while (ptr != NULL && (ptr->min < gp->max))
     {
         ptr = ptr->next;
     }
@@ -232,21 +229,22 @@ static int add_group(group_t *gp)
     if (ptr == NULL)
     {
         // the new group goes to the tail
-        tail_gp->next = gp;
-        tail_gp = gp;
+        e->tail_gp->next = gp;
+        e->tail_gp = gp;
     }
     else
     {
         // the new group is between two groups
-        if (gp->next != NULL)
+        if (ptr->prev != NULL)
         {
-            gp->next->prev = gp;
+            ptr->prev->next = gp;
+            ptr->prev = gp;
         }
-        gp->next = gp;
+        gp->next = ptr;
     }
 
 #if GROUPING_DEBUG
-    fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups());
+    fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups(e));
 #endif
 
     return 0;
@@ -289,7 +287,8 @@ static double get_median_with_additional_point(group_t *gp, int rank, int val, i
     int middle = gp->size / 2;
 
     DEBUG_GROUPING("[%s:%d] Concidering add rank %d (value: %d) to group with min=%d and max=%d\n", __FILE__, __LINE__, rank, val, gp->min, gp->max);
-    if (gp->size == 1) {
+    if (gp->size == 1)
+    {
 
         return ((double)(values[gp->elts[0]] + val)) / 2;
     }
@@ -331,14 +330,16 @@ static double get_median_with_additional_point(group_t *gp, int rank, int val, i
             value1 = values[candidate_rank];
             value2 = values[candidate_rank + 1];
         }
-        if (values[candidate_rank] == val) {
+        if (values[candidate_rank] == val)
+        {
             // If the extra element has the same value than the middle of the group's elements, it will be added
             // right in the middle, shifting the second half of the group's elements starting by the elements to
             // the left
             value1 = val;
-            value2 = values[candidate_rank]; 
+            value2 = values[candidate_rank];
         }
-        if (values[candidate_rank + 1] == val) {
+        if (values[candidate_rank + 1] == val)
+        {
             // If the extra elements has the same value then the middle + 1 of the group's elements, it will be
             // added to the right of the middle, shifting the second half of the group's elements starting by the
             // elements to the right
@@ -349,7 +350,7 @@ static double get_median_with_additional_point(group_t *gp, int rank, int val, i
         {
             int i;
             fprintf(stderr, "[%s:%d] unable to calculate median for the following group and new point rank: %d/value: %d\n", __FILE__, __LINE__, rank, val);
-            for(i = 0; i <gp->size; i++)
+            for (i = 0; i < gp->size; i++)
             {
                 fprintf(stderr, "-> elt %d: rank: %d, value: %d\n", i, gp->elts[i], values[gp->elts[i]]);
             }
@@ -368,15 +369,17 @@ static double get_median_with_additional_point(group_t *gp, int rank, int val, i
         candidate_rank = gp->elts[index];
         DEBUG_GROUPING("[%s:%d] Even total number of points, odd number of elements already in group\n", __FILE__, __LINE__);
         DEBUG_GROUPING("[%s:%d] Pivot is at index %d; rank: %d, value: %d\n", __FILE__, __LINE__, index, candidate_rank, values[candidate_rank]);
-        if (values[candidate_rank] > val) {
+        if (values[candidate_rank] > val)
+        {
             // The new value falls to the left of the two elements from the original group that are candidate
             return (double)values[candidate_rank];
         }
-        if (values[candidate_rank + 1] < val) {
+        if (values[gp->elts[index + 1]] < val)
+        {
             // The new value falls to the right of the two elements from the original group that are candidate
-            return (double)values[candidate_rank + 1];
+            return (double)values[gp->elts[index + 1]];
         }
-        if (values[candidate_rank] <= val && values[candidate_rank + 1] >= val)
+        if (values[candidate_rank] <= val && values[gp->elts[index + 1]] >= val)
         {
             // The new element falls right in the middle of the new group
             return (double)val;
@@ -384,6 +387,7 @@ static double get_median_with_additional_point(group_t *gp, int rank, int val, i
     }
 
     // We should not actually get here
+    DEBUG_GROUPING("[%s:%d][ERROR] Reached an unexpected code path\n", __FILE__, __LINE__);
     return -1;
 }
 
@@ -451,25 +455,25 @@ static bool group_is_balanced(group_t *gp, int *values)
     return affinity_is_okay(mean, median);
 }
 
-static int unlink_gp(group_t *gp)
+static int unlink_gp(grouping_engine_t *e, group_t *gp)
 {
-    if (gp == head_gp)
+    if (gp == e->head_gp)
     {
         if (gp->next != NULL)
         {
             gp->next->prev = NULL;
         }
-        head_gp = gp->next;
+        e->head_gp = gp->next;
         return 0;
     }
 
-    if (gp == tail_gp)
+    if (gp == e->tail_gp)
     {
         if (gp->prev != NULL)
         {
             gp->prev->next = NULL;
         }
-        tail_gp = gp->prev;
+        e->tail_gp = gp->prev;
         return 0;
     }
 
@@ -488,7 +492,7 @@ static void free_gp(group_t *gp)
     free(gp);
 }
 
-static int add_datapoint_to_group(group_t *gp, int rank, int val, int *values)
+static int add_datapoint_to_group(grouping_engine_t *e, group_t *gp, int rank, int val, int *values)
 {
     DEBUG_GROUPING("[%s:%d] Adding data point %d-%d\n", __FILE__, __LINE__, rank, val)
     // The group's array of values is ordered
@@ -513,7 +517,7 @@ static int add_datapoint_to_group(group_t *gp, int rank, int val, int *values)
     // on each side. The algorithm will converge with eventually groups with
     // only a few data points.
     int *data_points = gp->elts;
-    if (unlink_gp(gp))
+    if (unlink_gp(e, gp))
     {
         fprintf(stderr, "[%s:%d][ERROR] unable to unlink group\n", __FILE__, __LINE__);
         return -1;
@@ -523,7 +527,7 @@ static int add_datapoint_to_group(group_t *gp, int rank, int val, int *values)
     int i;
     for (i = gp->size - 1; i >= 0; i++)
     {
-        if (add_datapoint(data_points[i], values))
+        if (add_datapoint(e, data_points[i], values))
         {
             fprintf(stderr, "[%s:%d][ERROR] unable to add data point while rebalancing group\n", __FILE__, __LINE__);
             return -1;
@@ -546,7 +550,7 @@ static int get_gp_sum(group_t *gp, int *values)
     return sum;
 }
 
-static group_t *split_group(group_t *gp, int index_split, int *values)
+static group_t *split_group(grouping_engine_t *e, group_t *gp, int index_split, int *values)
 {
     // Create the new group
     group_t *ng = create_group(gp->elts[index_split], values[gp->elts[index_split]], values);
@@ -560,9 +564,9 @@ static group_t *split_group(group_t *gp, int index_split, int *values)
     gp->min = values[gp->elts[0]];
     gp->max = values[gp->elts[gp->size - 1]];
 
-    if (tail_gp == gp)
+    if (e->tail_gp == gp)
     {
-        tail_gp = ng;
+        e->tail_gp = ng;
     }
 
     int i;
@@ -576,13 +580,13 @@ static group_t *split_group(group_t *gp, int index_split, int *values)
     gp->max = values[gp->elts[index_split - 1]];
     DEBUG_GROUPING("[%s:%d] Split successful\n", __FILE__, __LINE__);
 #if GROUPING_DEBUG
-    fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups());
+    fprintf(stdout, "[%s:%d] Number of groups: %d\n", __FILE__, __LINE__, count_groups(e));
 #endif
 
     return ng;
 }
 
-static int balance_group_with_new_element(group_t *gp, int rank, int val, int *values)
+static int balance_group_with_new_element(grouping_engine_t *e, group_t *gp, int rank, int val, int *values)
 {
     DEBUG_GROUPING("[%s:%d] Balancing group with new element (rank/value = %d/%d)...\n", __FILE__, __LINE__, rank, val);
     //int vals[gp->size + 1];
@@ -612,14 +616,21 @@ static int balance_group_with_new_element(group_t *gp, int rank, int val, int *v
         if (i < gp->size)
         {
             DEBUG_GROUPING("[%s:%d] Splitting group at index %d\n", __FILE__, __LINE__, i);
-            group_t *new_group = split_group(gp, i, values);
-            add_elt_to_group(new_group, rank, values);
+            group_t *new_group = split_group(e, gp, i, values);
+            // We find the group that is the closest to the element to add
+            int d1 = get_distance_from_group(values[rank], gp);
+            int d2 = get_distance_from_group( values[rank], new_group);
+            if (d2 < d1) {
+                add_elt_to_group(new_group, rank, values);
+            } else {
+                add_elt_to_group(gp, rank, values);
+            }
         }
         else
         {
             DEBUG_GROUPING("[%s:%d] Adding new group to the right...\n", __FILE__, __LINE__);
             group_t *new_group = create_group(rank, val, values);
-            if (add_group(new_group))
+            if (add_group(e, new_group))
             {
                 fprintf(stderr, "[%s:%d][ERROR] unable to add new group to the right of group\n", __FILE__, __LINE__);
                 return -1;
@@ -629,7 +640,7 @@ static int balance_group_with_new_element(group_t *gp, int rank, int val, int *v
     return 0;
 }
 
-int add_datapoint(int rank, int *values)
+int add_datapoint(grouping_engine_t *e, int rank, int *values)
 {
     int val = get_value(rank, values);
     group_t *gp = NULL;
@@ -637,12 +648,12 @@ int add_datapoint(int rank, int *values)
     DEBUG_GROUPING("[%s:%d] ***** Adding new data points *****\n", __FILE__, __LINE__);
 
     // We scan the groups to see which group is the most likely to be suitable
-    gp = lookup_group(val);
+    gp = lookup_group(e, val);
 
     if (gp == NULL)
     {
         gp = create_group(rank, val, values);
-        if (add_group(gp))
+        if (add_group(e, gp))
         {
             fprintf(stderr, "[%s:%d][ERROR] unable to add group\n", __FILE__, __LINE__);
             return -1;
@@ -651,7 +662,7 @@ int add_datapoint(int rank, int *values)
     else
     {
         DEBUG_GROUPING("[%s:%d] Adding element (val:%d) to existing group (min: %d; max: %d)\n", __FILE__, __LINE__, val, gp->min, gp->max);
-        if (balance_group_with_new_element(gp, rank, val, values))
+        if (balance_group_with_new_element(e, gp, rank, val, values))
         {
             fprintf(stderr, "[%s:%d][ERROR] unable to balance group\n", __FILE__, __LINE__);
             return -1;
@@ -661,9 +672,25 @@ int add_datapoint(int rank, int *values)
     return 0;
 }
 
-int grouping_fini()
+int grouping_init(grouping_engine_t **e)
 {
-    group_t *ptr = head_gp;
+    grouping_engine_t *new_engine = calloc(1, sizeof(grouping_engine_t));
+    if (new_engine == NULL)
+    {
+        fprintf(stderr, "[%s:%d] out of resources\n", __FILE__, __LINE__);
+        return -1;
+    }
+    new_engine->head_gp = NULL;
+    new_engine->tail_gp = NULL;
+
+    *e = new_engine;
+
+    return 0;
+}
+
+int grouping_fini(grouping_engine_t **e)
+{
+    group_t *ptr = (*e)->head_gp;
     while (ptr != NULL)
     {
         group_t *temp = ptr;
@@ -671,24 +698,23 @@ int grouping_fini()
         ptr = ptr->next;
         free(temp);
     }
-
-    head_gp = NULL;
-    tail_gp = NULL;
+    free(*e);
+    *e = NULL;
     return 0;
 }
 
-int get_groups(group_t **gps, int *num_groups)
+int get_groups(grouping_engine_t *e, group_t **gps, int *num_groups)
 {
     group_t *ptr;
 
-    if (head_gp == NULL)
+    if (e->head_gp == NULL)
     {
         *gps = NULL;
         *num_groups = 0;
     }
 
-    *gps = head_gp;
-    *num_groups = count_groups();
+    *gps = e->head_gp;
+    *num_groups = count_groups(e);
 
     return 0;
 }

@@ -4,7 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#define GROUPING_DEBUG (1)
+#define GROUPING_DEBUG (0)
 #define DEBUG_GROUPING(fmt, ...)               \
     do                                         \
     {                                          \
@@ -13,6 +13,7 @@
             fprintf(stdout, fmt, __VA_ARGS__); \
         }                                      \
     } while (0);
+
 
 /*
  * data_point represents a data point that belongs to a group.
@@ -39,6 +40,19 @@ typedef struct group
     int max;
 } group_t;
 
-extern int add_datapoint(int rank, int *values);
-extern int get_groups(group_t **gps, int *num_group);
-extern int grouping_fini();
+/*
+ * grouping_engine_t is an opaque handle that handles
+ * grouping. Practically, it allows us to avoid global
+ * variables and make it easier to use.
+ */
+typedef struct grouping_engine
+{
+    group_t *head_gp;
+    group_t *tail_gp;
+} grouping_engine_t;
+
+
+extern int add_datapoint(grouping_engine_t *e, int rank, int *values);
+extern int get_groups(grouping_engine_t *e, group_t **gps, int *num_group);
+extern int grouping_init(grouping_engine_t **e);
+extern int grouping_fini(grouping_engine_t **e);
