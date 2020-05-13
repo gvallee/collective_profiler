@@ -563,8 +563,8 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls
 	return _mpi_alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 }
 
-void mpi_alltoall_(char *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fint *sendtype,
-            char *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
+void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fint *sendtype,
+            void *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
             MPI_Fint *comm, MPI_Fint *ierr)
 {
     int c_ierr;
@@ -579,13 +579,13 @@ void mpi_alltoall_(char *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fi
     sendbuf = (char *) OMPI_F2C_BOTTOM(sendbuf);
     recvbuf = (char *) OMPI_F2C_BOTTOM(recvbuf);
 
-    c_ierr = _mpi_alltoallv(sendbuf,
-                          OMPI_FINT_2_INT(*sendcount),
-						  OMPI_FINT_2_INT(*sdispls),
+    c_ierr = MPI_Alltoallv(sendbuf,
+                          (int*)OMPI_FINT_2_INT(sendcount),
+						  (int*)OMPI_FINT_2_INT(sdispls),
                           c_sendtype,
                           recvbuf,
-                          OMPI_FINT_2_INT(*recvcount),
-						  OMPI_FINT_2_INT(*rdispls),
+                          (int*)OMPI_FINT_2_INT(recvcount),
+						  (int*)OMPI_FINT_2_INT(rdispls),
                           c_recvtype, c_comm);
     if (NULL != ierr) *ierr = OMPI_INT_2_FINT(c_ierr);
 }
