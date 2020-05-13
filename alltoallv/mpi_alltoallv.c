@@ -17,6 +17,8 @@
 #define HOSTNAME_LEN 16
 #define DEFAULT_MSG_SIZE_THRESHOLD 200 // The default threshold between small and big messages
 #define SYNC 0						   // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
+#define DEFAULT_LIMIT_ALLTOALLV_CALLS (256)
+#define DISABLE_GROUPING (1)
 
 // Data type for storing comm size, alltoallv counts, send/recv count, etc
 typedef struct avSRCountNode
@@ -300,6 +302,9 @@ static void print_data(int *buf, int size, int type_size)
 	else
 	{
 		fprintf(f, "\n### Grouping based on the total amount per ranks\n\n");
+#if DISABLE_GROUPING
+		fprintf(f, "DISABLED\n");
+#else
 		for (j = 0; j < size; j++)
 		{
 			if (add_datapoint(e, j, sums))
@@ -317,7 +322,8 @@ static void print_data(int *buf, int size, int type_size)
 		}
 		display_groups(gps, num_gps);
 		grouping_fini(&e);
-		fprintf(f, "\n");
+#endif
+			fprintf(f, "\n");
 	}
 
 	free(sums);
