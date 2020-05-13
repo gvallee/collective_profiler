@@ -544,7 +544,7 @@ int _mpi_finalize()
 		{
 			fprintf(f, "# Summary\n");
 			fprintf(f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
-			fprintf(f, "Alltoallv call range: [%d-%d]\n", avCallStart, avCallStart + avCalls);
+			fprintf(f, "Alltoallv call range: [%d-%d]\n", avCallStart, avCallStart + avCallsLogged);
 			display_data();
 		}
 
