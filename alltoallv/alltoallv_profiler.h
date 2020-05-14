@@ -19,8 +19,8 @@
 
 // A few switches to enable/disable a bunch of capabilities
 #define ENABLE_LIVE_GROUPING (0)	   // Switch to enable/disable live grouping (can be very time consuming)
-#define POSTMORTEM_GROUPING (0)		   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
-#define ENABLE_MSG_SIZE_ANALYSIS (0)   // Switch to enable/disable live analysis of message size
+#define ENABLE_POSTMORTEM_GROUPING (1) // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
+#define ENABLE_MSG_SIZE_ANALYSIS (1)   // Switch to enable/disable live analysis of message size
 #define ENABLE_RAW_DATA (1)            // Switch to enable/disable the display of raw data (can be very time consuming)
 #define ENABLE_PER_RANK_STATS (0)	   // SWitch to enable/disable per-rank data (can be very expensive)
 

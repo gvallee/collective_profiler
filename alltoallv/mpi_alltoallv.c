@@ -160,21 +160,6 @@ static void insert_op_exec_times_data(double *timings, int size)
 	}
 }
 
-static char *save_sums(int ctx, int *sums, int size)
-{
-	char *filename = malloc(256 * sizeof(char));
-	FILE *fp;
-	int i;
-
-	fprintf(fp, "Rank\tAmount of data (bytes)\n");
-	for (i = 0; i < size; i++)
-	{
-		fprintf(fp, "%d\t%d\n", i, sums[i]);
-	}
-
-	return filename;
-}
-
 static void display_per_host_data(int size)
 {
 	int i;

@@ -17,6 +17,7 @@ typedef struct logger
     FILE *f;               // File handle to save general profile data. Other files are created for specific data
     FILE *sendcounters_fh; // File handle used to save send counters
     FILE *recvcounters_fh; // File handle used to save recv counters
+    FILE *sums_fh;         // File handle used to save data related to amount of data exchanged
 } logger_t;
 
 extern logger_t *logger_init();

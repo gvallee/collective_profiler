@@ -44,7 +44,14 @@ static char *get_full_filename(int ctxt, char *id)
 
     if (ctxt == MAIN_CTX)
     {
-        sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+        if (id == NULL)
+        {
+            sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+        }
+        else
+        {
+            sprintf(filename, "%s.pid%d.md", id, getpid());
+        }
     }
     else
     {
@@ -99,6 +106,24 @@ static FILE *open_log_file(int ctxt, char *id)
     fp = fopen(path, "w");
     free(path);
     return fp;
+}
+
+static void log_sums(logger_t *logger, int ctx, int *sums, int size)
+{
+    int i;
+
+    assert(logger);
+
+    if (logger->sums_fh == NULL)
+    {
+        return;
+    }
+
+    fprintf(logger->sums_fh, "# Rank\tAmount of data (bytes)\n");
+    for (i = 0; i < size; i++)
+    {
+        fprintf(logger->sums_fh, "%d\t%d\n", i, sums[i]);
+    }
 }
 
 static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_size)
@@ -242,10 +267,8 @@ static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_si
 
     // Group information for the send data (using the sums)
     fprintf(logger->f, "\n### Grouping based on the total amount per ranks\n\n");
-#if POSTMORTEM_GROUPING
-    char *filename = save_sums(ctx, sums, size);
-    fprintf(logger->f, "Data saved in %s for post-mortem analysis\n", filename);
-    free(filename);
+#if ENABLE_POSTMORTEM_GROUPING
+    log_sums(logger, ctx, sums, size);
 #endif
 #if ENABLE_LIVE_GROUPING
     grouping_engine_t *e;
@@ -342,6 +365,9 @@ logger_t *logger_init()
 #if ENABLE_RAW_DATA
     l->recvcounters_fh = open_log_file(RECV_CTX, "counters");
     l->sendcounters_fh = open_log_file(SEND_CTX, "counters");
+#endif
+#if ENABLE_POSTMORTEM_GROUPING
+    l->sums_fh = open_log_file(MAIN_CTX, "sums");
 #endif
 
     return l;
