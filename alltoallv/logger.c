@@ -104,6 +104,7 @@ static FILE *open_log_file(int ctxt, char *id)
 static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_size)
 {
     int i, j, num = 0;
+    FILE *fh;
 
     int *zeros = (int *)calloc(size, sizeof(int));
     int *sums = (int *)calloc(size, sizeof(int));
@@ -123,13 +124,29 @@ static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_si
     }
 #endif
 
+    assert(logger);
     assert(zeros);
     assert(sums);
 
-    fprintf(logger->f, "### Raw counters\n");
-#if !ENABLE_DISPLAY_OF_RAW_DATA
-    fprintf(logger->f, "DISABLED\n");
+#if ENABLE_RAW_DATA
+    switch (ctx)
+    {
+    case RECV_CTX:
+        fh = logger->recvcounters_fh;
+        break;
+
+    case SEND_CTX:
+        fh = logger->sendcounters_fh;
+        break;
+
+    default:
+        fh = logger->f;
+        break;
+    }
+
+    fprintf(fh, "### Raw counters\n");
 #endif
+
     for (i = 0; i < size; i++)
     {
 #if ENABLE_MSG_SIZE_ANALYSIS
@@ -157,13 +174,13 @@ static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_si
                 small_messages[i]++;
             }
 #endif
-#if ENABLE_DISPLAY_OF_RAW_DATA
-            fprintf(logger->f, "%d ", buf[num]);
+#if ENABLE_RAW_DATA
+            fprintf(fh, "%d ", buf[num]);
 #endif
             num++;
         }
-#if ENABLE_DISPLAY_OF_RAW_DATA
-        fprintf(logger->f, "\n");
+#if ENABLE_RAW_DATA
+        fprintf(fh, "\n");
 #endif
     }
     fprintf(logger->f, "\n");
@@ -322,8 +339,10 @@ logger_t *logger_init()
     }
 
     l->f = open_log_file(MAIN_CTX, NULL);
+#if ENABLE_RAW_DATA
     l->recvcounters_fh = open_log_file(RECV_CTX, "counters");
     l->sendcounters_fh = open_log_file(SEND_CTX, "counters");
+#endif
 
     return l;
 }
