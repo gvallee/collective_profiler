@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include "alltoallv_profiler.h"
+
 #ifndef LOGGER_H
 #define LOGGER_H
 
@@ -22,6 +24,6 @@ typedef struct logger
 
 extern logger_t *logger_init();
 extern void logger_fini(logger_t **l);
-extern void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged);
+extern void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
 
 #endif // LOGGER_H

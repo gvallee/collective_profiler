@@ -13,9 +13,9 @@
 #include "logger.h"
 #include "grouping.h"
 
-avSRCountNode_t *head = NULL;
-avTimingsNode_t *op_timing_exec_head = NULL;
-avTimingsNode_t *op_timing_exec_tail = NULL;
+static avSRCountNode_t *head = NULL;
+static avTimingsNode_t *op_timing_exec_head = NULL;
+static avTimingsNode_t *op_timing_exec_tail = NULL;
 
 static int world_size = -1;
 static int myrank = -1;
@@ -223,7 +223,7 @@ int _mpi_finalize()
 {
 	if (myrank == 0)
 	{
-		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged);
+		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
 
 		// All data has been handled, now we can clean up
 		while (head != NULL)

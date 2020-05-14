@@ -56,8 +56,4 @@ typedef struct avTimingsNode
 	struct avTimingsNode *next;
 } avTimingsNode_t;
 
-extern avSRCountNode_t *head;
-extern avTimingsNode_t *op_timing_exec_head;
-extern avTimingsNode_t *op_timing_exec_tail;
-
 #endif // ALLTOALLV_PROFILER_H

@@ -310,14 +310,14 @@ static void _log_data(logger_t *logger, int ctx, int *buf, int size, int type_si
 #endif
 }
 
-static void log_data(logger_t *logger)
+static void log_data(logger_t *logger, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     int i;
     avSRCountNode_t *srCountPtr;
     avTimingsNode_t *tPtr;
 
     // Display the send/receive counts data
-    srCountPtr = head;
+    srCountPtr = counters_list;
     fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
     while (srCountPtr != NULL)
     {
@@ -331,7 +331,7 @@ static void log_data(logger_t *logger)
     }
 
     // Display the timing data
-    tPtr = op_timing_exec_head;
+    tPtr = times_list;
     i = 0;
     fprintf(logger->f, "# Execution times of Alltoallv operations");
     while (tPtr != NULL)
@@ -402,7 +402,7 @@ int save_counter(int ctx, int *conters)
     return 0;
 }
 
-void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged)
+void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);
     if (logger->f != NULL)
@@ -410,6 +410,6 @@ void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCa
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
         fprintf(logger->f, "Alltoallv call range: [%d-%d]\n", avCallStart, avCallStart + avCallsLogged);
-        log_data(logger);
+        log_data(logger, counters_list, times_list);
     }
 }
