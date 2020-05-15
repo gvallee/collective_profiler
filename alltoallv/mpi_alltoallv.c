@@ -89,6 +89,9 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 		}
 		else
 		{
+			if (temp->count < MAX_TRACKED_CALLS) {
+				temp->calls[temp->count] = avCalls;
+			}
 			temp->count++;
 #if DEBUG
 			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);

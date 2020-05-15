@@ -126,7 +126,7 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
     }
 }
 
-static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int *buf, int size, int type_size)
+static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int* calls, int *buf, int size, int type_size)
 {
     int i, j, num = 0;
     FILE *fh;
@@ -172,7 +172,12 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(fh, "### Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall);
-    fprintf(fh, "\nBEGINNING DATA\n");
+    fprintf(fh, "Count: %d - calls: ", count);
+    for (i = 0; i < count; i++)
+    {
+        fprintf(fh, "%d ", calls[i]);
+    }
+    fprintf(fh, "\n\nBEGINNING DATA\n");
 #endif
 
     for (i = 0; i < size; i++)
@@ -327,9 +332,13 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall);
 
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
-        _log_data(logger, startcall, endcall, SEND_CTX, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+        _log_data(logger, startcall, endcall,
+            SEND_CTX, srCountPtr->count, srCountPtr->calls,
+            srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
         fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
-        _log_data(logger, startcall, endcall, RECV_CTX, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+        _log_data(logger, startcall, endcall,
+            RECV_CTX, srCountPtr->count, srCountPtr->calls,
+            srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
         srCountPtr = srCountPtr->next;
     }
 
