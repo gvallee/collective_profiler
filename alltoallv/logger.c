@@ -171,7 +171,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 
     fprintf(fh, "### Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
-    fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall);
+    fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
     fprintf(fh, "Count: %d calls - ", count);
     int max_loop = count;
     if (max_loop > MAX_TRACKED_CALLS)
@@ -356,7 +356,7 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
     fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
     while (srCountPtr != NULL)
     {
-        fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall);
+        fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
 
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
         _log_data(logger, startcall, endcall,
@@ -442,7 +442,7 @@ void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCa
     {
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
-        fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged);
+        fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
     }
 }
