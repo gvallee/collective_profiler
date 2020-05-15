@@ -169,7 +169,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         break;
     }
 
-    fprintf(fh, "### Raw counters\n\n");
+    fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
     fprintf(fh, "Count: %d calls - ", count);
@@ -225,7 +225,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         fprintf(fh, "\n");
 #endif
     }
-    fprintf(logger->f, "END DATA\n");
+    fprintf(fh, "END DATA\n");
 
     fprintf(logger->f, "### Amount of data per rank\n");
 #if ENABLE_PER_RANK_STATS
