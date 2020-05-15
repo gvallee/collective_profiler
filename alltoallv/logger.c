@@ -172,10 +172,19 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(fh, "### Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall);
-    fprintf(fh, "Count: %d - calls: ", count);
-    for (i = 0; i < count; i++)
+    fprintf(fh, "Count: %d calls - ", count);
+    int max_loop = count;
+    if (max_loop > MAX_TRACKED_CALLS)
+    {
+        max_loop = MAX_TRACKED_CALLS;
+    }
+    for (i = 0; i < max_loop; i++)
     {
         fprintf(fh, "%d ", calls[i]);
+    }
+    if (count > MAX_TRACKED_CALLS)
+    {
+        fprintf(fh, "... (%d more call(s) was/were profiled but not tracked)", count - MAX_TRACKED_CALLS);
     }
     fprintf(fh, "\n\nBEGINNING DATA\n");
 #endif
@@ -394,7 +403,7 @@ logger_t *logger_init()
     l->timing_fh = open_log_file(MAIN_CTX, "timings");
 #endif
 
-        return l;
+    return l;
 }
 
 void logger_fini(logger_t **l)

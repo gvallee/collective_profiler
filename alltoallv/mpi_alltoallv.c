@@ -19,7 +19,7 @@ static avTimingsNode_t *op_timing_exec_tail = NULL;
 
 static int world_size = -1;
 static int myrank = -1;
-static int avCalls = 0;		  // Total number of alltoallv calls that we went through
+static int avCalls = 0;		  // Total number of alltoallv calls that we went through (indexed on 0, not 1)
 static int avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
 static int avCallStart = -1;  // Number of alltoallv call during which we started to gather data
 //char myhostname[HOSTNAME_LEN];
@@ -80,6 +80,7 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	{
 		if (same_data(temp->send_data, sbuf, size) == 0 || temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size)
 		{
+			// New data
 #if DEBUG
 			fprintf(logger->f, "new data: %d\n", size);
 #endif
@@ -90,9 +91,10 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 		}
 		else
 		{
+			// Data exist, adding rank info to it
 			if (temp->count < MAX_TRACKED_CALLS)
 			{
-				temp->calls[temp->count] = avCalls;
+				temp->calls[temp->count] = avCalls; // Note: count starts at 1, not 0
 			}
 			temp->count++;
 #if DEBUG
@@ -114,6 +116,7 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	newNode->recv_data = (int *)malloc(size * size * (sizeof(int)));
 	newNode->sendtype_size = sendtype_size;
 	newNode->recvtype_size = recvtype_size;
+	newNode->calls[0] = avCalls;
 	newNode->next = NULL;
 #if DEBUG
 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
@@ -144,7 +147,7 @@ static void insert_op_exec_times_data(double *timings, double *t_arrivals, int s
 	assert(timings);
 	struct avTimingsNode *newNode = (struct avTimingsNode *)calloc(1, sizeof(struct avTimingsNode));
 	newNode->timings = (double *)malloc(size * sizeof(double));
-	newNode->t_arrivals = (double*)malloc(size * sizeof(double));
+	newNode->t_arrivals = (double *)malloc(size * sizeof(double));
 	assert(newNode);
 
 	newNode->size = size;
@@ -397,6 +400,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 	else
 	{
+		// No need to profile that call but we still count the number of alltoallv calls
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 		avCalls++;
 	}
