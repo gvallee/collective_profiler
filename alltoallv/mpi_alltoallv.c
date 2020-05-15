@@ -29,6 +29,7 @@ static int avCallStart = -1;  // Number of alltoallv call during which we starte
 int *sbuf = NULL;
 int *rbuf = NULL;
 double *op_exec_times = NULL;
+double *late_arrival_timings = NULL;
 
 static logger_t *logger = NULL;
 
@@ -89,7 +90,8 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 		}
 		else
 		{
-			if (temp->count < MAX_TRACKED_CALLS) {
+			if (temp->count < MAX_TRACKED_CALLS)
+			{
 				temp->calls[temp->count] = avCalls;
 			}
 			temp->count++;
@@ -137,11 +139,12 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	}
 }
 
-static void insert_op_exec_times_data(double *timings, int size)
+static void insert_op_exec_times_data(double *timings, double *t_arrivals, int size)
 {
 	assert(timings);
 	struct avTimingsNode *newNode = (struct avTimingsNode *)calloc(1, sizeof(struct avTimingsNode));
 	newNode->timings = (double *)malloc(size * sizeof(double));
+	newNode->t_arrivals = (double*)malloc(size * sizeof(double));
 	assert(newNode);
 
 	newNode->size = size;
@@ -149,6 +152,11 @@ static void insert_op_exec_times_data(double *timings, int size)
 	for (i = 0; i < size; i++)
 	{
 		newNode->timings[i] = timings[i];
+	}
+
+	for (i = 0; i < size; i++)
+	{
+		newNode->t_arrivals[i] = t_arrivals[i];
 	}
 
 	if (op_timing_exec_head == NULL)
@@ -196,8 +204,12 @@ int _mpi_init(int *argc, char ***argv)
 	assert(sbuf);
 	rbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
 	assert(rbuf);
+#if ENABLE_TIMING
 	op_exec_times = (double *)malloc(world_size * sizeof(double));
 	assert(op_exec_times);
+	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
+	assert(late_arrival_timings);
+#endif
 
 	// Make sure we do not create an articial imbalance between ranks.
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -276,6 +288,10 @@ int _mpi_finalize()
 		{
 			free(op_exec_times);
 		}
+		if (late_arrival_timings != NULL)
+		{
+			free(late_arrival_timings);
+		}
 #if 0
 		if (hostnames)
 		{
@@ -343,15 +359,26 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 #endif
 
+#if ENABLE_TIMING
+		double t_barrier_start = MPI_Wtime();
+		PMPI_Barrier(comm);
+		double t_barrier_end = MPI_Wtime();
 		double t_start = MPI_Wtime();
+#endif
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+#if ENABLE_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
+		double t_arrival = t_barrier_end - t_barrier_start;
+#endif
 
 		// Gather a bunch of counters
 		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
 		MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
+#if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
+		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
+#endif
 		//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
 		if (myrank == 0)
@@ -361,7 +388,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif
 
 			insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype));
-			insert_op_exec_times_data(op_exec_times, size);
+#if ENABLE_TIMING
+			insert_op_exec_times_data(op_exec_times, late_arrival_timings, size);
+#endif
 		}
 		avCalls++;
 		avCallsLogged++;

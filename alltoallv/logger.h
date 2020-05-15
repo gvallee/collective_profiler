@@ -20,6 +20,7 @@ typedef struct logger
     FILE *sendcounters_fh; // File handle used to save send counters
     FILE *recvcounters_fh; // File handle used to save recv counters
     FILE *sums_fh;         // File handle used to save data related to amount of data exchanged
+    FILE *timing_fh;       // File handle used to save data related to timing of operations
 } logger_t;
 
 extern logger_t *logger_init();

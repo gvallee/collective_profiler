@@ -126,7 +126,7 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
     }
 }
 
-static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int* calls, int *buf, int size, int type_size)
+static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int *buf, int size, int type_size)
 {
     int i, j, num = 0;
     FILE *fh;
@@ -318,6 +318,24 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
 }
 
+static void log_timings(logger_t *logger, int num_call, double *timings, double *late_arrival_timings, int size)
+{
+    int j;
+
+    fprintf(logger->timing_fh, "Alltoallv call #%d\n", num_call);
+    fprintf(logger->timing_fh, "# Late arrival timings");
+    for (j = 0; j < size; j++)
+    {
+        fprintf(logger->timing_fh, "Rank %d: %f\n", j, late_arrival_timings[j]);
+    }
+    fprintf(logger->timing_fh, "# Execution times of Alltoallv function");
+    for (j = 0; j < size; j++)
+    {
+        fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
+    }
+    fprintf(logger->f, "\n");
+}
+
 static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     int i;
@@ -333,35 +351,26 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
         _log_data(logger, startcall, endcall,
-            SEND_CTX, srCountPtr->count, srCountPtr->calls,
-            srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+                  SEND_CTX, srCountPtr->count, srCountPtr->calls,
+                  srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
         fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
         _log_data(logger, startcall, endcall,
-            RECV_CTX, srCountPtr->count, srCountPtr->calls,
-            srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+                  RECV_CTX, srCountPtr->count, srCountPtr->calls,
+                  srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
         srCountPtr = srCountPtr->next;
     }
 
-    // Display the timing data
+#if ENABLE_TIMING
+    // Handle the timing data
     tPtr = times_list;
     i = 0;
-    fprintf(logger->f, "# Execution times of Alltoallv operations");
     while (tPtr != NULL)
     {
-        fprintf(logger->f, "## Alltoallv call #%d\n", i);
-#if ENABLE_PER_RANK_STATS
-        int j;
-        for (j = 0; j < tPtr->size; j++)
-        {
-            fprintf(logger->f, "Rank %d: %f\n", i, tPtr->timings[i]);
-        }
-#else
-        fprintf(logger->f, "Per-rank data is disabled\n");
-#endif
-        fprintf(logger->f, "\n");
+        log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
         tPtr = tPtr->next;
         i++;
     }
+#endif
 }
 
 logger_t *logger_init()
@@ -381,8 +390,11 @@ logger_t *logger_init()
 #if ENABLE_POSTMORTEM_GROUPING
     l->sums_fh = open_log_file(MAIN_CTX, "sums");
 #endif
+#if ENABLE_TIMING
+    l->timing_fh = open_log_file(MAIN_CTX, "timings");
+#endif
 
-    return l;
+        return l;
 }
 
 void logger_fini(logger_t **l)

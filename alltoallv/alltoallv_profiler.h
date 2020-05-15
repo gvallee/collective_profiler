@@ -23,6 +23,7 @@
 #define ENABLE_MSG_SIZE_ANALYSIS (1)   // Switch to enable/disable live analysis of message size
 #define ENABLE_RAW_DATA (1)            // Switch to enable/disable the display of raw data (can be very time consuming)
 #define ENABLE_PER_RANK_STATS (0)      // SWitch to enable/disable per-rank data (can be very expensive)
+#define ENABLE_TIMING (1)              // Switch to enable/disable timing of various operations
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
@@ -49,13 +50,15 @@ typedef struct avSRCountNode
     int *send_data;
     int *recv_data;
     double *op_exec_times;
+    double *late_arrival_timings;
     struct avSRCountNode *next;
 } avSRCountNode_t;
 
 typedef struct avTimingsNode
 {
     int size;
-    double *timings;
+    double *timings;    // Time spent in the alltoallv function
+    double *t_arrivals; // Arrival time (used to track late arrival)
     struct avTimingsNode *next;
 } avTimingsNode_t;
 
