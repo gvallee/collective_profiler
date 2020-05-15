@@ -16,7 +16,6 @@
         }                                      \
     } while (0);
 
-
 /*
  * data_point represents a data point that belongs to a group.
  * We do not actually store the values here because we assume that
@@ -54,8 +53,8 @@ typedef struct grouping_engine
     group_t *tail_gp;
 } grouping_engine_t;
 
-
 extern int add_datapoint(grouping_engine_t *e, int rank, int *values);
 extern int get_groups(grouping_engine_t *e, group_t **gps, int *num_group);
 extern int grouping_init(grouping_engine_t **e);
 extern int grouping_fini(grouping_engine_t **e);
+extern int get_remainder(int n, int d);

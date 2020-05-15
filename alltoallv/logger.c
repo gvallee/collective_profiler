@@ -153,7 +153,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     assert(zeros);
     assert(sums);
 
-#if ENABLE_RAW_DATA
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
     switch (ctx)
     {
     case RECV_CTX:
@@ -216,12 +216,12 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
                 small_messages[i]++;
             }
 #endif
-#if ENABLE_RAW_DATA
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
             fprintf(fh, "%d ", buf[num]);
 #endif
             num++;
         }
-#if ENABLE_RAW_DATA
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
         fprintf(fh, "\n");
 #endif
     }
@@ -392,7 +392,7 @@ logger_t *logger_init()
     }
 
     l->f = open_log_file(MAIN_CTX, NULL);
-#if ENABLE_RAW_DATA
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
     l->recvcounters_fh = open_log_file(RECV_CTX, "counters");
     l->sendcounters_fh = open_log_file(SEND_CTX, "counters");
 #endif

@@ -286,8 +286,7 @@ static int add_group(grouping_engine_t *e, group_t *gp)
     return 0;
 }
 
-static int
-get_remainder(int n, int d)
+int get_remainder(int n, int d)
 {
     return (n - d * (n / d));
 }

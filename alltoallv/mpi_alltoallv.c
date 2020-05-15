@@ -182,6 +182,37 @@ static void display_per_host_data(int size)
 	}
 }
 
+static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
+{
+	char filename[MAX_PATH_LEN];
+
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		sprintf(filename, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
+	}
+	else
+	{
+		sprintf(filename, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
+	}
+
+	FILE *fh = fopen(filename, "w");
+	assert(fh);
+	int i;
+	for (i = 0; i < size; i++)
+	{
+		fprintf(fh, "%d ", sendcounts[i]);
+	}
+
+	fprintf(fh, "\n\n");
+
+	for (i = 0; i < size; i++)
+	{
+		fprintf(fh, "%d ", recvcounts[i]);
+	}
+
+	fclose(fh);
+}
+
 int _mpi_init(int *argc, char ***argv)
 {
 	int ret;
@@ -212,6 +243,10 @@ int _mpi_init(int *argc, char ***argv)
 	assert(op_exec_times);
 	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
 	assert(late_arrival_timings);
+#endif
+
+#if ENABLE_VALIDATION
+	srand((unsigned)getpid());
 #endif
 
 	// Make sure we do not create an articial imbalance between ranks.
@@ -362,18 +397,40 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 #endif
 
+#if ENABLE_VALIDATION
+		// Quite simple: rank 0 broadcast a unique ID (its PID) to other rank so we have a unique way to group files
+		// Then we randomly save counters in separate file on a per-rank and per-alltoallv-call basis.
+		// A tool is available to compare that data with the counter file we have, using the underlying infrastructure
+		// we have to gather stats
+		int uniqueID;
+		if (myrank == 0)
+		{
+			uniqueID = getpid();
+			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
+		}
+		else
+		{
+			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
+		}
+
+		if (get_remainder(rand(), 100) < 5)
+		{
+			save_counters_for_validation(uniqueID, myrank, avCalls, size, sendcounts, recvcounts);
+		}
+#endif // ENABLE_VALIDATION
+
 #if ENABLE_TIMING
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
 		double t_barrier_end = MPI_Wtime();
 		double t_start = MPI_Wtime();
-#endif
+#endif // ENABLE_TIMING
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 #if ENABLE_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
 		double t_arrival = t_barrier_end - t_barrier_start;
-#endif
+#endif // ENABLE_TIMING
 
 		// Gather a bunch of counters
 		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
@@ -381,8 +438,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
-#endif
-		//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
+#endif // ENABLE_TIMING \
+	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
 		if (myrank == 0)
 		{
