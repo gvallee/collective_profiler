@@ -24,6 +24,6 @@ func main() {
 
 	err := profiler.HandleCounts(*file)
 	if err != nil {
-		log.Fatalf("[ERROR] Impossible to analyze send counters: %s", err)
+		log.Fatalf("[ERROR] Impossible to analyze recv counters: %s", err)
 	}
 }
