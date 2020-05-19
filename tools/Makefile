@@ -1,6 +1,9 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: countersextractor sendprofiler recvprofiler getcounters
+all: countersextractor sendprofiler recvprofiler getcounters validate
+
+validate:
+	cd cmd/validate; go build validate.go
 
 getcounters:
 	cd cmd/getcounters; go build getcounters.go

@@ -8,7 +8,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -20,14 +19,12 @@ import (
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
-	rank := flag.Int("rank", 0, "Rank for which we want to extract counters")
-	call := flag.Int("call", 0, "Number of the alltoallv call for which we want to extract counters")
-	dir := flag.String("dir", "", "Where the data files are stored")
+	dir := flag.String("dir", "", "Where all the data is")
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 
 	flag.Parse()
 
-	logFile := util.OpenLogFile("alltoallv", "getcounters")
+	logFile := util.OpenLogFile("alltoallv", "validate")
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)
@@ -36,13 +33,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	sendCounters, recvCounters, err := profiler.FindCounters(*dir, *id, *rank, *call)
+	err := profiler.Validate(*id, *dir)
 	if err != nil {
-		log.Fatalf("unable to find counters: %s", err)
+		log.Fatalf("Validation of the profiler failed: %s", err)
 	}
-
-	//fmt.Println("Send counters:")
-	fmt.Printf("%s\n", sendCounters)
-	//fmt.Println("Receive counters")
-	fmt.Printf("%s\n", recvCounters)
 }
