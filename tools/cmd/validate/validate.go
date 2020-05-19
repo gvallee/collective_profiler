@@ -8,6 +8,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -37,4 +38,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Validation of the profiler failed: %s", err)
 	}
+
+	fmt.Println("Successful validation")
 }

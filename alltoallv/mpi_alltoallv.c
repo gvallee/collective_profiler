@@ -45,40 +45,216 @@ extern int mpi_fortran_bottom_;
 #define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
 #define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
 
-// Compare if two arrays are identical.
-static int same_data(int *dest, int *src, int size)
+static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
 {
-	int i, j, num = 0;
-	for (i = 0; i < size; i++)
+	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
+}
+
+static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
+{
+	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank);
+}
+
+// Compare if two arrays are identical.
+static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)
+{
+	int num = 0;
+	int rank, count_num;
+	int *_counts;
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Comparing data with existing data...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Comparing send counts...\n", __FILE__, __LINE__);
+	// First compare the send counts
+	for (rank = 0; rank < size; rank++)
 	{
-		for (j = 0; j < size; j++)
+		int *_counts = lookupRankSendCounters(call_data, rank);
+		assert(_counts);
+		for (count_num = 0; count_num < size; count_num++)
 		{
-			if (dest[num] != src[num])
-				return 0;
+			if (_counts[count_num] != send_counts[num])
+			{
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data differs\n", __FILE__, __LINE__);
+				return false;
+			}
 			num++;
 		}
 	}
-	return 1;
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Send counts are the same\n", __FILE__, __LINE__);
+
+	// Then the receive counts
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Comparing recv counts...\n", __FILE__, __LINE__);
+	num = 0;
+	for (rank = 0; rank < size; rank++)
+	{
+		int *_counts = lookupRankRecvCounters(call_data, rank);
+		for (count_num = 0; count_num < size; count_num++)
+		{
+			if (_counts[count_num] != recv_counts[num])
+			{
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data differs\n", __FILE__, __LINE__);
+				return false;
+			}
+			num++;
+		}
+	}
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data is the same\n", __FILE__, __LINE__);
+	return true;
+}
+
+static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, int *count)
+{
+	int i, j;
+	for (i = 0; i < num; i++)
+	{
+		for (j = 0; j < size; j++)
+		{
+			if (count[j] != list[i]->counters[j])
+			{
+				break;
+			}
+		}
+
+		if (j == size)
+		{
+			return list[i];
+		}
+	}
+
+	return NULL;
+}
+
+static counts_data_t *lookupSendCounters(int *counts, avSRCountNode_t *call_data)
+{
+	return lookupCounters(call_data->size, call_data->send_data_size, call_data->send_data, counts);
+}
+
+static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data)
+{
+	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
+}
+
+static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)
+{
+	if (counters_data->num_ranks == MAX_TRACKED_RANKS)
+	{
+		exit(1); // fixme
+	}
+
+	counters_data->ranks[counters_data->num_ranks] = rank;
+	counters_data->num_ranks++;
+	return 0;
+}
+
+static counts_data_t *new_counter_data(int size, int rank, int *counts)
+{
+	int i;
+	counts_data_t *new_data = (counts_data_t *)malloc(sizeof(counts_data_t));
+	assert(new_data);
+	new_data->counters = (int *)malloc(size * sizeof(int));
+	assert(new_data->counters);
+	new_data->num_ranks = 0;
+	new_data->ranks = (int *)malloc(MAX_TRACKED_RANKS * sizeof(int));
+	assert(new_data->ranks);
+
+	for (i = 0; i < size; i++)
+	{
+		new_data->counters[i] = counts[i];
+	}
+	new_data->ranks[new_data->num_ranks] = rank;
+	new_data->num_ranks++;
+
+	return new_data;
+}
+
+static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+{
+	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
+	call_data->send_data[call_data->send_data_size] = new_data;
+	call_data->send_data_size++;
+
+	return 0;
+}
+
+static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+{
+	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
+	call_data->recv_data[call_data->recv_data_size] = new_data;
+	call_data->recv_data_size++;
+
+	return 0;
+}
+
+static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *call_data)
+{
+	counts_data_t *ptr = lookupSendCounters(counts, call_data);
+	if (ptr)
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add send rank %d to existing count data\n", __FILE__, __LINE__, rank);
+		if (add_rank_to_counters_data(rank, ptr))
+		{
+			fprintf(stderr, "[%s:%d][ERROR] unable to add rank counters (rank: %d)\n", __FILE__, __LINE__, rank);
+			return -1;
+		}
+	}
+	else
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add send new count data for rank %d\n", __FILE__, __LINE__, rank);
+		if (add_new_send_counters_to_counters_data(call_data, rank, counts))
+		{
+			fprintf(stderr, "[%s:%d][ERROR] unable to add new send counters\n", __FILE__, __LINE__);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *call_data)
+{
+	counts_data_t *ptr = lookupRecvCounters(counts, call_data);
+	if (ptr)
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add recv rank %d to existing count data\n", __FILE__, __LINE__, rank);
+		if (add_rank_to_counters_data(rank, ptr))
+		{
+			fprintf(stderr, "[ERROR] unable to add rank counters\n");
+			return -1;
+		}
+	}
+	else
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add recv new count data for rank %d\n", __FILE__, __LINE__, rank);
+		if (add_new_recv_counters_to_counters_data(call_data, rank, counts))
+		{
+			fprintf(stderr, "[ERROR] unable to add new recv counters\n");
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
-static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
+static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
 {
 	int i, j, num = 0;
 	struct avSRCountNode *newNode = NULL;
 	struct avSRCountNode *temp;
 
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Insert data for a new alltoallv call...\n", __FILE__, __LINE__);
+
 	assert(logger);
 #if DEBUG
-	asert(logger->f);
+	assert(logger->f);
 #endif
 
 	temp = head;
 	while (temp != NULL)
 	{
-		if (same_data(temp->send_data, sbuf, size) == 0 || temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size)
+		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
 		{
 			// New data
 #if DEBUG
@@ -91,7 +267,8 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 		}
 		else
 		{
-			// Data exist, adding rank info to it
+			// Data exist, adding call info to it
+			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data already exists, updating metadata...\n", __FILE__, __LINE__);
 			if (temp->count < MAX_TRACKED_CALLS)
 			{
 				temp->calls[temp->count] = avCalls; // Note: count starts at 1, not 0
@@ -100,7 +277,8 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 #if DEBUG
 			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
 #endif
-			return;
+			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Metadata successfully updated\n", __FILE__, __LINE__);
+			return 0;
 		}
 	}
 
@@ -108,12 +286,45 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	fprintf(logger->f, "no data: %d \n", size);
 #endif
 	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));
-	assert(newNode != NULL);
+	assert(newNode);
 
 	newNode->size = size;
 	newNode->count = 1;
-	newNode->send_data = (int *)malloc(size * size * (sizeof(int)));
-	newNode->recv_data = (int *)malloc(size * size * (sizeof(int)));
+	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
+	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
+	assert(newNode->send_data);
+	newNode->send_data_size = 0;
+	newNode->recv_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
+	assert(newNode->recv_data);
+	newNode->recv_data_size = 0;
+
+	// We add rank's data one by one so we can compress the data when possible
+	num = 0;
+	int _rank;
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] handling send counts...\n", __FILE__, __LINE__);
+	for (_rank = 0; _rank < size; _rank++)
+	{
+		if (compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode))
+		{
+			fprintf(stderr, "[%s:%d][ERROR] unable to add send counters\n", __FILE__, __LINE__);
+			return -1;
+		}
+		num++;
+	}
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] handling recv counts...\n", __FILE__, __LINE__);
+	num = 0;
+	for (_rank = 0; _rank < size; _rank++)
+	{
+		if (compareAndSaveRecvCounters(_rank, &(rbuf[num * size]), newNode))
+		{
+			fprintf(stderr, "[%s:%d][ERROR] unable to add recv counters\n", __FILE__, __LINE__);
+			return -1;
+		}
+		num++;
+	}
+
 	newNode->sendtype_size = sendtype_size;
 	newNode->recvtype_size = recvtype_size;
 	newNode->calls[0] = avCalls;
@@ -122,15 +333,19 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
 #endif
 
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", __FILE__, __LINE__, newNode->recv_data_size, newNode->send_data_size);
+
+	/*
 	for (i = 0; i < size; i++)
 	{
 		for (j = 0; j < size; j++)
 		{
-			newNode->send_data[num] = sbuf[num];
-			newNode->recv_data[num] = rbuf[num];
+			newNode->send_data[j] = sbuf[num];
+			newNode->recv_data[j] = rbuf[num];
 			num++;
 		}
 	}
+*/
 
 	if (head == NULL)
 	{
@@ -140,6 +355,8 @@ static void insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_si
 	{
 		temp->next = newNode;
 	}
+
+	return 0;
 }
 
 static void insert_op_exec_times_data(double *timings, double *t_arrivals, int size)
@@ -276,14 +493,18 @@ int _mpi_finalize()
 {
 	if (myrank == 0)
 	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging profiling data...\n", __FILE__, __LINE__);
 		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging completed\n", __FILE__, __LINE__);
 
 		// All data has been handled, now we can clean up
 		while (head != NULL)
 		{
 			avSRCountNode_t *c_ptr = head->next;
+			/* GVALLEE FIXME
 			free(head->recv_data);
 			free(head->send_data);
+			*/
 			free(head);
 			head = c_ptr;
 		}
@@ -447,7 +668,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
 
-			insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype));
+			if (insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype)))
+			{
+				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
 #if ENABLE_TIMING
 			insert_op_exec_times_data(op_exec_times, late_arrival_timings, size);
 #endif

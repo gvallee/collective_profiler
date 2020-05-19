@@ -85,11 +85,18 @@ func containsCall(callNum int, calls []int) bool {
 }
 
 func extractRankCounters(callCounters []string, rank int) (string, error) {
-	if rank >= len(callCounters) {
-		return "", fmt.Errorf("not enough counters (%d) to include rank %d", len(callCounters), rank)
+	rankStr := strconv.Itoa(rank)
+
+	for i := 0; i < len(callCounters); i++ {
+		ranksListStr := strings.Split(strings.ReplaceAll(strings.Split(callCounters[i], ": ")[0], "Rank(s) ", ""), " ")
+		for j := 0; j < len(ranksListStr); j++ {
+			if ranksListStr[j] == rankStr {
+				return strings.Split(callCounters[i], ": ")[1], nil
+			}
+		}
 	}
 
-	return callCounters[rank], nil
+	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
 func findCounters(files []string, rank int, callNum int) (string, bool, error) {

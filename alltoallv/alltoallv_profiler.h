@@ -7,7 +7,7 @@
 #ifndef ALLTOALLV_PROFILER_H
 #define ALLTOALLV_PROFILER_H
 
-#define DEBUG 0
+#define DEBUG (0)
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
@@ -31,6 +31,16 @@
 #define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR"   // Name of the environment variable to specify where output files will be created
 
 #define MAX_TRACKED_CALLS (5)
+#define MAX_TRACKED_RANKS (1024)
+
+#define DEBUG_ALLTOALLV_PROFILING(fmt, ...)    \
+    do                                         \
+    {                                          \
+        if (DEBUG > 0)                         \
+        {                                      \
+            fprintf(stdout, fmt, __VA_ARGS__); \
+        }                                      \
+    } while (0)
 
 enum
 {
@@ -38,6 +48,14 @@ enum
     SEND_CTX,
     RECV_CTX
 };
+
+// Compact way to save send/recv counts of ranks within a single alltoallv call
+typedef struct counts_data
+{
+    int *counters; // the actual counters (i.e., send/recv counts)
+    int num_ranks; // The number of ranks having that series of counters
+    int *ranks;    // The list of ranks having that series of counters
+} counts_data_t;
 
 // Data type for storing comm size, alltoallv counts, send/recv count, etc
 typedef struct avSRCountNode
@@ -48,8 +66,10 @@ typedef struct avSRCountNode
     int comm;
     int sendtype_size;
     int recvtype_size;
-    int *send_data;
-    int *recv_data;
+    int send_data_size;        // Size of the array of unique series of send counters
+    int recv_data_size;        // Size of the array of unique series of recv counters
+    counts_data_t **send_data; // Array of unique series of send counters
+    counts_data_t **recv_data; // Array of unique series of recv counters
     double *op_exec_times;
     double *late_arrival_timings;
     struct avSRCountNode *next;

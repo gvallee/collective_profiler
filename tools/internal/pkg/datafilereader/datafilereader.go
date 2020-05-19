@@ -118,7 +118,8 @@ func GetHeader(reader *bufio.Reader) (int, []int, string, error) {
 			}
 		}
 
-		if strings.HasPrefix(line, "BEGINNING") {
+		// We check for the beginning of the actual data
+		if strings.HasPrefix(line, beginningDataMarker) {
 			break
 		}
 

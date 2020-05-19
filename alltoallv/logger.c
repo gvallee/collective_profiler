@@ -126,13 +126,40 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
     }
 }
 
-static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int *buf, int size, int type_size)
+int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
+{
+    assert(data);
+    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Looking up counts for rank %d (%d data elements to scan)\n", __FILE__, __LINE__, rank, data_size);
+    int i, j;
+    for (i = 0; i < data_size; i++)
+    {
+        assert(data[i]);
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern %d has %d ranks associated to it\n", __FILE__, __LINE__, i, data[i]->num_ranks);
+        for (j = 0; j < data[i]->num_ranks; j++)
+        {
+            assert(data[i]->ranks);
+            DEBUG_ALLTOALLV_PROFILING("[%s:%d] Scan previous counts for rank %d\n", __FILE__, __LINE__, data[i]->ranks[j]);
+            if (rank == data[i]->ranks[j])
+            {
+                return data[i]->counters;
+            }
+        }
+    }
+    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Could not find data for rank %d\n", __FILE__, __LINE__, rank);
+    return NULL;
+}
+
+static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
 {
     int i, j, num = 0;
     FILE *fh;
 
+#if ENABLE_PER_RANK_STATS
     int *zeros = (int *)calloc(size, sizeof(int));
     int *sums = (int *)calloc(size, sizeof(int));
+    assert(zeros);
+    assert(sums);
+#endif
 #if ENABLE_MSG_SIZE_ANALYSIS
     int *mins = (int *)calloc(size, sizeof(int));
     int *maxs = (int *)calloc(size, sizeof(int));
@@ -150,8 +177,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
 
     assert(logger);
-    assert(zeros);
-    assert(sums);
+    assert(logger->f);
 
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
     switch (ctx)
@@ -187,46 +213,65 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         fprintf(fh, "... (%d more call(s) was/were profiled but not tracked)", count - MAX_TRACKED_CALLS);
     }
     fprintf(fh, "\n\nBEGINNING DATA\n");
-#endif
-
-    for (i = 0; i < size; i++)
+    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Saving counts...\n", __FILE__, __LINE__);
+    // Save the compressed version of the data
+    int count_data_number, _num_ranks, n;
+    for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
-#if ENABLE_MSG_SIZE_ANALYSIS
-        mins[i] = buf[num];
-        maxs[i] = buf[num];
-#endif
-        for (j = 0; j < size; j++)
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Number of ranks: %d\n", __FILE__, __LINE__, counters[count_data_number]->num_ranks);
+        fprintf(fh, "Rank(s)");
+        for (_num_ranks = 0; _num_ranks < counters[count_data_number]->num_ranks; _num_ranks++)
         {
-            sums[i] += buf[num];
-            if (buf[num] == 0)
+            fprintf(fh, " %d", counters[count_data_number]->ranks[_num_ranks]);
+        }
+
+        fprintf(fh, ": ");
+        for (n = 0; n < size; n++)
+        {
+            fprintf(fh, "%d ", counters[count_data_number]->counters[n]);
+        }
+        fprintf(fh, "\n");
+    }
+    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Counts saved\n", __FILE__, __LINE__);
+    fprintf(fh, "END DATA\n");
+#endif
+
+#if ENABLE_PER_RANK_STATS || ENABLE_MSG_SIZE_ANALYSIS
+    // Go through the data to gather some stats
+    int rank;
+    for (rank = 0; rank < size; rank++)
+    {
+        int *_counters = lookupRankCounters(int data_size, count_data_t *data, rank);
+        assert(_counters);
+#if ENABLE_MSG_SIZE_ANALYSIS
+        mins[i] = _counters[0];
+        maxs[i] = _counters[0];
+#endif
+        int num_counter;
+        for (num_counter = 0; num_counter < size; num_counter++)
+        {
+            sums[rank] += _counters[num];
+            if (_counters[num_counter] == 0)
             {
-                zeros[i]++;
+                zeros[rank]++;
             }
 #if ENABLE_MSG_SIZE_ANALYSIS
-            if (buf[num] < mins[i])
+            if (_counters[num_counter] < mins[rank])
             {
-                mins[i] = buf[num];
+                mins[rank] = _counters[num_counter];
             }
-            if (maxs[i] < buf[num])
+            if (maxs[rank] < _counters[num_counter])
             {
-                maxs[i] = buf[num];
+                maxs[rank] = _counters[num_counter];
             }
-            if ((buf[num] * type_size) < msg_size_threshold)
+            if ((_counters[num_counter] * type_size) < msg_size_threshold)
             {
-                small_messages[i]++;
+                small_messages[rank]++;
             }
 #endif
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-            fprintf(fh, "%d ", buf[num]);
-#endif
-            num++;
         }
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-        fprintf(fh, "\n");
-#endif
     }
-    fprintf(fh, "END DATA\n");
-
+#endif
     fprintf(logger->f, "### Amount of data per rank\n");
 #if ENABLE_PER_RANK_STATS
     for (i = 0; i < size; i++)
@@ -240,15 +285,14 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 
     fprintf(logger->f, "### Number of zeros\n");
     int total_zeros = 0;
+#if ENABLE_PER_RANK_STATS
     for (i = 0; i < size; i++)
     {
         total_zeros += zeros[i];
         double ratio_zeros = zeros[i] * 100 / size;
-#if ENABLE_PER_RANK_STATS
         fprintf(logger->f, "Rank %d: %d/%d (%f%%) zero(s)\n", i, zeros[i], size, ratio_zeros);
     }
 #else
-    }
     fprintf(logger->f, "Per-rank data is disabled\n");
 #endif
     double ratio_zeros = (total_zeros * 100) / (size * size);
@@ -318,8 +362,10 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(logger->f, "DISABLED\n\n");
 #endif
 
+#if ENABLE_PER_RANK_STATS
     free(sums);
     free(zeros);
+#endif
 #if ENABLE_MSG_SIZE_ANALYSIS
     free(mins);
     free(maxs);
@@ -358,14 +404,18 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
     {
         fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
 
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging alltoallv call %d\n", __FILE__, __LINE__, srCountPtr->count);
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging send counts\n", __FILE__, __LINE__);
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
         _log_data(logger, startcall, endcall,
                   SEND_CTX, srCountPtr->count, srCountPtr->calls,
-                  srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+                  srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging recv counts (number of count series: %d)\n", __FILE__, __LINE__, srCountPtr->recv_data_size);
         fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
         _log_data(logger, startcall, endcall,
                   RECV_CTX, srCountPtr->count, srCountPtr->calls,
-                  srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+                  srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+        DEBUG_ALLTOALLV_PROFILING("[%s:%d] alltoallv call %d logged\n", __FILE__, __LINE__, srCountPtr->count);
         srCountPtr = srCountPtr->next;
     }
 

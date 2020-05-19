@@ -52,7 +52,12 @@ func (a *analyzer) resetStats() {
 
 // parseForRanges parses the string and check for either a single value (a rank) or a range of ranks
 // The new rank is added appropriately
-func checkForRanges(str string, rank int, rankString string) (string, error) {
+func checkForRanges(str string, rankString string) (string, error) {
+	rank, err := strconv.Atoi(rankString)
+	if err != nil {
+		return "", err
+	}
+
 	tokens := strings.Split(str, "-")
 	if len(tokens) > 1 {
 		// We have a range
@@ -80,8 +85,49 @@ func checkForRanges(str string, rank int, rankString string) (string, error) {
 	}
 }
 
-func (a *analyzer) parseLine(rank int, lineNum int, line string) (bool, error) {
+func (a *analyzer) handleRankCounters(rankString string, d rankData) error {
+	finalStr := ""
+	if a.ranksComm[d.ranksRealComm] == "" {
+		finalStr = rankString
+	} else {
+		tokens := strings.Split(a.ranksComm[d.ranksRealComm], ", ")
+		if len(tokens) > 1 {
+			s, err := checkForRanges(tokens[len(tokens)-1], rankString)
+			if err != nil {
+				return err
+			}
+			tokens[len(tokens)-1] = s
+			finalStr = strings.Join(tokens, ", ")
+		} else {
+			var err error
+			finalStr, err = checkForRanges(a.ranksComm[d.ranksRealComm], rankString)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	a.ranksComm[d.ranksRealComm] = finalStr
+
+	if _, ok := a.realEndpoints[d.ranksRealComm]; ok {
+		a.realEndpoints[d.ranksRealComm]++
+		//fmt.Printf("Record for communications with %d ranks is now: %d\n", d.ranksRealComm, a.realDests[d.ranksRealComm])
+	} else {
+		//fmt.Printf("Rank communicating with %d other ranks and adding a new record about communications with %d ranks\n", d.ranksRealComm, d.ranksRealComm)
+		a.realEndpoints[d.ranksRealComm] = 1
+	}
+	return nil
+}
+
+func (a *analyzer) parseLine(lineNum int, line string) (bool, error) {
 	var d rankData
+	var ranks []string
+
+	// Each line is of the form 'Rank(s) <list of ranks, space separated>: <counters>
+	entries := strings.Split(line, ": ")
+	if len(entries) > 1 {
+		line = entries[1]
+		ranks = strings.Split(strings.ReplaceAll(entries[0], "Rank(s) ", ""), " ")
+	}
 
 	tokens := strings.Split(line, " ")
 	if len(tokens) <= 1 {
@@ -89,11 +135,6 @@ func (a *analyzer) parseLine(rank int, lineNum int, line string) (bool, error) {
 		return false, nil
 	}
 
-	/*
-		if rank < 5 || rank >= 1024 {
-			fmt.Printf("I am rank %d at line %d and my counters are %s\n", rank, lineNum+1, line)
-		}
-	*/
 	for _, word := range tokens {
 		d.totalMsgs++
 		num, err := strconv.Atoi(word)
@@ -107,39 +148,14 @@ func (a *analyzer) parseLine(rank int, lineNum int, line string) (bool, error) {
 		}
 	}
 
-	//fmt.Printf("rank %d communicates with %d other ranks and has %d zero counts for a total of %d msgs\n", rank, d.ranksRealComm, d.numZeroMsgs, d.totalMsgs)
-
-	rankString := strconv.Itoa(rank)
-
-	finalStr := ""
-	if a.ranksComm[d.ranksRealComm] == "" {
-		finalStr = rankString
-	} else {
-		tokens := strings.Split(a.ranksComm[d.ranksRealComm], ", ")
-		if len(tokens) > 1 {
-			s, err := checkForRanges(tokens[len(tokens)-1], rank, rankString)
-			if err != nil {
-				return false, err
-			}
-			tokens[len(tokens)-1] = s
-			finalStr = strings.Join(tokens, ", ")
-		} else {
-			var err error
-			finalStr, err = checkForRanges(a.ranksComm[d.ranksRealComm], rank, rankString)
-			if err != nil {
-				return false, err
-			}
+	for _, rankStr := range ranks {
+		err := a.handleRankCounters(rankStr, d)
+		if err != nil {
+			return false, err
 		}
 	}
-	a.ranksComm[d.ranksRealComm] = finalStr
 
-	if _, ok := a.realEndpoints[d.ranksRealComm]; ok {
-		a.realEndpoints[d.ranksRealComm]++
-		//fmt.Printf("Record for communications with %d ranks is now: %d\n", d.ranksRealComm, a.realDests[d.ranksRealComm])
-	} else {
-		//fmt.Printf("Rank communicating with %d other ranks and adding a new record about communications with %d ranks\n", d.ranksRealComm, d.ranksRealComm)
-		a.realEndpoints[d.ranksRealComm] = 1
-	}
+	//fmt.Printf("rank %d communicates with %d other ranks and has %d zero counts for a total of %d msgs\n", rank, d.ranksRealComm, d.numZeroMsgs, d.totalMsgs)
 
 	return true, nil
 }
@@ -168,10 +184,11 @@ func (a *analyzer) Parse() error {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr
 		}
-		log.Printf("-> Number of alltoallv calls: %d\n", numCalls)
 		if readerErr == io.EOF {
 			break
 		}
+		log.Printf("-> Number of alltoallv calls: %d\n", numCalls)
+
 		// After successfully reading a new header, we know we are about to read
 		// a bunch of new data so we re-init a few things
 		rank = 0
@@ -180,8 +197,9 @@ func (a *analyzer) Parse() error {
 
 		// Read all the data for the call(s)
 		log.Println("Reading counters...")
+		line := ""
 		for {
-			line, readerErr := reader.ReadString('\n')
+			line, readerErr = reader.ReadString('\n')
 			if readerErr != nil && readerErr != io.EOF {
 				return readerErr
 			}
@@ -193,7 +211,7 @@ func (a *analyzer) Parse() error {
 				break
 			}
 
-			res, err := a.parseLine(rank, lineNumber, line)
+			res, err := a.parseLine(lineNumber, line)
 			if err != nil {
 				return err
 			}
@@ -205,98 +223,21 @@ func (a *analyzer) Parse() error {
 				break
 			}
 		}
+		if readerErr == io.EOF {
+			break
+		}
 	}
+
 	/*
-		for {
-			line, err := reader.ReadString('\n')
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-
-			// Are we at the beginning of a metadata block?
-			if strings.HasPrefix(line, "# Raw") {
-				parsing = false
-				numCalls = 0
-				callIDs = ""
-			}
-
-			if strings.HasPrefix(line, "Alltoallv calls") {
-				line = strings.ReplaceAll(line, "\n", "")
-				callRange := strings.ReplaceAll(line, "Alltoallv calls ", "")
-				tokens := strings.Split(callRange, "-")
-				if len(tokens) == 2 {
-					alltoallvCallStart, err = strconv.Atoi(tokens[0])
-					if err != nil {
-						log.Println("[ERROR] unable to parse line to get first alltoallv call number")
-						return err
-					}
-					alltoallvCallEnd, err = strconv.Atoi(tokens[1])
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			if strings.HasPrefix(line, "Count: ") {
-				line = strings.ReplaceAll(line, "\n", "")
-				strParsing := line
-				tokens := strings.Split(line, " - ")
-				if len(tokens) > 1 {
-					strParsing = tokens[0]
-					callIDs = tokens[1]
-					tokens2 := strings.Split(callIDs, " (")
-					if len(tokens2) > 1 {
-						callIDs = tokens2[0]
-					}
-				}
-				strParsing = strings.ReplaceAll(strParsing, "Count: ", "")
-				strParsing = strings.ReplaceAll(strParsing, " calls", "")
-				numCalls, err = strconv.Atoi(strParsing)
-				if err != nil {
-					log.Println("[ERROR] unable to parse line to get #s of alltoallv calls")
-					return err
-				}
-			}
-
-			if strings.HasPrefix(line, "END DATA") {
-				for key, _ := range a.realEndpoints {
-					fmt.Printf("alltoallv call(s) #%s (%d calls): %d ranks (%s) communicate with %d other ranks \n", callIDs, numCalls, a.realEndpoints[key], a.ranksComm[key], key)
-				}
-				parsing = false
-			}
-
-			if line != "" && parsing == true {
-				res, err := a.parseLine(rank, lineNumber, line)
-				if err != nil {
-					return err
-				}
-				if res {
-					rank++
-				}
-			}
-
-			if strings.HasPrefix(line, "BEGINNING") {
-				parsing = true
-				rank = 0
-				alltoallvCallNumber++
-				a.resetStats()
-			}
-
-			lineNumber++
-		}
+		if alltoallvCallEnd == -1 {
+			log.Println("[WARN] Metadata is incomplete, unable to validate consistency of counters")
+		} else {
 	*/
-
-	if alltoallvCallEnd == -1 {
-		log.Println("[WARN] Metadata is incomplete, unable to validate consistency of counters")
-	} else {
-		expectedNumCalls := alltoallvCallEnd - alltoallvCallStart + 1 // 0 indexed so we need to add 1
-		if numCalls != expectedNumCalls {
-			log.Printf("[ERROR] Metadata specifies %d calls but we extracted %d calls", expectedNumCalls, numCalls)
-		}
+	expectedNumCalls := alltoallvCallEnd - alltoallvCallStart + 1 // 0 indexed so we need to add 1
+	if numCalls != expectedNumCalls {
+		log.Printf("[ERROR] Metadata specifies %d calls but we extracted %d calls", expectedNumCalls, numCalls)
 	}
+	//}
 
 	return nil
 }
