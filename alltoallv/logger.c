@@ -149,6 +149,63 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
     return NULL;
 }
 
+static char *add_range(char *str, int start, int end)
+{
+    if (str == NULL)
+    {
+        char *buf = (char *)malloc(MAX_STRING_LEN * sizeof(char));
+        sprintf(buf, "%d-%d", start, end);
+        return buf;
+    }
+    else
+    {
+        int len = strlen(str);
+        sprintf(&(str[len - 1]), ", %d-%d", start, end);
+        return str;
+    }
+}
+
+static char *add_singleton(char *str, int n)
+{
+    if (str == NULL)
+    {
+        char *buf = (char *)malloc(MAX_STRING_LEN * sizeof(char));
+        sprintf(buf, "%d", n);
+        return buf;
+    }
+    else
+    {
+        int len = strlen(str);
+        sprintf(&(str[len - 1]), ", %d", n);
+        return str;
+    }
+}
+
+static char *compress_int_array(int *array, int size)
+{
+    int i, start;
+    char *compressedRep;
+    for (i = 0; i < size; i++)
+    {
+        start = i;
+        while (array[i] = array[i + 1])
+        {
+            i++;
+        }
+        if (i != start)
+        {
+            // We found a range
+            compressedRep = add_range(compressedRep, start, i);
+        }
+        else
+        {
+            // We found a singleton
+            compressedRep = add_singleton(compressedRep, i);
+        }
+    }
+    return compressedRep;
+}
+
 static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
 {
     int i, j, num = 0;
@@ -219,13 +276,11 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
         DEBUG_ALLTOALLV_PROFILING("[%s:%d] Number of ranks: %d\n", __FILE__, __LINE__, counters[count_data_number]->num_ranks);
-        fprintf(fh, "Rank(s)");
-        for (_num_ranks = 0; _num_ranks < counters[count_data_number]->num_ranks; _num_ranks++)
-        {
-            fprintf(fh, " %d", counters[count_data_number]->ranks[_num_ranks]);
-        }
 
-        fprintf(fh, ": ");
+        char *str = compress_int_array(counters[count_data_number]->ranks, counters[count_data_number]->num_ranks);
+        fprintf(fh, "Rank(s) %s: ", str);
+        free(str);
+
         for (n = 0; n < size; n++)
         {
             fprintf(fh, "%d ", counters[count_data_number]->counters[n]);
@@ -478,11 +533,6 @@ void logger_fini(logger_t **l)
             *l = NULL;
         }
     }
-}
-
-int save_counter(int ctx, int *conters)
-{
-    return 0;
 }
 
 void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)

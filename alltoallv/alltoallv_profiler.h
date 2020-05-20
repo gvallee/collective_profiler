@@ -11,6 +11,7 @@
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
+#define MAX_STRING_LEN (256)
 #define SYNC 0 // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string.h>
 
 #include "alltoallv_profiler.h"
 
