@@ -176,7 +176,7 @@ static char *add_singleton(char *str, int n)
     else
     {
         int len = strlen(str);
-        sprintf(&(str[len - 1]), ", %d", n);
+        sprintf(str, "%s, %d", str, n);
         return str;
     }
 }
@@ -185,24 +185,37 @@ static char *compress_int_array(int *array, int size)
 {
     int i, start;
     char *compressedRep = NULL;
+
+#if DEBUG
+    fprintf(stderr, "Compressing:");
+    for (i = 0; i < size; i++)
+    {
+        fprintf(stderr, " %d", array[i]);
+    }
+    fprintf(stderr, "\n");
+#endif // DEBUG
+
     for (i = 0; i < size; i++)
     {
         start = i;
-        while (array[i] = array[i + 1])
+        while (i + 1 < size && array[i] + 1 == array[i + 1])
         {
             i++;
         }
         if (i != start)
         {
             // We found a range
-            compressedRep = add_range(compressedRep, start, i);
+            compressedRep = add_range(compressedRep, array[start], array[i]);
         }
         else
         {
             // We found a singleton
-            compressedRep = add_singleton(compressedRep, i);
+            compressedRep = add_singleton(compressedRep, array[i]);
         }
     }
+#if DEBUG
+    fprintf(stderr, "Compressed version is: %s\n", compressedRep);
+#endif // DEBUG
     return compressedRep;
 }
 
