@@ -555,6 +555,7 @@ int _mpi_finalize()
 {
 	if (myrank == 0)
 	{
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
 		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging profiling data...\n", __FILE__, __LINE__);
 		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
 		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging completed\n", __FILE__, __LINE__);
@@ -581,8 +582,11 @@ int _mpi_finalize()
 			free(head);
 			head = c_ptr;
 		}
+#endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
+#if ENABLE_PATTERN_DETECTION
 		save_patterns(getpid());
+#endif // ENABLE_PATTERN_DETECTION
 
 		while (spatterns != NULL)
 		{
