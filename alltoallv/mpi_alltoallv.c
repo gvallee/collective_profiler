@@ -136,14 +136,32 @@ static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data
 
 static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)
 {
-	if (counters_data->num_ranks == MAX_TRACKED_RANKS)
+	if (counters_data->num_ranks >= counters_data->max_ranks)
 	{
-		exit(1); // fixme
+		counters_data->max_ranks = counters_data->num_ranks + MAX_TRACKED_RANKS;
+		counters_data->ranks = (int *)realloc(counters_data->ranks, counters_data->max_ranks * sizeof(int));
 	}
 
 	counters_data->ranks[counters_data->num_ranks] = rank;
 	counters_data->num_ranks++;
 	return 0;
+}
+
+static void delete_counter_data(counts_data_t **data)
+{
+	if (*data)
+	{
+		if ((*data)->ranks)
+		{
+			free((*data)->ranks);
+		}
+		if ((*data)->counters)
+		{
+			free((*data)->counters);
+		}
+		free(*data);
+		*data = NULL;
+	}
 }
 
 static counts_data_t *new_counter_data(int size, int rank, int *counts)
@@ -154,7 +172,8 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 	new_data->counters = (int *)malloc(size * sizeof(int));
 	assert(new_data->counters);
 	new_data->num_ranks = 0;
-	new_data->ranks = (int *)malloc(MAX_TRACKED_RANKS * sizeof(int));
+	new_data->max_ranks = MAX_TRACKED_RANKS;
+	new_data->ranks = (int *)malloc(new_data->max_ranks * sizeof(int));
 	assert(new_data->ranks);
 
 	for (i = 0; i < size; i++)
@@ -498,13 +517,24 @@ int _mpi_finalize()
 		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging completed\n", __FILE__, __LINE__);
 
 		// All data has been handled, now we can clean up
+		int i;
 		while (head != NULL)
 		{
 			avSRCountNode_t *c_ptr = head->next;
-			/* GVALLEE FIXME
+
+			for (i = 0; i < head->send_data_size; i++)
+			{
+				delete_counter_data(&(head->send_data[i]));
+			}
+
+			for (i = 0; i < head->recv_data_size; i++)
+			{
+				delete_counter_data(&(head->recv_data[i]));
+			}
+
 			free(head->recv_data);
 			free(head->send_data);
-			*/
+
 			free(head);
 			head = c_ptr;
 		}
@@ -634,7 +664,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
 		}
 
-		if (get_remainder(rand(), 100) < 5)
+		if (get_remainder(rand(), 100) <= VALIDATION_THRESHOLD)
 		{
 			save_counters_for_validation(uniqueID, myrank, avCalls, size, sendcounts, recvcounts);
 		}

@@ -33,6 +33,8 @@
 #define MAX_TRACKED_CALLS (5)
 #define MAX_TRACKED_RANKS (1024)
 
+#define VALIDATION_THRESHOLD (1)
+
 #define DEBUG_ALLTOALLV_PROFILING(fmt, ...)    \
     do                                         \
     {                                          \
@@ -54,6 +56,7 @@ typedef struct counts_data
 {
     int *counters; // the actual counters (i.e., send/recv counts)
     int num_ranks; // The number of ranks having that series of counters
+    int max_ranks; // The current size of the ranks array
     int *ranks;    // The list of ranks having that series of counters
 } counts_data_t;
 
