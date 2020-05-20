@@ -16,6 +16,8 @@
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
+static avPattern_t *spatterns = NULL;
+static avPattern_t *rpatterns = NULL;
 
 static int world_size = -1;
 static int myrank = -1;
@@ -418,6 +420,47 @@ static void display_per_host_data(int size)
 	}
 }
 
+static void save_patterns(int uniqueID)
+{
+	char spatterns_filename[MAX_PATH_LEN];
+	char rpatterns_filename[MAX_PATH_LEN];
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Saving patterns...\n", __FILE__, __LINE__);
+
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		sprintf(spatterns_filename, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		sprintf(rpatterns_filename, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+	}
+	else
+	{
+		sprintf(spatterns_filename, "patterns-send-pid%d.txt", uniqueID);
+		sprintf(rpatterns_filename, "patterns-recv-pid%d.txt", uniqueID);
+	}
+
+	FILE *spatterns_fh = fopen(spatterns_filename, "w");
+	assert(spatterns_fh);
+	FILE *rpatterns_fh = fopen(rpatterns_filename, "w");
+	assert(rpatterns_fh);
+	avPattern_t *ptr;
+
+	ptr = spatterns;
+	while (ptr != NULL)
+	{
+		fprintf(spatterns_fh, "During %d alltoallv calls, %d ranks sent to %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
+		ptr = ptr->next;
+	}
+
+	ptr = rpatterns;
+	while (ptr != NULL)
+	{
+		fprintf(rpatterns_fh, "During %d alltoallv calls, %d ranks received from %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
+		ptr = ptr->next;
+	}
+	fclose(spatterns_fh);
+	fclose(rpatterns_fh);
+}
+
 static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
 {
 	char filename[MAX_PATH_LEN];
@@ -539,6 +582,22 @@ int _mpi_finalize()
 			head = c_ptr;
 		}
 
+		save_patterns(getpid());
+
+		while (spatterns != NULL)
+		{
+			avPattern_t *sp = spatterns->next;
+			free(spatterns);
+			spatterns = sp;
+		}
+
+		while (rpatterns != NULL)
+		{
+			avPattern_t *rp = rpatterns->next;
+			free(rpatterns);
+			rpatterns = rp;
+		}
+
 		while (op_timing_exec_head != NULL)
 		{
 			avTimingsNode_t *t_ptr = op_timing_exec_head->next;
@@ -606,6 +665,137 @@ void mpi_finalize_(MPI_Fint *ierr)
 	int c_ierr = _mpi_finalize();
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
+}
+
+static avPattern_t *new_pattern(int num_ranks, int num_peers)
+{
+	avPattern_t *sp = malloc(sizeof(avPattern_t));
+	sp->n_ranks = num_ranks;
+	sp->n_peers = num_peers;
+	sp->n_calls = 1;
+	sp->next = NULL;
+	return sp;
+}
+
+static avPattern_t *add_pattern(avPattern_t *patterns, int num_ranks, int num_peers)
+{
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern\n", __FILE__, __LINE__);
+	if (patterns == NULL)
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern to empty list\n", __FILE__, __LINE__);
+		return new_pattern(num_ranks, num_peers);
+	}
+	else
+	{
+		avPattern_t *ptr = patterns;
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] We already have patterns, comparing...\n", __FILE__, __LINE__);
+
+		while (ptr != NULL)
+		{
+			if (ptr->n_ranks == num_ranks && ptr->n_peers == num_peers)
+			{
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern already exists\n", __FILE__, __LINE__);
+				ptr->n_calls++;
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern successfully added\n", __FILE__, __LINE__);
+				return patterns;
+			}
+			ptr = ptr->next;
+		}
+
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding new pattern to list\n", __FILE__, __LINE__);
+		ptr = patterns;
+		assert(ptr);
+		while (ptr->next != NULL)
+		{
+			ptr = ptr->next;
+		}
+
+		// Pattern does not exist yet, adding it to the head
+		// First find the tail of the list
+		avPattern_t *np = new_pattern(num_ranks, num_peers);
+		ptr->next = np;
+		return patterns;
+	}
+
+	return NULL;
+}
+
+static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int size)
+{
+	int i, j, num;
+	int src_ranks = 0;
+	int dst_ranks = 0;
+	int send_patterns[size + 1];
+	int recv_patterns[size + 1];
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Extracting patterns\n", __FILE__, __LINE__);
+
+	for (i = 0; i < size; i++)
+	{
+		send_patterns[i] = 0;
+	}
+
+	for (i = 0; i < size; i++)
+	{
+		recv_patterns[i] = 0;
+	}
+
+	num = 0;
+	for (i = 0; i < size; i++)
+	{
+		dst_ranks = 0;
+		src_ranks = 0;
+		for (j = 0; j < size; j++)
+		{
+			if (send_counts[num] != 0)
+			{
+				dst_ranks++;
+			}
+			if (recv_counts[num] != 0)
+			{
+				src_ranks++;
+			}
+			num++;
+		}
+		// We know the current rank sends data to <dst_ranks> ranks
+		if (dst_ranks > 0)
+		{
+			send_patterns[dst_ranks - 1]++;
+		}
+
+		// We know the current rank receives data from <src_ranks> ranks
+		if (src_ranks > 0)
+		{
+			recv_patterns[src_ranks - 1]++;
+		}
+	}
+
+	// From here we know who many ranks send to how many ranks and how many ranks receive from how many rank
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling send patterns\n", __FILE__, __LINE__);
+	for (i = 0; i < size; i++)
+	{
+		if (send_patterns[i] != 0)
+		{
+			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks sent data to %d other ranks\n", __FILE__, __LINE__, send_patterns[i], i + 1);
+			spatterns = add_pattern(spatterns, send_patterns[i], i + 1);
+		}
+	}
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling receive patterns\n", __FILE__, __LINE__);
+	for (i = 0; i < size; i++)
+	{
+		if (recv_patterns[i] != 0)
+		{
+			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks received data from %d other ranks\n", __FILE__, __LINE__, recv_patterns[i], i + 1);
+			rpatterns = add_pattern(rpatterns, recv_patterns[i], i + 1);
+		}
+	}
+
+	return 0;
+}
+
+static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_counts, int size)
+{
+	return extract_patterns_from_counts(send_counts, recv_counts, size);
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
@@ -697,12 +887,16 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if DEBUG
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
-
+#if ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
 			if (insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype)))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
+#endif
+#if ENABLE_PATTERN_DETECTION
+			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
+#endif
 #if ENABLE_TIMING
 			insert_op_exec_times_data(op_exec_times, late_arrival_timings, size);
 #endif
