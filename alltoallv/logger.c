@@ -184,7 +184,7 @@ static char *add_singleton(char *str, int n)
 static char *compress_int_array(int *array, int size)
 {
     int i, start;
-    char *compressedRep;
+    char *compressedRep = NULL;
     for (i = 0; i < size; i++)
     {
         start = i;
@@ -462,14 +462,18 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging alltoallv call %d\n", __FILE__, __LINE__, srCountPtr->count);
         DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging send counts\n", __FILE__, __LINE__);
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
+
         _log_data(logger, startcall, endcall,
                   SEND_CTX, srCountPtr->count, srCountPtr->calls,
                   srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+
         DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging recv counts (number of count series: %d)\n", __FILE__, __LINE__, srCountPtr->recv_data_size);
         fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
+
         _log_data(logger, startcall, endcall,
                   RECV_CTX, srCountPtr->count, srCountPtr->calls,
                   srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+
         DEBUG_ALLTOALLV_PROFILING("[%s:%d] alltoallv call %d logged\n", __FILE__, __LINE__, srCountPtr->count);
         srCountPtr = srCountPtr->next;
     }
