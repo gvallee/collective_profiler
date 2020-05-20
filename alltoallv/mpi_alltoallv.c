@@ -447,14 +447,22 @@ static void save_patterns(int uniqueID)
 	ptr = spatterns;
 	while (ptr != NULL)
 	{
+#if COMMSIZE_BASED_PATTERNS
+		fprintf(spatterns_fh, "During %d alltoallv calls, %d ranks sent to %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers, ptr->comm_size);
+#else
 		fprintf(spatterns_fh, "During %d alltoallv calls, %d ranks sent to %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
+#endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
 
 	ptr = rpatterns;
 	while (ptr != NULL)
 	{
+#if COMMSIZE_BASED_PATTERNS
+		fprintf(rpatterns_fh, "During %d alltoallv calls, %d ranks received from %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers, ptr->comm_size);
+#else
 		fprintf(rpatterns_fh, "During %d alltoallv calls, %d ranks received from %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
+#endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
 	fclose(spatterns_fh);
@@ -677,8 +685,59 @@ static avPattern_t *new_pattern(int num_ranks, int num_peers)
 	sp->n_ranks = num_ranks;
 	sp->n_peers = num_peers;
 	sp->n_calls = 1;
+	sp->comm_size = -1;
 	sp->next = NULL;
 	return sp;
+}
+
+static avPattern_t *new_pattern_with_size(int num_ranks, int num_peers, int size)
+{
+	avPattern_t *p = new_pattern(num_ranks, num_peers);
+	p->comm_size = size;
+	return p;
+}
+
+static avPattern_t *add_pattern_for_size(avPattern_t *patterns, int num_ranks, int num_peers, int size)
+{
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern\n", __FILE__, __LINE__);
+	if (patterns == NULL)
+	{
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern to empty list\n", __FILE__, __LINE__);
+		return new_pattern_with_size(num_ranks, num_peers, size);
+	}
+	else
+	{
+		avPattern_t *ptr = patterns;
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] We already have patterns, comparing...\n", __FILE__, __LINE__);
+
+		while (ptr != NULL)
+		{
+			if (ptr->n_ranks == num_ranks && ptr->n_peers == num_peers && size == ptr->comm_size)
+			{
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern already exists\n", __FILE__, __LINE__);
+				ptr->n_calls++;
+				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern successfully added\n", __FILE__, __LINE__);
+				return patterns;
+			}
+			ptr = ptr->next;
+		}
+
+		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding new pattern to list\n", __FILE__, __LINE__);
+		ptr = patterns;
+		assert(ptr);
+		while (ptr->next != NULL)
+		{
+			ptr = ptr->next;
+		}
+
+		// Pattern does not exist yet, adding it to the head
+		// First find the tail of the list
+		avPattern_t *np = new_pattern_with_size(num_ranks, num_peers, size);
+		ptr->next = np;
+		return patterns;
+	}
+
+	return NULL;
 }
 
 static avPattern_t *add_pattern(avPattern_t *patterns, int num_ranks, int num_peers)
@@ -781,7 +840,11 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 		if (send_patterns[i] != 0)
 		{
 			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks sent data to %d other ranks\n", __FILE__, __LINE__, send_patterns[i], i + 1);
+#if COMMSIZE_BASED_PATTERNS
+			spatterns = add_pattern_for_size(spatterns, send_patterns[i], i + 1, size);
+#else
 			spatterns = add_pattern(spatterns, send_patterns[i], i + 1);
+#endif // COMMSIZE_BASED_PATTERNS
 		}
 	}
 	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling receive patterns\n", __FILE__, __LINE__);
@@ -790,7 +853,11 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 		if (recv_patterns[i] != 0)
 		{
 			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks received data from %d other ranks\n", __FILE__, __LINE__, recv_patterns[i], i + 1);
+#if COMMSIZE_BASED_PATTERNS
+			rpatterns = add_pattern_for_size(rpatterns, recv_patterns[i], i + 1, size);
+#else
 			rpatterns = add_pattern(rpatterns, recv_patterns[i], i + 1);
+#endif // COMMSIZE_BASED_PATTERNS
 		}
 	}
 

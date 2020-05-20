@@ -27,6 +27,7 @@
 #define ENABLE_TIMING (0)              // Switch to enable/disable timing of various operations
 #define ENABLE_VALIDATION (0)          // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
 #define ENABLE_PATTERN_DETECTION (1)   // Switch to enable/disable pattern detection using the number of zero counts
+#define COMMSIZE_BASED_PATTERNS (1)    // Do we want to differentiate patterns based on the communication size?
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
@@ -93,19 +94,9 @@ typedef struct avPattern
     // <n_ranks> ranks send to or receive from <n_peers> other ranks
     int n_ranks;
     int n_peers;
-    int n_calls; // How many alltoallv calls have that pattern
+    int n_calls;   // How many alltoallv calls have that pattern
+    int comm_size; // Size of the communicator for which the pattern was detected. Not always used.
     struct avPattern *next;
 } avPattern_t;
-
-typedef struct avCallPattern
-{
-    int n_calls;
-    int calls[MAX_TRACKED_CALLS];
-    int n_send_patterns;
-    int r_recv_patterns;
-    avPattern_t *send_pattern_head;
-    avPattern_t *recv_pattern_head;
-    struct avCallPattern *next;
-} avCallPattern_t;
 
 #endif // ALLTOALLV_PROFILER_H
