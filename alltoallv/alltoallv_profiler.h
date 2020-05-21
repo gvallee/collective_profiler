@@ -7,7 +7,10 @@
 #ifndef ALLTOALLV_PROFILER_H
 #define ALLTOALLV_PROFILER_H
 
-#define DEBUG (0)
+#include <stdbool.h>
+#include <assert.h>
+
+#define DEBUG (1)
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
@@ -26,9 +29,9 @@
 #define ENABLE_PER_RANK_STATS (0)        // SWitch to enable/disable per-rank data (can be very expensive)
 #define ENABLE_TIMING (0)                // Switch to enable/disable timing of various operations
 #define ENABLE_VALIDATION (0)            // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
-#define ENABLE_PATTERN_DETECTION (1)     // Switch to enable/disable pattern detection using the number of zero counts
+#define ENABLE_PATTERN_DETECTION (0)     // Switch to enable/disable pattern detection using the number of zero counts
 #define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?
-#define TRACK_PATTERNS_ON_CALL_BASIS (1) // Do we want to differentiate patterns on a per-call basis
+#define TRACK_PATTERNS_ON_CALL_BASIS (0) // Do we want to differentiate patterns on a per-call basis
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages

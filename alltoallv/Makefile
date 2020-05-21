@@ -1,7 +1,10 @@
-all: liballtoallv.so grouping_test compress_array_test
+all: liballtoallv.so grouping_test compress_array_test patterns_detection_test
 
 logger.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -c logger.c
+
+pattern.o: pattern.c pattern.h
+	$(CC) -fPIC -c pattern.c
 
 grouping.o: grouping.c grouping.h alltoallv_profiler.h
 	$(CC) -fPIC -c grouping.c 
@@ -12,8 +15,14 @@ grouping_test: grouping.o grouping_test.c alltoallv_profiler.h
 compress_array_test: logger.o compress_array_test.c
 	$(CC) -fPIC logger.o compress_array_test.c -o compress_array_test
 
-liballtoallv.so: logger.o grouping.o mpi_alltoallv.c alltoallv_profiler.h
+patterns_detection_test: pattern.o patterns_detection_test.c
+	$(CC) -fPIC pattern.o patterns_detection_test.c -o patterns_detection_test
+
+liballtoallv.so: logger.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC logger.o grouping.o mpi_alltoallv.c -o liballtoallv.so
+
+check_patterns_detection: patterns_detection_test
+	./patterns_detection_test
 
 check_compress_array: compress_array_test
 	./compress_array_test
@@ -21,7 +30,7 @@ check_compress_array: compress_array_test
 check_grouping: grouping_test
 	./grouping_test
 
-check: all check_grouping check_compress_array
+check: all check_grouping check_compress_array check_patterns_detection
 
 clean:
 	@rm -f *.so grouping_test *.o
