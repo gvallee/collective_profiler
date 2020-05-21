@@ -160,7 +160,7 @@ static char *add_range(char *str, int start, int end)
     else
     {
         int len = strlen(str);
-        sprintf(&(str[len - 1]), ", %d-%d", start, end);
+        sprintf(str, "%s, %d-%d", str, start, end);
         return str;
     }
 }
@@ -181,7 +181,7 @@ static char *add_singleton(char *str, int n)
     }
 }
 
-static char *compress_int_array(int *array, int size)
+char *compress_int_array(int *array, int size)
 {
     int i, start;
     char *compressedRep = NULL;
