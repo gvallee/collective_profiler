@@ -18,6 +18,7 @@ static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
 static avPattern_t *spatterns = NULL;
 static avPattern_t *rpatterns = NULL;
+static avCallPattern_t *call_patterns = NULL;
 
 static int world_size = -1;
 static int myrank = -1;
@@ -420,6 +421,49 @@ static void display_per_host_data(int size)
 	}
 }
 
+static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
+{
+	avPattern_t *ptr = p;
+	while (ptr != NULL)
+	{
+#if COMMSIZE_BASED_PATTERNS
+		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
+#else
+		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
+#endif // COMMSIZE_BASED_PATTERNS
+		ptr = ptr->next;
+	}
+}
+
+static void save_call_patterns(int uniqueID)
+{
+	char filename[MAX_PATH_LEN];
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Saving call patterns...\n", __FILE__, __LINE__);
+
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		sprintf(filename, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+	}
+	else
+	{
+		sprintf(filename, "call-patterns-pid%d.txt", uniqueID);
+	}
+
+	FILE *fh = fopen(filename, "w");
+	assert(fh);
+
+	avCallPattern_t *ptr = call_patterns;
+	while (ptr != NULL)
+	{
+		fprintf(fh, "For %d call(s):\n", ptr->n_calls);
+		_save_patterns(fh, ptr->spatterns, "sent to");
+		_save_patterns(fh, ptr->rpatterns, "recv'd from");
+		ptr = ptr->next;
+	}
+	fclose(fh);
+}
+
 static void save_patterns(int uniqueID)
 {
 	char spatterns_filename[MAX_PATH_LEN];
@@ -444,27 +488,9 @@ static void save_patterns(int uniqueID)
 	assert(rpatterns_fh);
 	avPattern_t *ptr;
 
-	ptr = spatterns;
-	while (ptr != NULL)
-	{
-#if COMMSIZE_BASED_PATTERNS
-		fprintf(spatterns_fh, "During %d alltoallv calls, %d ranks sent to %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers, ptr->comm_size);
-#else
-		fprintf(spatterns_fh, "During %d alltoallv calls, %d ranks sent to %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
-#endif // COMMSIZE_BASED_PATTERNS
-		ptr = ptr->next;
-	}
+	_save_patterns(spatterns_fh, spatterns, "sent to");
+	_save_patterns(rpatterns_fh, rpatterns, "recv'd from");
 
-	ptr = rpatterns;
-	while (ptr != NULL)
-	{
-#if COMMSIZE_BASED_PATTERNS
-		fprintf(rpatterns_fh, "During %d alltoallv calls, %d ranks received from %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers, ptr->comm_size);
-#else
-		fprintf(rpatterns_fh, "During %d alltoallv calls, %d ranks received from %d other ranks\n", ptr->n_calls, ptr->n_ranks, ptr->n_peers);
-#endif // COMMSIZE_BASED_PATTERNS
-		ptr = ptr->next;
-	}
 	fclose(spatterns_fh);
 	fclose(rpatterns_fh);
 }
@@ -592,10 +618,13 @@ int _mpi_finalize()
 		}
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
-#if ENABLE_PATTERN_DETECTION
+#if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 		save_patterns(getpid());
-#endif // ENABLE_PATTERN_DETECTION
+#endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 
+#if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
+		save_call_patterns(getpid());
+#endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
 		while (spatterns != NULL)
 		{
 			avPattern_t *sp = spatterns->next;
@@ -783,6 +812,199 @@ static avPattern_t *add_pattern(avPattern_t *patterns, int num_ranks, int num_pe
 	return NULL;
 }
 
+static int get_size_patterns(avPattern_t *p)
+{
+	avPattern_t *ptr = p;
+	int count = 0;
+
+	while (ptr != NULL)
+	{
+		count++;
+		ptr = ptr->next;
+	}
+	return count;
+}
+
+static bool compare_patterns(avPattern_t *p1, avPattern_t *p2)
+{
+	avPattern_t *ptr1 = p2;
+	int s1, s2;
+
+	s1 = get_size_patterns(p1);
+	s2 = get_size_patterns(p2);
+	if (s1 != s2)
+	{
+		return false;
+	}
+
+	// For each elements of p1, we have to scan the entire p2 because we have no guarantee about ordering
+	while (ptr1 != NULL)
+	{
+		bool found = true;
+		avPattern_t *ptr2 = p1;
+		while (ptr2 != NULL)
+		{
+			if (ptr2->n_calls != ptr1->n_calls || ptr2->comm_size != ptr1->comm_size || ptr2->n_peers != ptr1->n_peers || ptr2->n_ranks != ptr1->n_ranks)
+			{
+				found = false;
+				break;
+			}
+			ptr2 = ptr2->next;
+		}
+		if (found == false)
+		{
+			return false;
+		}
+		ptr1 = ptr1->next;
+	}
+
+	return true;
+}
+
+static avCallPattern_t *lookup_call_patterns(avCallPattern_t *call_patterns)
+{
+	avCallPattern_t *ptr = call_patterns;
+	bool spatterns_are_identical = false;
+	bool rpatterns_are_identical = true;
+
+	while (ptr != NULL)
+	{
+		if (compare_patterns(ptr->spatterns, call_patterns->spatterns) == true)
+		{
+			spatterns_are_identical = true;
+		}
+
+		if (compare_patterns(ptr->rpatterns, call_patterns->rpatterns) == true)
+		{
+			rpatterns_are_identical = true;
+		}
+
+		if (spatterns_are_identical && rpatterns_are_identical)
+		{
+			return ptr;
+		}
+
+		ptr = ptr->next;
+	}
+	return NULL;
+}
+
+static void free_patterns(avPattern_t *p)
+{
+	avPattern_t *ptr = p;
+
+	if (p == NULL)
+	{
+		return;
+	}
+
+	while (ptr != NULL)
+	{
+		avPattern_t *ptr2 = ptr->next;
+		free(ptr);
+		ptr = ptr2;
+	}
+}
+
+static int extract_call_patterns_from_counts(int callID, int *send_counts, int *recv_counts, int size)
+{
+	int i, j, num;
+	int src_ranks = 0;
+	int dst_ranks = 0;
+	int send_patterns[size + 1];
+	int recv_patterns[size + 1];
+
+	avCallPattern_t *cp = (avCallPattern_t *)calloc(1, sizeof(avCallPattern_t));
+	cp->n_calls = 1;
+
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Extracting call patterns\n", __FILE__, __LINE__);
+
+	for (i = 0; i < size; i++)
+	{
+		send_patterns[i] = 0;
+	}
+
+	for (i = 0; i < size; i++)
+	{
+		recv_patterns[i] = 0;
+	}
+
+	num = 0;
+	for (i = 0; i < size; i++)
+	{
+		dst_ranks = 0;
+		src_ranks = 0;
+		for (j = 0; j < size; j++)
+		{
+			if (send_counts[num] != 0)
+			{
+				dst_ranks++;
+			}
+			if (recv_counts[num] != 0)
+			{
+				src_ranks++;
+			}
+			num++;
+		}
+		// We know the current rank sends data to <dst_ranks> ranks
+		if (dst_ranks > 0)
+		{
+			send_patterns[dst_ranks - 1]++;
+		}
+
+		// We know the current rank receives data from <src_ranks> ranks
+		if (src_ranks > 0)
+		{
+			recv_patterns[src_ranks - 1]++;
+		}
+	}
+
+	// From here we know who many ranks send to how many ranks and how many ranks receive from how many rank
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling call send patterns\n", __FILE__, __LINE__);
+	for (i = 0; i < size; i++)
+	{
+		if (send_patterns[i] != 0)
+		{
+			cp->spatterns = add_pattern_for_size(cp->spatterns, send_patterns[i], i + 1, size);
+		}
+	}
+	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling call receive patterns\n", __FILE__, __LINE__);
+	for (i = 0; i < size; i++)
+	{
+		if (recv_patterns[i] != 0)
+		{
+			cp->rpatterns = add_pattern_for_size(cp->rpatterns, recv_patterns[i], i + 1, size);
+		}
+	}
+
+	if (call_patterns == NULL)
+	{
+		call_patterns = cp;
+	}
+	else
+	{
+		avCallPattern_t *existing_cp = lookup_call_patterns(call_patterns);
+		if (existing_cp == NULL)
+		{
+			avCallPattern_t *ptr = call_patterns;
+			while (ptr->next != NULL)
+			{
+				ptr = ptr->next;
+			}
+			ptr->next = cp;
+		}
+		else
+		{
+			existing_cp->n_calls++;
+			free_patterns(cp->spatterns);
+			free_patterns(cp->rpatterns);
+			free(cp);
+		}
+	}
+
+	return 0;
+}
+
 static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int size)
 {
 	int i, j, num;
@@ -866,7 +1088,11 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 
 static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_counts, int size)
 {
+#if TRACK_PATTERNS_ON_CALL_BASIS
+	return extract_call_patterns_from_counts(callID, send_counts, recv_counts, size);
+#else
 	return extract_patterns_from_counts(send_counts, recv_counts, size);
+#endif
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,

@@ -19,15 +19,16 @@
 #define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALLV_CALLS says when we stop profiling
 
 // A few switches to enable/disable a bunch of capabilities
-#define ENABLE_LIVE_GROUPING (0)       // Switch to enable/disable live grouping (can be very time consuming)
-#define ENABLE_POSTMORTEM_GROUPING (0) // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
-#define ENABLE_MSG_SIZE_ANALYSIS (0)   // Switch to enable/disable live analysis of message size
-#define ENABLE_RAW_DATA (0)            // Switch to enable/disable the display of raw data (can be very time consuming)
-#define ENABLE_PER_RANK_STATS (0)      // SWitch to enable/disable per-rank data (can be very expensive)
-#define ENABLE_TIMING (0)              // Switch to enable/disable timing of various operations
-#define ENABLE_VALIDATION (0)          // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
-#define ENABLE_PATTERN_DETECTION (1)   // Switch to enable/disable pattern detection using the number of zero counts
-#define COMMSIZE_BASED_PATTERNS (1)    // Do we want to differentiate patterns based on the communication size?
+#define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
+#define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
+#define ENABLE_MSG_SIZE_ANALYSIS (0)     // Switch to enable/disable live analysis of message size
+#define ENABLE_RAW_DATA (0)              // Switch to enable/disable the display of raw data (can be very time consuming)
+#define ENABLE_PER_RANK_STATS (0)        // SWitch to enable/disable per-rank data (can be very expensive)
+#define ENABLE_TIMING (0)                // Switch to enable/disable timing of various operations
+#define ENABLE_VALIDATION (0)            // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
+#define ENABLE_PATTERN_DETECTION (1)     // Switch to enable/disable pattern detection using the number of zero counts
+#define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?
+#define TRACK_PATTERNS_ON_CALL_BASIS (1) // Do we want to differentiate patterns on a per-call basis
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
@@ -98,5 +99,14 @@ typedef struct avPattern
     int comm_size; // Size of the communicator for which the pattern was detected. Not always used.
     struct avPattern *next;
 } avPattern_t;
+
+typedef struct avCallPattern
+{
+    int n_calls;
+    int *calls;
+    avPattern_t *spatterns;
+    avPattern_t *rpatterns;
+    struct avCallPattern *next;
+} avCallPattern_t;
 
 #endif // ALLTOALLV_PROFILER_H
