@@ -655,6 +655,20 @@ int _mpi_init(int *argc, char ***argv)
 	char buf[200];
 	//gethostname(myhostname, HOSTNAME_LEN);
 
+	char *num_call_envvar = getenv(NUM_CALL_START_PROFILING_ENVVAR);
+	if (num_call_envvar != NULL)
+	{
+		_num_call_start_profiling = atoi(num_call_envvar);
+	}
+
+	char *limit_a2a_calls = getenv(LIMIT_ALLTOALLV_CALLS_ENVVAR);
+	if (limit_a2a_calls != NULL)
+	{
+		_limit_av_calls = atoi(limit_a2a_calls);
+	}
+
+	fprintf(stderr, "Checkme: %s - %s\n", num_call_envvar, limit_a2a_calls);
+
 	ret = PMPI_Init(argc, argv);
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -701,18 +715,6 @@ int mpi_init_(MPI_Fint *ierr)
 	int c_ierr;
 	int argc = 0;
 	char **argv = NULL;
-
-	char *num_call_envvar = getenv(NUM_CALL_START_PROFILING_ENVVAR);
-	if (num_call_envvar != NULL)
-	{
-		_num_call_start_profiling = atoi(num_call_envvar);
-	}
-
-	char *limit_a2a_calls = getenv(LIMIT_ALLTOALLV_CALLS_ENVVAR);
-	if (limit_a2a_calls != NULL)
-	{
-		_limit_av_calls = atoi(limit_a2a_calls);
-	}
 
 	c_ierr = _mpi_init(&argc, &argv);
 	if (NULL != ierr)
@@ -862,13 +864,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	{
 		if (-1 != _limit_av_calls && avCallsLogged >= _limit_av_calls)
 		{
+			fprintf(stderr, "All calls already logged\n");
 			need_profile = false;
 		}
 	}
 
 	if (need_profile)
 	{
-
 		if (avCallStart == -1)
 		{
 			avCallStart = avCalls;
