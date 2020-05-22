@@ -27,6 +27,9 @@ static int avCallStart = -1;  // Number of alltoallv call during which we starte
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
+static int _num_call_start_profiling = NUM_CALL_START_PROFILING;
+static int _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
+
 // Buffers used to store data through all alltoallv calls
 int *sbuf = NULL;
 int *rbuf = NULL;
@@ -699,6 +702,18 @@ int mpi_init_(MPI_Fint *ierr)
 	int argc = 0;
 	char **argv = NULL;
 
+	char *num_call_envvar = getenv(NUM_CALL_START_PROFILING_ENVVAR);
+	if (num_call_envvar != NULL)
+	{
+		_num_call_start_profiling = atoi(num_call_envvar);
+	}
+
+	char *limit_a2a_calls = getenv(LIMIT_ALLTOALLV_CALLS_ENVVAR);
+	if (limit_a2a_calls != NULL)
+	{
+		_limit_av_calls = atoi(limit_a2a_calls);
+	}
+
 	c_ierr = _mpi_init(&argc, &argv);
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
@@ -839,13 +854,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	bool need_profile = true;
 
 	// Check if we need to profile that specific call
-	if (avCalls < NUM_CALL_START_PROFILING)
+	if (avCalls < _num_call_start_profiling)
 	{
 		need_profile = false;
 	}
 	else
 	{
-		if (-1 != DEFAULT_LIMIT_ALLTOALLV_CALLS && avCallsLogged >= DEFAULT_LIMIT_ALLTOALLV_CALLS)
+		if (-1 != _limit_av_calls && avCallsLogged >= _limit_av_calls)
 		{
 			need_profile = false;
 		}

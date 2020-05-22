@@ -10,12 +10,18 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#define DEBUG (1)
+#define DEBUG (0)
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
 #define MAX_STRING_LEN (256)
 #define SYNC 0 // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
+
+// A few environment variables to control a few things at runtime
+#define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
+#define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR"   // Name of the environment variable to specify where output files will be created
+#define NUM_CALL_START_PROFILING_ENVVAR "A2A_NUM_CALL_START_PROFILING"
+#define LIMIT_ALLTOALLV_CALLS_ENVVAR "A2A_LIMIT_ALLTOALLV_CALLS_ENVVAR"
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
@@ -25,7 +31,7 @@
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
 #define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 #define ENABLE_MSG_SIZE_ANALYSIS (0)     // Switch to enable/disable live analysis of message size
-#define ENABLE_RAW_DATA (0)              // Switch to enable/disable the display of raw data (can be very time consuming)
+#define ENABLE_RAW_DATA (1)              // Switch to enable/disable the display of raw data (can be very time consuming)
 #define ENABLE_PER_RANK_STATS (0)        // SWitch to enable/disable per-rank data (can be very expensive)
 #define ENABLE_TIMING (0)                // Switch to enable/disable timing of various operations
 #define ENABLE_VALIDATION (0)            // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
@@ -33,11 +39,7 @@
 #define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?
 #define TRACK_PATTERNS_ON_CALL_BASIS (0) // Do we want to differentiate patterns on a per-call basis
 
-// A few environment variables to control a few things at runtime
-#define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
-#define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR"   // Name of the environment variable to specify where output files will be created
-
-#define MAX_TRACKED_CALLS (5)
+#define MAX_TRACKED_CALLS (10)
 #define MAX_TRACKED_RANKS (1024)
 
 #define VALIDATION_THRESHOLD (1)
