@@ -859,7 +859,6 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	{
 		if (-1 != _limit_av_calls && avCallsLogged >= _limit_av_calls)
 		{
-			fprintf(stderr, "All calls already logged\n");
 			need_profile = false;
 		}
 	}
@@ -916,8 +915,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_TIMING
 
 		// Gather a bunch of counters
-		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
-		MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
+		//MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
+		//MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);

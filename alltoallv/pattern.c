@@ -27,30 +27,30 @@ static avPattern_t *new_pattern_with_size(int num_ranks, int num_peers, int size
 
 avPattern_t *add_pattern_for_size(avPattern_t *patterns, int num_ranks, int num_peers, int size)
 {
-    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern\n", __FILE__, __LINE__);
+    DEBUG_ALLTOALLV_PROFILING("Adding pattern\n");
     if (patterns == NULL)
     {
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern to empty list\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("Adding pattern to empty list\n");
         return new_pattern_with_size(num_ranks, num_peers, size);
     }
     else
     {
         avPattern_t *ptr = patterns;
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] We already have patterns, comparing...\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("We already have patterns, comparing...\n");
 
         while (ptr != NULL)
         {
             if (ptr->n_ranks == num_ranks && ptr->n_peers == num_peers && size == ptr->comm_size)
             {
-                DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern already exists\n", __FILE__, __LINE__);
+                DEBUG_ALLTOALLV_PROFILING("Pattern already exists\n");
                 ptr->n_calls++;
-                DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern successfully added\n", __FILE__, __LINE__);
+                DEBUG_ALLTOALLV_PROFILING("Pattern successfully added\n");
                 return patterns;
             }
             ptr = ptr->next;
         }
 
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding new pattern to list\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("Adding new pattern to list\n");
         ptr = patterns;
         assert(ptr);
         while (ptr->next != NULL)
@@ -70,30 +70,30 @@ avPattern_t *add_pattern_for_size(avPattern_t *patterns, int num_ranks, int num_
 
 avPattern_t *add_pattern(avPattern_t *patterns, int num_ranks, int num_peers)
 {
-    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern\n", __FILE__, __LINE__);
+    DEBUG_ALLTOALLV_PROFILING("Adding pattern\n");
     if (patterns == NULL)
     {
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding pattern to empty list\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("Adding pattern to empty list\n");
         return new_pattern(num_ranks, num_peers);
     }
     else
     {
         avPattern_t *ptr = patterns;
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] We already have patterns, comparing...\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("We already have patterns, comparing...\n");
 
         while (ptr != NULL)
         {
             if (ptr->n_ranks == num_ranks && ptr->n_peers == num_peers)
             {
-                DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern already exists\n", __FILE__, __LINE__);
+                DEBUG_ALLTOALLV_PROFILING("Pattern already exists\n");
                 ptr->n_calls++;
-                DEBUG_ALLTOALLV_PROFILING("[%s:%d] Pattern successfully added\n", __FILE__, __LINE__);
+                DEBUG_ALLTOALLV_PROFILING("Pattern successfully added\n");
                 return patterns;
             }
             ptr = ptr->next;
         }
 
-        DEBUG_ALLTOALLV_PROFILING("[%s:%d] Adding new pattern to list\n", __FILE__, __LINE__);
+        DEBUG_ALLTOALLV_PROFILING("Adding new pattern to list\n");
         ptr = patterns;
         assert(ptr);
         while (ptr->next != NULL)
@@ -214,7 +214,7 @@ avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_c
     avCallPattern_t *cp = (avCallPattern_t *)calloc(1, sizeof(avCallPattern_t));
     cp->n_calls = 1;
 
-    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Extracting call patterns\n", __FILE__, __LINE__);
+    DEBUG_ALLTOALLV_PROFILING("Extracting call patterns\n");
 
     for (i = 0; i < size; i++)
     {
@@ -257,7 +257,7 @@ avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_c
     }
 
     // From here we know who many ranks send to how many ranks and how many ranks receive from how many rank
-    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling call send patterns\n", __FILE__, __LINE__);
+    DEBUG_ALLTOALLV_PROFILING("Handling call send patterns\n");
     for (i = 0; i < size; i++)
     {
         if (send_patterns[i] != 0)
@@ -265,7 +265,7 @@ avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_c
             cp->spatterns = add_pattern_for_size(cp->spatterns, send_patterns[i], i + 1, size);
         }
     }
-    DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling call receive patterns\n", __FILE__, __LINE__);
+    DEBUG_ALLTOALLV_PROFILING("Handling call receive patterns\n");
     for (i = 0; i < size; i++)
     {
         if (recv_patterns[i] != 0)
