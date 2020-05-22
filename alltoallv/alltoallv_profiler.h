@@ -45,11 +45,8 @@
 #define VALIDATION_THRESHOLD (1)
 
 #if DEBUG
-#define DEBUG_ALLTOALLV_PROFILING(fmt, ...)                                     \
-    do                                                                          \
-    {                                                                           \
-        fprintf(stdout, "A2A - [%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__); \
-    } while (0)
+#define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #else
 #define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
     do                                      \

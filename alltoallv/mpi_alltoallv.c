@@ -185,7 +185,7 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 	{
 		if (send_patterns[i] != 0)
 		{
-			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks sent data to %d other ranks\n", send_patterns[i], i + 1);
+			DEBUG_ALLTOALLV_PROFILING("Add pattern where %d ranks sent data to %d other ranks\n", send_patterns[i], i + 1);
 #if COMMSIZE_BASED_PATTERNS
 			spatterns = add_pattern_for_size(spatterns, send_patterns[i], i + 1, size);
 #else
