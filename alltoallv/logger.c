@@ -36,27 +36,54 @@ static char *get_full_filename(int ctxt, char *id)
 {
     char *filename = malloc(MAX_FILENAME_LEN * sizeof(char));
     char *dir = NULL;
+    char *jobid = NULL;
 
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
         dir = getenv(OUTPUT_DIR_ENVVAR);
     }
 
+    if (getenv("SLURM_JOB_ID"))
+    {
+        jobid = getenv("SLURM_JOB_ID");
+    }
+
     if (ctxt == MAIN_CTX)
     {
         if (id == NULL)
         {
-            sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+            if (jobid != NULL)
+            {
+                sprintf(filename, "prfile_alltoallv.job%s.pid%d.md", jobid, getpid());
+            }
+            else
+            {
+                sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+            }
         }
         else
         {
-            sprintf(filename, "%s.pid%d.md", id, getpid());
+            if (jobid != NULL)
+            {
+                sprintf(filename, "%s.job%s.pid%d.md", id, jobid, getpid());
+            }
+            else
+            {
+                sprintf(filename, "%s.pid%d.md", id, getpid());
+            }
         }
     }
     else
     {
         char *context = ctx_to_string(ctxt);
-        sprintf(filename, "%s-%s.pid%d.txt", context, id, getpid());
+        if (jobid != NULL)
+        {
+            sprintf(filename, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
+        }
+        else
+        {
+            sprintf(filename, "%s-%s.pid%d.txt", context, id, getpid());
+        }
     }
 
     if (dir != NULL)
