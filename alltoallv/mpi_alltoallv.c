@@ -67,8 +67,8 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	int rank, count_num;
 	int *_counts;
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Comparing data with existing data...\n", __FILE__, __LINE__);
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Comparing send counts...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Comparing data with existing data...\n");
+	DEBUG_ALLTOALLV_PROFILING("-> Comparing send counts...\n");
 	// First compare the send counts
 	for (rank = 0; rank < size; rank++)
 	{
@@ -78,16 +78,16 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 		{
 			if (_counts[count_num] != send_counts[num])
 			{
-				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data differs\n", __FILE__, __LINE__);
+				DEBUG_ALLTOALLV_PROFILING("Data differs\n");
 				return false;
 			}
 			num++;
 		}
 	}
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Send counts are the same\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("-> Send counts are the same\n");
 
 	// Then the receive counts
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] -> Comparing recv counts...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("-> Comparing recv counts...\n");
 	num = 0;
 	for (rank = 0; rank < size; rank++)
 	{
@@ -96,14 +96,14 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 		{
 			if (_counts[count_num] != recv_counts[num])
 			{
-				DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data differs\n", __FILE__, __LINE__);
+				DEBUG_ALLTOALLV_PROFILING("Data differs\n");
 				return false;
 			}
 			num++;
 		}
 	}
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data is the same\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Data is the same\n");
 	return true;
 }
 
@@ -137,7 +137,7 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 	int send_patterns[size + 1];
 	int recv_patterns[size + 1];
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Extracting patterns\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Extracting patterns\n");
 
 	for (i = 0; i < size; i++)
 	{
@@ -180,12 +180,12 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 	}
 
 	// From here we know who many ranks send to how many ranks and how many ranks receive from how many rank
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling send patterns\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Handling send patterns\n");
 	for (i = 0; i < size; i++)
 	{
 		if (send_patterns[i] != 0)
 		{
-			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks sent data to %d other ranks\n", __FILE__, __LINE__, send_patterns[i], i + 1);
+			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks sent data to %d other ranks\n", send_patterns[i], i + 1);
 #if COMMSIZE_BASED_PATTERNS
 			spatterns = add_pattern_for_size(spatterns, send_patterns[i], i + 1, size);
 #else
@@ -193,12 +193,12 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 #endif // COMMSIZE_BASED_PATTERNS
 		}
 	}
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Handling receive patterns\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Handling receive patterns\n");
 	for (i = 0; i < size; i++)
 	{
 		if (recv_patterns[i] != 0)
 		{
-			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add pattern where %d ranks received data from %d other ranks\n", __FILE__, __LINE__, recv_patterns[i], i + 1);
+			DEBUG_ALLTOALLV_PROFILING("Add pattern where %d ranks received data from %d other ranks\n", recv_patterns[i], i + 1);
 #if COMMSIZE_BASED_PATTERNS
 			rpatterns = add_pattern_for_size(rpatterns, recv_patterns[i], i + 1, size);
 #else
@@ -335,7 +335,7 @@ static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *ca
 	counts_data_t *ptr = lookupSendCounters(counts, call_data);
 	if (ptr)
 	{
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add send rank %d to existing count data\n", __FILE__, __LINE__, rank);
+		DEBUG_ALLTOALLV_PROFILING("Add send rank %d to existing count data\n", rank);
 		if (add_rank_to_counters_data(rank, ptr))
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add rank counters (rank: %d)\n", __FILE__, __LINE__, rank);
@@ -344,7 +344,7 @@ static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *ca
 	}
 	else
 	{
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add send new count data for rank %d\n", __FILE__, __LINE__, rank);
+		DEBUG_ALLTOALLV_PROFILING("Add send new count data for rank %d\n", rank);
 		if (add_new_send_counters_to_counters_data(call_data, rank, counts))
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add new send counters\n", __FILE__, __LINE__);
@@ -360,7 +360,7 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 	counts_data_t *ptr = lookupRecvCounters(counts, call_data);
 	if (ptr)
 	{
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add recv rank %d to existing count data\n", __FILE__, __LINE__, rank);
+		DEBUG_ALLTOALLV_PROFILING("Add recv rank %d to existing count data\n", rank);
 		if (add_rank_to_counters_data(rank, ptr))
 		{
 			fprintf(stderr, "[ERROR] unable to add rank counters\n");
@@ -369,7 +369,7 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 	}
 	else
 	{
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Add recv new count data for rank %d\n", __FILE__, __LINE__, rank);
+		DEBUG_ALLTOALLV_PROFILING("Add recv new count data for rank %d\n", rank);
 		if (add_new_recv_counters_to_counters_data(call_data, rank, counts))
 		{
 			fprintf(stderr, "[ERROR] unable to add new recv counters\n");
@@ -389,7 +389,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	struct avSRCountNode *newNode = NULL;
 	struct avSRCountNode *temp;
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Insert data for a new alltoallv call...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Insert data for a new alltoallv call...\n");
 
 	assert(logger);
 #if DEBUG
@@ -413,7 +413,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 		else
 		{
 			// Data exist, adding call info to it
-			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data already exists, updating metadata...\n", __FILE__, __LINE__);
+			DEBUG_ALLTOALLV_PROFILING("Data already exists, updating metadata...\n");
 			if (temp->count < MAX_TRACKED_CALLS)
 			{
 				temp->calls[temp->count] = avCalls; // Note: count starts at 1, not 0
@@ -422,7 +422,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 #if DEBUG
 			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
 #endif
-			DEBUG_ALLTOALLV_PROFILING("[%s:%d] Metadata successfully updated\n", __FILE__, __LINE__);
+			DEBUG_ALLTOALLV_PROFILING("Metadata successfully updated\n");
 			return 0;
 		}
 	}
@@ -447,7 +447,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	num = 0;
 	int _rank;
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] handling send counts...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("handling send counts...\n");
 	for (_rank = 0; _rank < size; _rank++)
 	{
 		if (compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode))
@@ -458,7 +458,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 		num++;
 	}
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] handling recv counts...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("handling recv counts...\n");
 	num = 0;
 	for (_rank = 0; _rank < size; _rank++)
 	{
@@ -478,7 +478,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
 #endif
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", __FILE__, __LINE__, newNode->recv_data_size, newNode->send_data_size);
+	DEBUG_ALLTOALLV_PROFILING("Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
 	/*
 	for (i = 0; i < size; i++)
@@ -562,7 +562,7 @@ static void save_call_patterns(int uniqueID)
 {
 	char filename[MAX_PATH_LEN];
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Saving call patterns...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Saving call patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
@@ -592,7 +592,7 @@ static void save_patterns(int uniqueID)
 	char spatterns_filename[MAX_PATH_LEN];
 	char rpatterns_filename[MAX_PATH_LEN];
 
-	DEBUG_ALLTOALLV_PROFILING("[%s:%d] Saving patterns...\n", __FILE__, __LINE__);
+	DEBUG_ALLTOALLV_PROFILING("Saving patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
@@ -667,8 +667,6 @@ int _mpi_init(int *argc, char ***argv)
 		_limit_av_calls = atoi(limit_a2a_calls);
 	}
 
-	fprintf(stderr, "Checkme: %s - %s\n", num_call_envvar, limit_a2a_calls);
-
 	ret = PMPI_Init(argc, argv);
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -727,9 +725,9 @@ int _mpi_finalize()
 	if (myrank == 0)
 	{
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging profiling data...\n", __FILE__, __LINE__);
+		DEBUG_ALLTOALLV_PROFILING("Logging profiling data...\n");
 		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
-		DEBUG_ALLTOALLV_PROFILING("[%s:%d] Logging completed\n", __FILE__, __LINE__);
+		DEBUG_ALLTOALLV_PROFILING("Logging completed\n");
 
 		// All data has been handled, now we can clean up
 		int i;
@@ -761,7 +759,6 @@ int _mpi_finalize()
 
 #if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
 		save_call_patterns(getpid());
-#endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
 		while (spatterns != NULL)
 		{
 			avPattern_t *sp = spatterns->next;
@@ -775,6 +772,9 @@ int _mpi_finalize()
 			free(rpatterns);
 			rpatterns = rp;
 		}
+#endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
+
+		logger_fini(&logger);
 
 		while (op_timing_exec_head != NULL)
 		{
@@ -824,11 +824,6 @@ int _mpi_finalize()
 			free(hostnames);
 		}
 #endif
-
-		if (myrank == 0)
-		{
-			logger_fini(&logger);
-		}
 	}
 	return PMPI_Finalize();
 }

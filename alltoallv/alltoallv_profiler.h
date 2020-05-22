@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#define DEBUG (0)
+#define DEBUG (1)
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
@@ -44,14 +44,18 @@
 
 #define VALIDATION_THRESHOLD (1)
 
-#define DEBUG_ALLTOALLV_PROFILING(fmt, ...)    \
-    do                                         \
-    {                                          \
-        if (DEBUG > 0)                         \
-        {                                      \
-            fprintf(stdout, fmt, __VA_ARGS__); \
-        }                                      \
+#if DEBUG
+#define DEBUG_ALLTOALLV_PROFILING(fmt, ...)                                     \
+    do                                                                          \
+    {                                                                           \
+        fprintf(stdout, "A2A - [%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__); \
     } while (0)
+#else
+#define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
+    do                                      \
+    {                                       \
+    } while (0)
+#endif // DEBUG
 
 enum
 {
