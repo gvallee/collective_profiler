@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
-#define DEBUG (1)
+#define DEBUG (0)
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
@@ -42,7 +42,7 @@
 #define MAX_TRACKED_CALLS (10)
 #define MAX_TRACKED_RANKS (1024)
 
-#define VALIDATION_THRESHOLD (1)
+#define VALIDATION_THRESHOLD (1) // The lower, the less validation data
 
 #if DEBUG
 #define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
@@ -53,6 +53,46 @@
     {                                       \
     } while (0)
 #endif // DEBUG
+
+#define _snprintf_with_mem_alloc(ptr, ret, size, fmt, ...)                                 \
+    do                                                                                     \
+    {                                                                                      \
+        while (ret >= size)                                                                \
+        {                                                                                  \
+            ret = snprintf(ptr, size, fmt, ##__VA_ARGS__);                                 \
+            if (ret < 0)                                                                   \
+            {                                                                              \
+                fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);          \
+                ptr = NULL;                                                                \
+            }                                                                              \
+            if (ret >= size)                                                               \
+            {                                                                              \
+                /* truncated result, increasing the size of the buffer and trying again */ \
+                size = size * 2;                                                           \
+                ptr = realloc(ptr, size);                                                  \
+            }                                                                              \
+        }                                                                                  \
+    } while (0)
+
+#define _snprintf(ptr, base_size, fmt, ...)                               \
+    do                                                                    \
+    {                                                                     \
+        int size = base_size;                                             \
+        int ret = size;                                                   \
+        if (ptr == NULL)                                                  \
+        {                                                                 \
+            ptr = malloc(size * sizeof(char));                            \
+            /* We make sure we do not get a truncated result */           \
+            _snprintf_with_mem_alloc(ptr, ret, size, fmt, ##__VA_ARGS__); \
+        }                                                                 \
+        else                                                              \
+        {                                                                 \
+            int size = sizeof(ptr);                                       \
+            int ret = size;                                               \
+            /* We make sure we do not get a truncated result */           \
+            _snprintf_with_mem_alloc(ptr, ret, size, fmt, ##__VA_ARGS__); \
+        }                                                                 \
+    } while (0)
 
 enum
 {

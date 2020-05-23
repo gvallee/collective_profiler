@@ -179,7 +179,13 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 static char *add_range(char *str, int start, int end)
 {
     int size = MAX_STRING_LEN;
+
+#if 1
+    _snprintf(str, size, "%d-%d", start, end);
+    return str;
+#else
     int ret = size;
+    fprintf(stderr, "Before: %s\n", str);
 
     if (str == NULL)
     {
@@ -200,6 +206,7 @@ static char *add_range(char *str, int start, int end)
                 buf = realloc(buf, size);
             }
         }
+        fprintf(stderr, "After: %s\n", str);
         return buf;
     }
     else
@@ -221,15 +228,23 @@ static char *add_range(char *str, int start, int end)
                 size = size * 2;
                 str = realloc(str, size);
             }
+            fprintf(stderr, "After: %s\n", str);
             return str;
         }
     }
+#endif
 }
 
 static char *add_singleton(char *str, int n)
 {
+#if 1
+    _snprintf(str, MAX_STRING_LEN, "%s, %d", str, n);
+    return str;
+#else
     if (str == NULL)
     {
+        int size;
+
         char *buf = (char *)malloc(MAX_STRING_LEN * sizeof(char));
         sprintf(buf, "%d", n);
         return buf;
@@ -240,6 +255,7 @@ static char *add_singleton(char *str, int n)
         sprintf(str, "%s, %d", str, n);
         return str;
     }
+#endif
 }
 
 char *compress_int_array(int *array, int size)
