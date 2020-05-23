@@ -286,11 +286,6 @@ static int add_group(grouping_engine_t *e, group_t *gp)
     return 0;
 }
 
-int get_remainder(int n, int d)
-{
-    return (n - d * (n / d));
-}
-
 static double get_median(int size, int *data, int *values)
 {
     int idx1, idx2;

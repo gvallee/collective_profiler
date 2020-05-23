@@ -26,6 +26,7 @@
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
 #define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALLV_CALLS says when we stop profiling
+#define DEFAULT_TRACKED_CALLS (10)
 
 // A few switches to enable/disable a bunch of capabilities
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
@@ -39,7 +40,6 @@
 #define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?
 #define TRACK_PATTERNS_ON_CALL_BASIS (0) // Do we want to differentiate patterns on a per-call basis
 
-#define MAX_TRACKED_CALLS (10)
 #define MAX_TRACKED_RANKS (1024)
 
 #define VALIDATION_THRESHOLD (1) // The lower, the less validation data
@@ -53,46 +53,6 @@
     {                                       \
     } while (0)
 #endif // DEBUG
-
-#define _snprintf_with_mem_alloc(ptr, ret, size, fmt, ...)                                 \
-    do                                                                                     \
-    {                                                                                      \
-        while (ret >= size)                                                                \
-        {                                                                                  \
-            ret = snprintf(ptr, size, fmt, ##__VA_ARGS__);                                 \
-            if (ret < 0)                                                                   \
-            {                                                                              \
-                fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);          \
-                ptr = NULL;                                                                \
-            }                                                                              \
-            if (ret >= size)                                                               \
-            {                                                                              \
-                /* truncated result, increasing the size of the buffer and trying again */ \
-                size = size * 2;                                                           \
-                ptr = realloc(ptr, size);                                                  \
-            }                                                                              \
-        }                                                                                  \
-    } while (0)
-
-#define _snprintf(ptr, base_size, fmt, ...)                               \
-    do                                                                    \
-    {                                                                     \
-        int size = base_size;                                             \
-        int ret = size;                                                   \
-        if (ptr == NULL)                                                  \
-        {                                                                 \
-            ptr = malloc(size * sizeof(char));                            \
-            /* We make sure we do not get a truncated result */           \
-            _snprintf_with_mem_alloc(ptr, ret, size, fmt, ##__VA_ARGS__); \
-        }                                                                 \
-        else                                                              \
-        {                                                                 \
-            int size = sizeof(ptr);                                       \
-            int ret = size;                                               \
-            /* We make sure we do not get a truncated result */           \
-            _snprintf_with_mem_alloc(ptr, ret, size, fmt, ##__VA_ARGS__); \
-        }                                                                 \
-    } while (0)
 
 enum
 {
@@ -114,8 +74,9 @@ typedef struct counts_data
 typedef struct avSRCountNode
 {
     int size;
-    int count;                    // How many time we detected the pattern
-    int calls[MAX_TRACKED_CALLS]; // Which calls produced the pattern
+    int count; // How many time we detected the pattern; also size of list_calls
+    int max_calls;
+    int *list_calls; // Which calls produced the pattern
     int comm;
     int sendtype_size;
     int recvtype_size;
@@ -154,5 +115,10 @@ typedef struct avCallPattern
     avPattern_t *rpatterns;
     struct avCallPattern *next;
 } avCallPattern_t;
+
+static int get_remainder(int n, int d)
+{
+    return (n - d * (n / d));
+}
 
 #endif // ALLTOALLV_PROFILER_H

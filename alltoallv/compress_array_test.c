@@ -57,6 +57,7 @@ int compress_array_test(void)
         if (strcmp(str, tests[i].expected_result) != 0)
         {
             fprintf(stderr, "[ERROR] test #%d expected %s but got %s\n", i, tests[i].expected_result, str);
+            return 1;
         }
         else
         {

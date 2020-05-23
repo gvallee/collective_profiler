@@ -179,21 +179,14 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 static char *add_range(char *str, int start, int end)
 {
     int size = MAX_STRING_LEN;
-
-#if 1
-    _snprintf(str, size, "%d-%d", start, end);
-    return str;
-#else
     int ret = size;
-    fprintf(stderr, "Before: %s\n", str);
 
     if (str == NULL)
     {
-        char *buf = (char *)malloc(size * sizeof(char));
-        // We make sure we do not get a truncated result
+        str = (char *)malloc(size * sizeof(char));
         while (ret >= size)
         {
-            ret = snprintf(buf, size, "%d-%d", start, end);
+            ret = snprintf(str, size, "%d-%d", start, end);
             if (ret < 0)
             {
                 fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
@@ -203,20 +196,19 @@ static char *add_range(char *str, int start, int end)
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                buf = realloc(buf, size);
+                str = (char *)realloc(str, size);
             }
         }
-        fprintf(stderr, "After: %s\n", str);
-        return buf;
+        return str;
     }
     else
     {
-        int size = sizeof(str);
-        int ret = size;
         // We make sure we do not get a truncated result
+        char *s = NULL;
         while (ret >= size)
         {
-            ret = snprintf(str, size, "%s, %d-%d", str, start, end);
+            s = (char *)malloc(size * sizeof(char));
+            ret = snprintf(s, size, "%s, %d-%d", str, start, end);
             if (ret < 0)
             {
                 fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
@@ -226,36 +218,65 @@ static char *add_range(char *str, int start, int end)
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                str = realloc(str, size);
+                s = (char *)realloc(str, size);
             }
-            fprintf(stderr, "After: %s\n", str);
-            return str;
         }
+
+        if (s != NULL)
+        {
+            if (str != NULL)
+            {
+                free(str);
+            }
+            str = s;
+        }
+
+        return str;
     }
-#endif
 }
 
 static char *add_singleton(char *str, int n)
 {
-#if 1
-    _snprintf(str, MAX_STRING_LEN, "%s, %d", str, n);
-    return str;
-#else
+
+    int size = MAX_STRING_LEN;
+    int ret = size;
+
     if (str == NULL)
     {
-        int size;
-
-        char *buf = (char *)malloc(MAX_STRING_LEN * sizeof(char));
-        sprintf(buf, "%d", n);
-        return buf;
-    }
-    else
-    {
-        int len = strlen(str);
-        sprintf(str, "%s, %d", str, n);
+        str = (char *)malloc(size * sizeof(char));
+        sprintf(str, "%d", n);
         return str;
     }
-#endif
+
+    // We make sure we do not get a truncated result
+    char *s = NULL;
+    while (ret >= size)
+    {
+        s = (char *)malloc(size * sizeof(char));
+        ret = snprintf(s, size, "%s, %d", &(str[0]), n);
+        if (ret < 0)
+        {
+            fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
+            return NULL;
+        }
+        if (ret >= size)
+        {
+            // truncated result, increasing the size of the buffer and trying again
+            size = size * 2;
+            s = (char *)realloc(str, size);
+        }
+    }
+
+    if (s != NULL)
+    {
+        if (str != NULL)
+        {
+            free(str);
+        }
+        str = s;
+    }
+
+    return str;
 }
 
 char *compress_int_array(int *array, int size)
@@ -345,20 +366,14 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
-    fprintf(fh, "Count: %d calls - ", count);
-    int max_loop = count;
-    if (max_loop > MAX_TRACKED_CALLS)
-    {
-        max_loop = MAX_TRACKED_CALLS;
-    }
-    for (i = 0; i < max_loop; i++)
+    char *calls_str = compress_int_array(calls, count);
+    fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
+    /*
+    for (i = 0; i < count; i++)
     {
         fprintf(fh, "%d ", calls[i]);
     }
-    if (count > MAX_TRACKED_CALLS)
-    {
-        fprintf(fh, "... (%d more call(s) was/were profiled but not tracked)", count - MAX_TRACKED_CALLS);
-    }
+    */
     fprintf(fh, "\n\nBEGINNING DATA\n");
     DEBUG_ALLTOALLV_PROFILING("Saving counts...\n");
     // Save the compressed version of the data
@@ -557,14 +572,14 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
         _log_data(logger, startcall, endcall,
-                  SEND_CTX, srCountPtr->count, srCountPtr->calls,
+                  SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
                   srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 
         DEBUG_ALLTOALLV_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
         fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
         _log_data(logger, startcall, endcall,
-                  RECV_CTX, srCountPtr->count, srCountPtr->calls,
+                  RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
                   srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
         DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);

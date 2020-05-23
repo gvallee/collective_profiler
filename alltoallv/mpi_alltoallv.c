@@ -414,10 +414,14 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 		{
 			// Data exist, adding call info to it
 			DEBUG_ALLTOALLV_PROFILING("Data already exists, updating metadata...\n");
-			if (temp->count < MAX_TRACKED_CALLS)
+			assert(temp->list_calls);
+			if (temp->count >= temp->max_calls)
 			{
-				temp->calls[temp->count] = avCalls; // Note: count starts at 1, not 0
+				temp->max_calls = temp->max_calls * 2;
+				temp->list_calls = (int *)realloc(temp->list_calls, temp->max_calls * sizeof(int));
+				assert(temp->list_calls);
 			}
+			temp->list_calls[temp->count] = avCalls; // Note: count starts at 1, not 0
 			temp->count++;
 #if DEBUG
 			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
@@ -435,6 +439,9 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	newNode->size = size;
 	newNode->count = 1;
+	newNode->list_calls = (int *)malloc(DEFAULT_TRACKED_CALLS * sizeof(int));
+	newNode->max_calls = DEFAULT_TRACKED_CALLS;
+	assert(newNode->list_calls);
 	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
 	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
 	assert(newNode->send_data);
@@ -472,7 +479,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	newNode->sendtype_size = sendtype_size;
 	newNode->recvtype_size = recvtype_size;
-	newNode->calls[0] = avCalls;
+	newNode->list_calls[0] = avCalls;
 	newNode->next = NULL;
 #if DEBUG
 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
@@ -747,6 +754,7 @@ int _mpi_finalize()
 
 			free(head->recv_data);
 			free(head->send_data);
+			free(head->list_calls);
 
 			free(head);
 			head = c_ptr;
