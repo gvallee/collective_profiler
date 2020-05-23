@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "logger.h"
 
-#define MAX_ELTS (10)
+#define MAX_ELTS (20)
 #define MAX_STRLEN (128)
 
 typedef struct ca_test
@@ -45,11 +45,15 @@ int compress_array_test(void)
             size : 8,
             expected_result : "0-3, 5-8",
         },
-
+        {
+            array : {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 32, 33, 34, 35, 36, 64, 65, 66},
+            size : 20,
+            expected_result : "4-15, 32-36, 64-66",
+        },
     };
 
     int i;
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 6; i++)
     {
         fprintf(stdout, "*** Running test %d\n", i);
         char *str = compress_int_array(tests[i].array, tests[i].size);

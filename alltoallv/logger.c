@@ -178,7 +178,15 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 
 static char *add_range(char *str, int start, int end)
 {
-    int size = MAX_STRING_LEN;
+    int size;
+    if (str == NULL)
+    {
+        size = MAX_STRING_LEN;
+    }
+    else
+    {
+        size = strlen(str) + (MAX_STRING_LEN - get_remainder(strlen(str), MAX_STRING_LEN));
+    }
     int ret = size;
 
     if (str == NULL)
@@ -207,18 +215,21 @@ static char *add_range(char *str, int start, int end)
         char *s = NULL;
         while (ret >= size)
         {
-            s = (char *)malloc(size * sizeof(char));
+            if (s == NULL)
+            {
+                s = (char *)malloc(size * sizeof(char));
+            }
+            else
+            {
+                // truncated result, increasing the size of the buffer and trying again
+                size = size * 2;
+                s = (char *)realloc(s, size);
+            }
             ret = snprintf(s, size, "%s, %d-%d", str, start, end);
             if (ret < 0)
             {
                 fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
                 return NULL;
-            }
-            if (ret >= size)
-            {
-                // truncated result, increasing the size of the buffer and trying again
-                size = size * 2;
-                s = (char *)realloc(str, size);
             }
         }
 
@@ -238,7 +249,15 @@ static char *add_range(char *str, int start, int end)
 static char *add_singleton(char *str, int n)
 {
 
-    int size = MAX_STRING_LEN;
+    int size;
+    if (str == NULL)
+    {
+        size = MAX_STRING_LEN;
+    }
+    else
+    {
+        size = strlen(str) + (MAX_STRING_LEN - get_remainder(strlen(str), MAX_STRING_LEN));
+    }
     int ret = size;
 
     if (str == NULL)
@@ -252,18 +271,21 @@ static char *add_singleton(char *str, int n)
     char *s = NULL;
     while (ret >= size)
     {
-        s = (char *)malloc(size * sizeof(char));
-        ret = snprintf(s, size, "%s, %d", &(str[0]), n);
+        if (s == NULL)
+        {
+            s = (char *)malloc(size * sizeof(char));
+        }
+        else
+        {
+            // truncated result, increasing the size of the buffer and trying again
+            size = size * 2;
+            s = (char *)realloc(s, size);
+        }
+        ret = snprintf(s, size, "%s, %d", str, n);
         if (ret < 0)
         {
             fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
             return NULL;
-        }
-        if (ret >= size)
-        {
-            // truncated result, increasing the size of the buffer and trying again
-            size = size * 2;
-            s = (char *)realloc(str, size);
         }
     }
 
