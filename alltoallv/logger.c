@@ -178,17 +178,51 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 
 static char *add_range(char *str, int start, int end)
 {
+    int size = MAX_STRING_LEN;
+    int ret = size;
+
     if (str == NULL)
     {
-        char *buf = (char *)malloc(MAX_STRING_LEN * sizeof(char));
-        sprintf(buf, "%d-%d", start, end);
+        char *buf = (char *)malloc(size * sizeof(char));
+        // We make sure we do not get a truncated result
+        while (ret >= size)
+        {
+            ret = snprintf(buf, size, "%d-%d", start, end);
+            if (ret < 0)
+            {
+                fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
+                return NULL;
+            }
+            if (ret >= size)
+            {
+                // truncated result, increasing the size of the buffer and trying again
+                size = size * 2;
+                buf = realloc(buf, size);
+            }
+        }
         return buf;
     }
     else
     {
-        int len = strlen(str);
-        sprintf(str, "%s, %d-%d", str, start, end);
-        return str;
+        int size = sizeof(str);
+        int ret = size;
+        // We make sure we do not get a truncated result
+        while (ret >= size)
+        {
+            ret = snprintf(str, size, "%s, %d-%d", str, start, end);
+            if (ret < 0)
+            {
+                fprintf(stderr, "[%s:%d] snprintf failed\n", __FILE__, __LINE__);
+                return NULL;
+            }
+            if (ret >= size)
+            {
+                // truncated result, increasing the size of the buffer and trying again
+                size = size * 2;
+                str = realloc(str, size);
+            }
+            return str;
+        }
     }
 }
 
@@ -319,7 +353,10 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 
         char *str = compress_int_array(counters[count_data_number]->ranks, counters[count_data_number]->num_ranks);
         fprintf(fh, "Rank(s) %s: ", str);
-        free(str);
+        if (str != NULL)
+        {
+            free(str);
+        }
 
         for (n = 0; n < size; n++)
         {
