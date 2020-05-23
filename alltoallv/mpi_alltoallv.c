@@ -879,7 +879,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 #endif
 
-#if ENABLE_VALIDATION
+		int uniqueID = 0;
+#if 0
 		// Quite simple: rank 0 broadcast a unique ID (its PID) to other rank so we have a unique way to group files
 		// Then we randomly save counters in separate file on a per-rank and per-alltoallv-call basis.
 		// A tool is available to compare that data with the counter file we have, using the underlying infrastructure
@@ -899,8 +900,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		{
 			save_counters_for_validation(uniqueID, myrank, avCalls, size, sendcounts, recvcounts);
 		}
-#endif // ENABLE_VALIDATION
-
+#endif
 #if ENABLE_TIMING
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
@@ -915,8 +915,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_TIMING
 
 		// Gather a bunch of counters
-		//MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
-		//MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
+		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
+		MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
