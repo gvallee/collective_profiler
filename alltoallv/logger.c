@@ -259,7 +259,6 @@ static char *add_singleton(char *str, int n)
         size = strlen(str) + (MAX_STRING_LEN - get_remainder(strlen(str), MAX_STRING_LEN));
     }
     int ret = size;
-
     if (str == NULL)
     {
         str = (char *)malloc(size * sizeof(char));
@@ -387,6 +386,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
+    fprintf(fh, "Datatype size: %d\n", type_size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
     char *calls_str = compress_int_array(calls, count);
     fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
