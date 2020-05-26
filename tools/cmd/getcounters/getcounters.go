@@ -23,7 +23,8 @@ func main() {
 	rank := flag.Int("rank", 0, "Rank for which we want to extract counters")
 	call := flag.Int("call", 0, "Number of the alltoallv call for which we want to extract counters")
 	dir := flag.String("dir", "", "Where the data files are stored")
-	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
+	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
+	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 
 	flag.Parse()
 
@@ -36,13 +37,13 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	sendCounters, recvCounters, err := profiler.FindCounters(*dir, *id, *rank, *call)
+	sendCounters, recvCounters, err := profiler.FindCounters(*dir, *jobid, *pid, *rank, *call)
 	if err != nil {
 		log.Fatalf("unable to find counters: %s", err)
 	}
 
-	//fmt.Println("Send counters:")
+	fmt.Println("Send counters:")
 	fmt.Printf("%s\n", sendCounters)
-	//fmt.Println("Receive counters")
+	fmt.Println("Receive counters")
 	fmt.Printf("%s\n", recvCounters)
 }

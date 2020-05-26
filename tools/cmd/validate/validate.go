@@ -22,6 +22,7 @@ func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	dir := flag.String("dir", "", "Where all the data is")
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
+	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 
 	flag.Parse()
 
@@ -34,9 +35,10 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	err := profiler.Validate(*id, *dir)
+	err := profiler.Validate(*jobid, *id, *dir)
 	if err != nil {
-		log.Fatalf("Validation of the profiler failed: %s", err)
+		fmt.Printf("Validation of the profiler failed: %s", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("Successful validation")

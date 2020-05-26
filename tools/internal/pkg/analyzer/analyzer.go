@@ -179,7 +179,7 @@ func (a *analyzer) Parse() error {
 	reader := bufio.NewReader(file)
 	for {
 		log.Println("Getting header...")
-		numCalls, _, callIDsStr, readerErr := datafilereader.GetHeader(reader)
+		numCalls, _, callIDsStr, _, _, readerErr := datafilereader.GetHeader(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr

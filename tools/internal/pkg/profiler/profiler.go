@@ -22,32 +22,11 @@ import (
 )
 
 const (
-	sendCountersFilePrefix = "send-counters.pid"
-	recvCountersFilePrefix = "recv-counters.pid"
+	sendCountersFilePrefix = "send-counters."
+	recvCountersFilePrefix = "recv-counters."
 )
 
-/*
-func convertCompressedCallListtoIntSlice(str string) ([]int, error) {
-	var callIDs []int
-
-	fmt.Printf("Found range: %s\n", str)
-	tokens := strings.Split(str, ", ")
-	for _, t := range tokens {
-		tokens2 := strings.Split(t, "-")
-		for _, t2 := range tokens2 {
-			n, err := strconv.Atoi(t2)
-			if err != nil {
-				return callIDs, fmt.Errorf("unable to parse %s", str)
-			}
-			callIDs = append(callIDs, n)
-		}
-	}
-
-	return callIDs, nil
-}
-*/
-
-func findCountersFilesWithPrefix(basedir string, id string, prefix string) ([]string, error) {
+func findCountersFilesWithPrefix(basedir string, jobid string, pid string, prefix string) ([]string, error) {
 	var files []string
 
 	f, err := ioutil.ReadDir(basedir)
@@ -55,8 +34,13 @@ func findCountersFilesWithPrefix(basedir string, id string, prefix string) ([]st
 		return files, fmt.Errorf("[ERROR] unable to read %s: %w", basedir, err)
 	}
 
+	log.Printf("Looking for files from job %s and PID %s\n", jobid, pid)
+
 	for _, file := range f {
-		if strings.HasPrefix(file.Name(), prefix) && strings.Contains(file.Name(), "pid"+id) {
+		log.Printf("Checking file: %s\n", file.Name())
+
+		if strings.HasPrefix(file.Name(), prefix) && strings.Contains(file.Name(), "pid"+pid) && strings.Contains(file.Name(), "job"+jobid) {
+			log.Printf("-> Found a match: %s\n", file.Name())
 			path := filepath.Join(basedir, file.Name())
 			files = append(files, path)
 		}
@@ -65,14 +49,16 @@ func findCountersFilesWithPrefix(basedir string, id string, prefix string) ([]st
 	return files, nil
 }
 
-func findSendCountersFiles(basedir string, id int) ([]string, error) {
-	idStr := strconv.Itoa(id)
-	return findCountersFilesWithPrefix(basedir, idStr, sendCountersFilePrefix)
+func findSendCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
+	pidStr := strconv.Itoa(pid)
+	jobIDStr := strconv.Itoa(jobid)
+	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, sendCountersFilePrefix)
 }
 
-func findRecvCountersFiles(basedir string, id int) ([]string, error) {
-	idStr := strconv.Itoa(id)
-	return findCountersFilesWithPrefix(basedir, idStr, recvCountersFilePrefix)
+func findRecvCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
+	pidStr := strconv.Itoa(pid)
+	jobIDStr := strconv.Itoa(jobid)
+	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, recvCountersFilePrefix)
 }
 
 func containsCall(callNum int, calls []int) bool {
@@ -85,13 +71,29 @@ func containsCall(callNum int, calls []int) bool {
 }
 
 func extractRankCounters(callCounters []string, rank int) (string, error) {
-	rankStr := strconv.Itoa(rank)
-
+	fmt.Printf("call counters: %s\n", strings.Join(callCounters, "\n"))
 	for i := 0; i < len(callCounters); i++ {
-		ranksListStr := strings.Split(strings.ReplaceAll(strings.Split(callCounters[i], ": ")[0], "Rank(s) ", ""), " ")
+		ts := strings.Split(callCounters[i], ": ")
+		ranks := ts[0]
+		counters := ts[1]
+		ranksListStr := strings.Split(strings.ReplaceAll(ranks, "Rank(s) ", ""), " ")
 		for j := 0; j < len(ranksListStr); j++ {
-			if ranksListStr[j] == rankStr {
-				return strings.Split(callCounters[i], ": ")[1], nil
+			// We may have a list that includes ranges
+			tokens := strings.Split(ranksListStr[j], ",")
+			for _, t := range tokens {
+				tokens2 := strings.Split(t, "-")
+				if len(tokens2) == 2 {
+					startRank, _ := strconv.Atoi(tokens2[0])
+					endRank, _ := strconv.Atoi(tokens2[1])
+					if startRank <= rank && rank <= endRank {
+						return counters, nil
+					}
+				} else if len(tokens) == 1 {
+					rankID, _ := strconv.Atoi(tokens2[0])
+					if rankID == rank {
+						return counters, nil
+					}
+				}
 			}
 		}
 	}
@@ -101,47 +103,52 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 
 func findCounters(files []string, rank int, callNum int) (string, bool, error) {
 	counters := ""
+	found := false
 
 	for _, f := range files {
-		log.Printf("Scanning %s...\n", f)
 		file, err := os.Open(f)
 		if err != nil {
-			return "", false, fmt.Errorf("unable to open %s: %w", f, err)
+			return "", found, fmt.Errorf("unable to open %s: %w", f, err)
 		}
 		defer file.Close()
 
 		reader := bufio.NewReader(file)
 		for {
-			log.Println("-> Reading header...")
-			_, callIDs, _, readerErr1 := datafilereader.GetHeader(reader)
+			_, callIDs, _, _, _, readerErr1 := datafilereader.GetHeader(reader)
+
 			if readerErr1 != nil && readerErr1 != io.EOF {
 				fmt.Printf("ERROR: %s", readerErr1)
-				return counters, false, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
+				return counters, found, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
+			}
+
+			targetCall := false
+			for i := 0; i < len(callIDs); i++ {
+				if callIDs[i] == callNum {
+					targetCall = true
+					break
+				}
 			}
 
 			var readerErr2 error
 			var callCounters []string
-			if containsCall(callNum, callIDs) {
-				log.Println("Reading counters...")
+			if targetCall == true {
 				callCounters, readerErr2 = datafilereader.GetCounters(reader)
 				if readerErr2 != nil && readerErr2 != io.EOF {
-					return counters, false, readerErr2
+					return counters, found, readerErr2
 				}
-				counters, err := extractRankCounters(callCounters, rank)
+
+				counters, err = extractRankCounters(callCounters, rank)
 				if err != nil {
-					return counters, false, err
+					return counters, found, err
 				}
+				found = true
 
-				if readerErr2 == io.EOF {
-					break
-				}
-
-				return counters, true, nil
+				return counters, found, nil
 			} else {
 				// The current counters are not about the call we care about, skipping...
 				_, err := datafilereader.GetCounters(reader)
 				if err != nil {
-					return counters, false, err
+					return counters, found, err
 				}
 			}
 
@@ -151,43 +158,42 @@ func findCounters(files []string, rank int, callNum int) (string, bool, error) {
 		}
 	}
 
-	log.Printf("unable to find data for rank %d in call %d", rank, callNum)
-	return counters, false, nil
+	return counters, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
 }
 
-func findSendCounters(basedir string, id int, rank int, callNum int) (string, error) {
-	files, err := findSendCountersFiles(basedir, id)
+func findSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
+	files, err := findSendCountersFiles(basedir, jobid, pid)
 	if err != nil {
 		return "", err
 	}
-	counters, found, err := findCounters(files, rank, callNum)
-	if !found {
-		return "", fmt.Errorf("unable to find counters for rank %d in call %d", rank, callNum)
+	counters, _, err := findCounters(files, rank, callNum)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("* unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
 
 	return counters, nil
 }
 
-func findRecvCounters(basedir string, id int, rank int, callNum int) (string, error) {
-	files, err := findRecvCountersFiles(basedir, id)
+func findRecvCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
+	files, err := findRecvCountersFiles(basedir, jobid, pid)
 	if err != nil {
 		return "", err
 	}
-	counters, found, err := findCounters(files, rank, callNum)
-	if !found {
-		return "", fmt.Errorf("unable to find counters for rank %d in call %d", rank, callNum)
+	counters, _, err := findCounters(files, rank, callNum)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
 
 	return counters, nil
 }
 
-func FindCounters(basedir string, id int, rank int, callNum int) (string, string, error) {
-	sendCounters, err := findSendCounters(basedir, id, rank, callNum)
+func FindCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, string, error) {
+	sendCounters, err := findSendCounters(basedir, jobid, pid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
 
-	recvCounters, err := findRecvCounters(basedir, id, rank, callNum)
+	recvCounters, err := findRecvCounters(basedir, jobid, pid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
@@ -312,38 +318,51 @@ func getCountersFromValidationFile(path string) (string, string, error) {
 	return sendCounters, recvCounters, nil
 }
 
-func Validate(id int, dir string) error {
+func Validate(jobid int, pid int, dir string) error {
 	// Find all the data randomly generated during the execution of the app
-	idStr := strconv.Itoa(id)
+	idStr := strconv.Itoa(pid)
 	files, err := getValidationFiles(dir, idStr)
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Found %d files with data for validation\n", len(files))
+
 	// For each file, load the counters with our framework and compare with the data we got directly from the app
 	for _, f := range files {
-		id, rank, call, err := getInfoFromFilename(f)
+		pid, rank, call, err := getInfoFromFilename(f)
 		if err != nil {
 			return err
 		}
 
+		log.Printf("Looking up counters for rank %d during call %d\n", rank, call)
 		sendCounters1, recvCounters1, err := getCountersFromValidationFile(f)
 		if err != nil {
+			fmt.Printf("unable to get counters from validation data: %s", err)
 			return err
 		}
 
-		sendCounters2, recvCounters2, err := FindCounters(dir, id, rank, call)
+		sendCounters2, recvCounters2, err := FindCounters(dir, jobid, pid, rank, call)
 		if err != nil {
+			fmt.Printf("unable to get counters: %s", err)
 			return err
+		}
+
+		if sendCounters2 == "" || recvCounters2 == "" {
+			// It means we did not find the counters because of truncated data to save space (otherwise we would get an error)
+			fmt.Printf("We are skipping %s, we do not have information about that the call (truncated data because of configuration)\n", filepath.Base(f))
+			continue
 		}
 
 		if sendCounters1 != sendCounters2 {
-			return fmt.Errorf("Send counters do not match: '%s' vs. '%s'", sendCounters1, sendCounters2)
+			return fmt.Errorf("Send counters do not match with %s: expected '%s' but got '%s'\nReceive counts are: %s vs. %s", filepath.Base(f), sendCounters1, sendCounters2, recvCounters1, recvCounters2)
 		}
 
 		if recvCounters1 != recvCounters2 {
-			return fmt.Errorf("Receive counters do not match: '%s' vs. '%s'", recvCounters1, recvCounters2)
+			return fmt.Errorf("Receive counters do not match %s: expected '%s' but got '%s'\nSend counts are: %s vs. %s", filepath.Base(f), recvCounters1, recvCounters2, sendCounters1, sendCounters2)
 		}
+
+		fmt.Printf("File %s validated\n", filepath.Base(f))
 	}
 
 	return nil
