@@ -563,12 +563,12 @@ static void log_timings(logger_t *logger, int num_call, double *timings, double 
     int j;
 
     fprintf(logger->timing_fh, "Alltoallv call #%d\n", num_call);
-    fprintf(logger->timing_fh, "# Late arrival timings");
+    fprintf(logger->timing_fh, "# Late arrival timings\n");
     for (j = 0; j < size; j++)
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, late_arrival_timings[j]);
     }
-    fprintf(logger->timing_fh, "# Execution times of Alltoallv function");
+    fprintf(logger->timing_fh, "# Execution times of Alltoallv function\n");
     for (j = 0; j < size; j++)
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
