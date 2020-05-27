@@ -669,6 +669,22 @@ void logger_fini(logger_t **l)
     }
 }
 
+void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
+{
+    avTimingsNode_t *tPtr;
+    int i;
+
+    // Handle the timing data
+    tPtr = times_list;
+    i = 0;
+    while (tPtr != NULL)
+    {
+        log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
+        tPtr = tPtr->next;
+        i++;
+    }
+}
+
 void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);

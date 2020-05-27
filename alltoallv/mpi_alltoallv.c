@@ -759,6 +759,10 @@ int _mpi_finalize()
 			free(head);
 			head = c_ptr;
 		}
+#else
+#if ENABLE_TIMING
+		log_timing_data(logger, op_timing_exec_head);
+#endif // ENABLE_TIMING
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
