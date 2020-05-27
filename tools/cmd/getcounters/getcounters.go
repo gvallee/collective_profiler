@@ -37,7 +37,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	sendCounters, recvCounters, err := profiler.FindCounters(*dir, *jobid, *pid, *rank, *call)
+	sendCounters, recvCounters, err := profiler.FindCallRankCounters(*dir, *jobid, *pid, *rank, *call)
 	if err != nil {
 		log.Fatalf("unable to find counters: %s", err)
 	}

@@ -1,6 +1,6 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: countersextractor sendprofiler recvprofiler getcounters validate
+all: sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings
 
 validate:
 	cd cmd/validate; go build validate.go
@@ -8,8 +8,8 @@ validate:
 getcounters:
 	cd cmd/getcounters; go build getcounters.go
 
-countersextractor:
-	cd cmd/countersextractor; go build countersextractor.go
+srcountsanalyzer:
+	cd cmd/srcountsanalyzer; go build srcountsanalyzer.go
 
 sendprofiler:
 	cd cmd/sendprofiler; go build sendprofiler.go
@@ -17,5 +17,13 @@ sendprofiler:
 recvprofiler:
 	cd cmd/recvprofiler; go build recvprofiler.go
 
+extracttimings:
+	cd cmd/extracttimings; go build extracttimings.go
+
 clean:
-	@rm -f cmd/countersextractor/countersextractor
+	@rm -f cmd/countersextractor/validate
+	@rm -f cmd/getcounters/getcounters
+	@rm -f cmd/srcountanalyzer/srcountanalyzer
+	@rm -f cmd/sendprofiler/sendprofiler
+	@rm -f cmd/recvprofiler/recvprofiler
+	@rm -f cmd/extracttimings/extracttimings

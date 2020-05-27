@@ -61,6 +61,11 @@ func findRecvCountersFiles(basedir string, jobid int, pid int) ([]string, error)
 	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, recvCountersFilePrefix)
 }
 
+func GetCountsFiles(jobid int, pid int) (string, string) {
+	suffix := "job" + strconv.Itoa(jobid) + ".pid" + strconv.Itoa(pid) + ".txt"
+	return sendCountersFilePrefix + suffix, recvCountersFilePrefix + suffix
+}
+
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
 		if calls[i] == callNum {
@@ -71,7 +76,7 @@ func containsCall(callNum int, calls []int) bool {
 }
 
 func extractRankCounters(callCounters []string, rank int) (string, error) {
-	fmt.Printf("call counters: %s\n", strings.Join(callCounters, "\n"))
+	//log.Printf("call counters: %s\n", strings.Join(callCounters, "\n"))
 	for i := 0; i < len(callCounters); i++ {
 		ts := strings.Split(callCounters[i], ": ")
 		ranks := ts[0]
@@ -101,7 +106,7 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
-func findCounters(files []string, rank int, callNum int) (string, bool, error) {
+func findCallRankCounters(files []string, rank int, callNum int) (string, bool, error) {
 	counters := ""
 	found := false
 
@@ -114,7 +119,7 @@ func findCounters(files []string, rank int, callNum int) (string, bool, error) {
 
 		reader := bufio.NewReader(file)
 		for {
-			_, callIDs, _, _, _, readerErr1 := datafilereader.GetHeader(reader)
+			_, _, callIDs, _, _, _, readerErr1 := datafilereader.GetHeader(reader)
 
 			if readerErr1 != nil && readerErr1 != io.EOF {
 				fmt.Printf("ERROR: %s", readerErr1)
@@ -161,12 +166,12 @@ func findCounters(files []string, rank int, callNum int) (string, bool, error) {
 	return counters, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
 }
 
-func findSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
+func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
 	files, err := findSendCountersFiles(basedir, jobid, pid)
 	if err != nil {
 		return "", err
 	}
-	counters, _, err := findCounters(files, rank, callNum)
+	counters, _, err := findCallRankCounters(files, rank, callNum)
 	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("* unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
@@ -174,12 +179,12 @@ func findSendCounters(basedir string, jobid int, pid int, rank int, callNum int)
 	return counters, nil
 }
 
-func findRecvCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
+func findCallRankRecvCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
 	files, err := findRecvCountersFiles(basedir, jobid, pid)
 	if err != nil {
 		return "", err
 	}
-	counters, _, err := findCounters(files, rank, callNum)
+	counters, _, err := findCallRankCounters(files, rank, callNum)
 	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
@@ -187,13 +192,13 @@ func findRecvCounters(basedir string, jobid int, pid int, rank int, callNum int)
 	return counters, nil
 }
 
-func FindCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, string, error) {
-	sendCounters, err := findSendCounters(basedir, jobid, pid, rank, callNum)
+func FindCallRankCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, string, error) {
+	sendCounters, err := findCallRankSendCounters(basedir, jobid, pid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
 
-	recvCounters, err := findRecvCounters(basedir, jobid, pid, rank, callNum)
+	recvCounters, err := findCallRankRecvCounters(basedir, jobid, pid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
@@ -342,16 +347,10 @@ func Validate(jobid int, pid int, dir string) error {
 			return err
 		}
 
-		sendCounters2, recvCounters2, err := FindCounters(dir, jobid, pid, rank, call)
+		sendCounters2, recvCounters2, err := FindCallRankCounters(dir, jobid, pid, rank, call)
 		if err != nil {
 			fmt.Printf("unable to get counters: %s", err)
 			return err
-		}
-
-		if sendCounters2 == "" || recvCounters2 == "" {
-			// It means we did not find the counters because of truncated data to save space (otherwise we would get an error)
-			fmt.Printf("We are skipping %s, we do not have information about that the call (truncated data because of configuration)\n", filepath.Base(f))
-			continue
 		}
 
 		if sendCounters1 != sendCounters2 {

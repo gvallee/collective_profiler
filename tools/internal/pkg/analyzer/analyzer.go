@@ -24,6 +24,13 @@ type analyzer struct {
 	InputFile     string
 }
 
+type srCountAnalyzer struct {
+	RecvCountsFile     string
+	SendCountsFile     string
+	RecvCountsAnalyzer *analyzer
+	SendCountsAnalyzer *analyzer
+}
+
 type rankData struct {
 	numZeroMsgs   int
 	ranksRealComm int
@@ -34,6 +41,17 @@ func CreateAnalyzer() *analyzer {
 	a := new(analyzer)
 	a.realEndpoints = make(map[int]int)
 	a.ranksComm = make(map[int]string)
+	return a
+}
+
+func CreateSRCountsAnalyzer(sendCountsFile string, recvCountsFile string) *srCountAnalyzer {
+	a := new(srCountAnalyzer)
+	a.SendCountsFile = sendCountsFile
+	a.RecvCountsFile = recvCountsFile
+	a.RecvCountsAnalyzer = CreateAnalyzer()
+	a.SendCountsAnalyzer = CreateAnalyzer()
+	a.RecvCountsAnalyzer.InputFile = recvCountsFile
+	a.SendCountsAnalyzer.InputFile = sendCountsFile
 	return a
 }
 
@@ -179,7 +197,7 @@ func (a *analyzer) Parse() error {
 	reader := bufio.NewReader(file)
 	for {
 		log.Println("Getting header...")
-		numCalls, _, callIDsStr, _, _, readerErr := datafilereader.GetHeader(reader)
+		_, numCalls, _, callIDsStr, _, _, readerErr := datafilereader.GetHeader(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr
@@ -238,6 +256,20 @@ func (a *analyzer) Parse() error {
 		log.Printf("[ERROR] Metadata specifies %d calls but we extracted %d calls", expectedNumCalls, numCalls)
 	}
 	//}
+
+	return nil
+}
+
+func (a *srCountAnalyzer) SRCountsParse() error {
+	err := a.SendCountsAnalyzer.Parse()
+	if err != nil {
+		return err
+	}
+
+	err = a.RecvCountsAnalyzer.Parse()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
