@@ -37,6 +37,14 @@ type rankData struct {
 	totalMsgs     int
 }
 
+type OpTimeStat struct {
+	CallNum     int
+	MinTime     float64
+	RankMinTime int
+	MaxTime     float64
+	RankMaxTime int
+}
+
 func CreateAnalyzer() *analyzer {
 	a := new(analyzer)
 	a.realEndpoints = make(map[int]int)
@@ -272,4 +280,67 @@ func (a *srCountAnalyzer) SRCountsParse() error {
 	}
 
 	return nil
+}
+
+func GetCallsTimings(reader *bufio.Reader) ([]OpTimeStat, error) {
+	var stats []OpTimeStat
+	curCall := ""
+	curRank := 0
+
+	for {
+		line, readerErr := reader.ReadString('\n')
+		if readerErr != nil && readerErr != io.EOF {
+			return stats, readerErr
+		}
+
+		if line == "" {
+			if readerErr == io.EOF {
+				break
+			}
+			continue
+		}
+
+		tokens := strings.Split(line, "\t")
+		if len(tokens) != 2 {
+			fmt.Printf("Wrong format: '%s'\n", line)
+			return stats, fmt.Errorf("unable to parse %s", line)
+		}
+		timing, err := strconv.ParseFloat(strings.TrimRight(tokens[1], "\n"), 64)
+		if err != nil {
+			return stats, err
+		}
+
+		if curCall != tokens[0] {
+			// We start to parse data for a new alltoallv call
+			curRank = 0
+			var newStats OpTimeStat
+			newStats.CallNum, err = strconv.Atoi(tokens[0])
+			if err != nil {
+				return stats, err
+			}
+			newStats.MaxTime = timing
+			newStats.MinTime = timing
+			newStats.RankMaxTime = curRank
+			newStats.RankMinTime = curRank
+			stats = append(stats, newStats)
+			curCall = tokens[0]
+		} else {
+			curRank++
+			if stats[len(stats)-1].MaxTime < timing {
+				stats[len(stats)-1].MaxTime = timing
+				stats[len(stats)-1].RankMaxTime = curRank
+			}
+
+			if stats[len(stats)-1].MinTime > timing {
+				stats[len(stats)-1].MinTime = timing
+				stats[len(stats)-1].RankMinTime = curRank
+			}
+		}
+
+		if readerErr == io.EOF {
+			break
+		}
+	}
+
+	return stats, nil
 }

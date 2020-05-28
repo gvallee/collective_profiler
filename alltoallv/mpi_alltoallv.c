@@ -11,6 +11,7 @@
 #include "logger.h"
 #include "grouping.h"
 #include "pattern.h"
+#include "execinfo.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -18,6 +19,8 @@ static avTimingsNode_t *op_timing_exec_tail = NULL;
 static avPattern_t *spatterns = NULL;
 static avPattern_t *rpatterns = NULL;
 static avCallPattern_t *call_patterns = NULL;
+static caller_info_t *callers_head = NULL;
+static caller_info_t *callers_tail = NULL;
 
 static int world_size = -1;
 static int myrank = -1;
@@ -765,6 +768,19 @@ int _mpi_finalize()
 #endif // ENABLE_TIMING
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
+#if ENABLE_BACKTRACE
+		caller_info_t *ptr = callers_head;
+		FILE *caller_f = fopen("./callers.md", "w");
+		while (ptr != NULL)
+		{
+			fprintf(caller_f, "Number of alltoallv calls: %d\n", ptr->n_calls);
+			fprintf(caller_f, "Calls %s\n", compress_int_array(ptr->calls, ptr->n_calls));
+			fprintf(caller_f, "BEGINING DATA\n%sEND DATA\n\n", ptr->caller);
+			ptr = ptr->next;
+		}
+		fclose(caller_f);
+#endif // ENABLE_BACKTRACE
+
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 		save_patterns(getpid());
 #endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
@@ -852,6 +868,57 @@ void mpi_finalize_(MPI_Fint *ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
 }
 
+static caller_info_t *create_new_caller_info(char *caller, int n_call)
+{
+	caller_info_t *new_info = malloc(sizeof(caller_info_t));
+	assert(new_info);
+	new_info->calls = malloc(10 * sizeof(int));
+	assert(new_info->calls);
+	new_info->caller = strdup(caller);
+	new_info->n_calls = 1;
+	new_info->calls[0] = n_call;
+	new_info->next = NULL;
+	return new_info;
+}
+
+static int insert_caller_data(char *caller, int n_call)
+{
+	if (caller == NULL)
+	{
+		return 0;
+	}
+
+	if (callers_head == NULL)
+	{
+		caller_info_t *new_info = create_new_caller_info(caller, n_call);
+		callers_head = new_info;
+		callers_tail = new_info;
+		return 0;
+	}
+	else
+	{
+		// Is the caller data already in the list
+		caller_info_t *ptr = callers_head;
+		while (ptr != NULL)
+		{
+			if (strcmp(ptr->caller, caller) == 0)
+			{
+				// We found the caller info
+				ptr->calls[ptr->n_calls] = n_call;
+				ptr->n_calls++;
+				return 0;
+			}
+			ptr = ptr->next;
+		}
+
+		caller_info_t *new_info = create_new_caller_info(caller, n_call);
+		callers_tail->next = new_info;
+		callers_tail = new_info;
+		return 0;
+	}
+	return -1;
+}
+
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
 				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
 				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
@@ -861,6 +928,87 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int localrank;
 	int ret;
 	bool need_profile = true;
+
+#if ENABLE_BACKTRACE
+	if (myrank == 0)
+	{
+		void *array[10];
+		size_t _s;
+		char **strings;
+		char *caller_trace = NULL;
+
+		_s = backtrace(array, 10);
+		strings = backtrace_symbols(array, _s);
+		for (i = 0; i < _s; i++)
+		{
+			int start = 0;
+			int end = 0;
+			bool found = false;
+			int num = 0;
+			for (j = 0; j < strlen(strings[i]); j++)
+			{
+				//fprintf(stderr, "[%s:%d] Check content: %c\n", __FILE__, __LINE__, strings[i][j]);
+				if ((char)(strings[i][j]) == '(' && (char)(strings[i][j + 1]) == '+')
+				{
+					//fprintf(stderr, "[%s:%d] Check - found start\n", __FILE__, __LINE__);
+					start = j;
+					found = true;
+				}
+				if (found && (char)(strings[i][j]) == ')')
+				{
+					end = j;
+					break;
+				}
+			}
+
+			if (found)
+			{
+				char syscom[256];
+				char file[start + 1];
+				for (j = 0; j < start; j++)
+				{
+					file[j] = strings[i][j];
+				}
+				file[start] = '\0';
+				start = start + 2;
+				int k = end - start + 1;
+				char addr[k];
+
+				for (j = 0; j < end - start; j++)
+				{
+					addr[j] = strings[i][start + j];
+				}
+				addr[end - start] = '\0';
+				sprintf(syscom, "addr2line %s -e %s", addr, file);
+
+				FILE *fp = popen(syscom, "r");
+				assert(fp);
+				char line[2048];
+				int _num = 0;
+				while (fgets(line, sizeof(line), fp) != NULL)
+				{
+					if (caller_trace == NULL)
+					{
+						caller_trace = strdup(line);
+						caller_trace[strlen(line)] = '\0';
+					}
+					else
+					{
+						int start = strlen(caller_trace);
+						caller_trace = realloc(caller_trace, (strlen(caller_trace) + strlen(line) + 2) * sizeof(char));
+						sprintf(caller_trace, "%s%s", caller_trace, line);
+					}
+					pclose(fp);
+					_num++;
+				}
+			}
+			num++;
+		}
+		caller_trace[strlen(caller_trace)] = '\0';
+		insert_caller_data(caller_trace, avCalls);
+		free(strings);
+	}
+#endif
 
 	// Check if we need to profile that specific call
 	if (avCalls < _num_call_start_profiling)

@@ -106,24 +106,26 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
-func findCallRankCounters(files []string, rank int, callNum int) (string, bool, error) {
+func findCallRankCounters(files []string, rank int, callNum int) (string, int, bool, error) {
 	counters := ""
 	found := false
+	datatypeSize := 0
 
 	for _, f := range files {
 		file, err := os.Open(f)
 		if err != nil {
-			return "", found, fmt.Errorf("unable to open %s: %w", f, err)
+			return "", datatypeSize, found, fmt.Errorf("unable to open %s: %w", f, err)
 		}
 		defer file.Close()
 
 		reader := bufio.NewReader(file)
 		for {
-			_, _, callIDs, _, _, _, readerErr1 := datafilereader.GetHeader(reader)
+			_, _, callIDs, _, _, dtSize, readerErr1 := datafilereader.GetHeader(reader)
+			datatypeSize = dtSize
 
 			if readerErr1 != nil && readerErr1 != io.EOF {
 				fmt.Printf("ERROR: %s", readerErr1)
-				return counters, found, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
+				return counters, datatypeSize, found, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
 			}
 
 			targetCall := false
@@ -139,21 +141,21 @@ func findCallRankCounters(files []string, rank int, callNum int) (string, bool, 
 			if targetCall == true {
 				callCounters, readerErr2 = datafilereader.GetCounters(reader)
 				if readerErr2 != nil && readerErr2 != io.EOF {
-					return counters, found, readerErr2
+					return counters, datatypeSize, found, readerErr2
 				}
 
 				counters, err = extractRankCounters(callCounters, rank)
 				if err != nil {
-					return counters, found, err
+					return counters, datatypeSize, found, err
 				}
 				found = true
 
-				return counters, found, nil
+				return counters, datatypeSize, found, nil
 			} else {
 				// The current counters are not about the call we care about, skipping...
 				_, err := datafilereader.GetCounters(reader)
 				if err != nil {
-					return counters, found, err
+					return counters, datatypeSize, found, err
 				}
 			}
 
@@ -163,7 +165,7 @@ func findCallRankCounters(files []string, rank int, callNum int) (string, bool, 
 		}
 	}
 
-	return counters, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
+	return counters, datatypeSize, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
 }
 
 func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
@@ -171,7 +173,7 @@ func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, call
 	if err != nil {
 		return "", err
 	}
-	counters, _, err := findCallRankCounters(files, rank, callNum)
+	counters, _, _, err := findCallRankCounters(files, rank, callNum)
 	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("* unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
@@ -184,7 +186,7 @@ func findCallRankRecvCounters(basedir string, jobid int, pid int, rank int, call
 	if err != nil {
 		return "", err
 	}
-	counters, _, err := findCallRankCounters(files, rank, callNum)
+	counters, _, _, err := findCallRankCounters(files, rank, callNum)
 	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("unable to find counters for rank %d in call %d: %s", rank, callNum, err)
 	}
@@ -365,4 +367,50 @@ func Validate(jobid int, pid int, dir string) error {
 	}
 
 	return nil
+}
+
+func GetCallRankData(sendCountersFile string, recvCountersFile string, callNum int, rank int) (int, int, error) {
+	sendCounters, sendDatatypeSize, _, err := findCallRankCounters([]string{sendCountersFile}, rank, callNum)
+	if err != nil {
+		return 0, 0, err
+	}
+	recvCounters, recvDatatypeSize, _, err := findCallRankCounters([]string{recvCountersFile}, rank, callNum)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	sendCounters = strings.TrimRight(sendCounters, "\n")
+	recvCounters = strings.TrimRight(recvCounters, "\n")
+
+	// We parse the send counters to know how much data is being sent
+	sendSum := 0
+	tokens := strings.Split(sendCounters, " ")
+	for _, t := range tokens {
+		if t == "" {
+			continue
+		}
+		n, err := strconv.Atoi(t)
+		if err != nil {
+			return 0, 0, err
+		}
+		sendSum += n
+	}
+	sendSum = sendSum * sendDatatypeSize
+
+	// We parse the recv counters to know how much data is being received
+	recvSum := 0
+	tokens = strings.Split(recvCounters, " ")
+	for _, t := range tokens {
+		if t == "" {
+			continue
+		}
+		n, err := strconv.Atoi(t)
+		if err != nil {
+			return 0, 0, err
+		}
+		recvSum += n
+	}
+	recvSum = recvSum * recvDatatypeSize
+
+	return sendSum, recvSum, nil
 }
