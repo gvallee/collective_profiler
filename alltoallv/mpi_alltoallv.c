@@ -770,7 +770,17 @@ int _mpi_finalize()
 
 #if ENABLE_BACKTRACE
 		caller_info_t *ptr = callers_head;
-		FILE *caller_f = fopen("./callers.md", "w");
+		FILE *caller_f;
+		if (getenv(OUTPUT_DIR_ENVVAR))
+		{
+			char filename[256];
+			sprintf(filename, "%s/callers.md", getenv(OUTPUT_DIR_ENVVAR));
+			caller_f = fopen(filename, "w");
+		}
+		else
+		{
+			caller_f = fopen("./callers.md", "w");
+		}
 		while (ptr != NULL)
 		{
 			fprintf(caller_f, "Number of alltoallv calls: %d\n", ptr->n_calls);
