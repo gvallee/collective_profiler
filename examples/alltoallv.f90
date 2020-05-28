@@ -73,6 +73,7 @@ PROGRAM main
     INTEGER :: counts_recv(3)
     INTEGER :: displacements_recv(3)
     INTEGER :: i
+    INTEGER :: iter
  
     CALL MPI_Init(ierror)
  
@@ -164,9 +165,11 @@ PROGRAM main
             displacements_recv = (/0, 0, 0/)
     END SELECT
  
-    CALL MPI_Alltoallv(buffer_send, counts_send, displacements_send, MPI_INTEGER, &
-                       buffer_recv, counts_recv, displacements_recv, MPI_INTEGER, MPI_COMM_WORLD, ierror)
-    
+    DO iter = 0, 1
+        CALL MPI_Alltoallv(buffer_send, counts_send, displacements_send, MPI_INTEGER, &
+                           buffer_recv, counts_recv, displacements_recv, MPI_INTEGER, MPI_COMM_WORLD, ierror)
+    END DO
+
     WRITE(*,'(A,I0,A)',advance='no') 'Values received on process ', my_rank, ':'
     DO i = 1, buffer_recv_length
         WRITE(*,'(A,I0)',advance='no') ' ', buffer_recv(i)
