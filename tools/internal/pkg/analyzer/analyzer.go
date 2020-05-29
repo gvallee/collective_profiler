@@ -50,6 +50,11 @@ type OpTimeStat struct {
 type CallerInfo struct {
 	Binary    string
 	Addresses []string
+	Calls     []int
+}
+
+type AlltoallvCallers struct {
+	Callers []CallerInfo
 }
 
 func CreateAnalyzer() *analyzer {
@@ -357,8 +362,9 @@ func parseBacktraceLine(line string, exe string) (string, error) {
 	tokens := strings.Split(line, " ")
 	if strings.HasPrefix(tokens[0], exe) {
 		// This is a line that is about the main binary that was executed
-		addr := strings.ReplaceAll(tokens[1], "[", "")
+		addr = strings.ReplaceAll(tokens[1], "[", "")
 		addr = strings.ReplaceAll(addr, "]", "")
+                log.Printf("Address found: %s\n", addr)
 	}
 	return addr, nil
 }
@@ -379,6 +385,7 @@ func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 	binary := strings.ReplaceAll(lines[0], "stack trace for ", "")
 	binary = (strings.Split(binary, " "))[0]
 	binaryExe := filepath.Base(binary)
+        log.Printf("Found binary: %s\n", binaryExe)
 
 	// Now get the backtrace
 	info.Binary = binary
@@ -392,35 +399,53 @@ func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 		}
 		info.Addresses = append(info.Addresses, addr)
 	}
+	log.Printf("We found %d addresses", len(info.Addresses))
 
 	return info, nil
 }
 
-func backtraceInfoExists(alltoallvCallers []CallerInfo, info CallerInfo) bool {
-	for _, i := range alltoallvCallers {
-		if i.Binary == info.Binary {
+func (a *AlltoallvCallers)addInfo(info CallerInfo, callNum int) error {
+	for i := 0; i < len(a.Callers); i++ {
+		if a.Callers[i].Binary == info.Binary {
 			num := 0
 
-			if len(i.Addresses) != len(info.Addresses) {
-				return false
+			if len(a.Callers[i].Addresses) != len(info.Addresses) {
+				continue
 			}
 
 			// Addresses are based on the call stack so ordered the same way
-			for _, addr := range i.Addresses {
+			for _, addr := range a.Callers[i].Addresses {
 				if addr != info.Addresses[num] {
-					return false
+					break
 				}
 				num++
 			}
+			// If we reach this point, it means we successfully compared all elements and they match
+			fmt.Printf("Adding call #%d to list of calls associated to backtrace\n", callNum)
+			a.Callers[i].Calls = append(a.Callers[i].Calls, callNum)
+			return nil
 		} else {
-			return false
+			continue
 		}
 	}
-	return true
+
+	info.Calls = append(info.Calls, callNum)
+	a.Callers = append(a.Callers, info)
+	return nil
 }
 
-func GetCallersFromBacktraces(dir string) ([]CallerInfo, error) {
-	var alltoallvCallers []CallerInfo
+func getNumCallFromBacktraceFile(filename string) (int, error) {
+	str := strings.TrimLeft(filename, "backtrace_call")
+	str = strings.TrimRight(str, ".md")
+	n, err := strconv.Atoi(str)
+	if err != nil {
+		return -1, err
+	}
+	return n, nil
+}
+
+func GetCallersFromBacktraces(dir string) (*AlltoallvCallers, error) {
+	alltoallvCallers := new(AlltoallvCallers)
 
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -428,14 +453,34 @@ func GetCallersFromBacktraces(dir string) ([]CallerInfo, error) {
 	}
 
 	for _, file := range f {
-		info, err := parseBacktraceFile(dir, file.Name())
-		if err != nil {
-			return alltoallvCallers, err
+		if !strings.HasPrefix(file.Name(), "backtrace_call") {
+			continue
 		}
 
-		if !backtraceInfoExists(alltoallvCallers, info) {
-			alltoallvCallers = append(alltoallvCallers, info)
+		numCall, err := getNumCallFromBacktraceFile(file.Name())
+		if err != nil {
+			return nil, err
 		}
+
+		info, err := parseBacktraceFile(dir, file.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Printf("Adding info about call #%d\n", numCall)
+		err = alltoallvCallers.addInfo(info, numCall) 
+		if err != nil {
+			return nil, err
+		}
+		/*
+		{
+			info.Calls = append(info.Calls, numCall)
+                        log.Printf("Caller's info does not already exist")
+			alltoallvCallers = append(alltoallvCallers, info)
+		} else {
+			log.Printf("Caller's info already exists with %d addresses\n", len(info.Addresses))
+		}
+		*/
 	}
 
 	return alltoallvCallers, nil
