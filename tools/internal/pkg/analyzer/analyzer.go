@@ -10,8 +10,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -43,6 +45,11 @@ type OpTimeStat struct {
 	RankMinTime int
 	MaxTime     float64
 	RankMaxTime int
+}
+
+type CallerInfo struct {
+	Binary    string
+	Addresses []string
 }
 
 func CreateAnalyzer() *analyzer {
@@ -343,4 +350,93 @@ func GetCallsTimings(reader *bufio.Reader) ([]OpTimeStat, error) {
 	}
 
 	return stats, nil
+}
+
+func parseBacktraceLine(line string, exe string) (string, error) {
+	addr := ""
+	tokens := strings.Split(line, " ")
+	if strings.HasPrefix(tokens[0], exe) {
+		// This is a line that is about the main binary that was executed
+		addr := strings.ReplaceAll(tokens[1], "[", "")
+		addr = strings.ReplaceAll(addr, "]", "")
+	}
+	return addr, nil
+}
+
+func parseBacktraceFile(file string) (CallerInfo, error) {
+	var info CallerInfo
+
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		return info, err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	// First line includes the binary
+	if !strings.HasPrefix(lines[0], "stack trace for ") {
+		return info, fmt.Errorf("invalid format: %s", lines[0])
+	}
+	binary := strings.ReplaceAll(lines[0], "stack trace for ", "")
+	binary = (strings.Split(binary, " "))[0]
+	binaryExe := filepath.Base(binary)
+
+	// Now get the backtrace
+	info.Binary = binary
+	for i := 1; i < len(lines); i++ {
+		addr, err := parseBacktraceLine(lines[i], binaryExe)
+		if err != nil {
+			return info, err
+		}
+		if addr == "" {
+			continue
+		}
+		info.Addresses = append(info.Addresses, addr)
+	}
+
+	return info, nil
+}
+
+func backtraceInfoExists(alltoallvCallers []CallerInfo, info CallerInfo) bool {
+	for _, i := range alltoallvCallers {
+		if i.Binary == info.Binary {
+			num := 0
+
+			if len(i.Addresses) != len(info.Addresses) {
+				return false
+			}
+
+			// Addresses are based on the call stack so ordered the same way
+			for _, addr := range i.Addresses {
+				if addr != info.Addresses[num] {
+					return false
+				}
+				num++
+			}
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+func GetCallersFromBacktraces(dir string) ([]CallerInfo, error) {
+	var alltoallvCallers []CallerInfo
+
+	f, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return alltoallvCallers, fmt.Errorf("[ERROR] unable to read %s: %w", dir, err)
+	}
+
+	for _, file := range f {
+		info, err := parseBacktraceFile(file.Name())
+		if err != nil {
+			return alltoallvCallers, err
+		}
+
+		if !backtraceInfoExists(alltoallvCallers, info) {
+			alltoallvCallers = append(alltoallvCallers, info)
+		}
+	}
+
+	return alltoallvCallers, nil
 }
