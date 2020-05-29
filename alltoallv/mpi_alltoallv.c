@@ -53,6 +53,25 @@ extern int mpi_fortran_bottom_;
 #define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
 #define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
 
+void print_trace(FILE *f) {
+	char pid_buf[30];
+	sprintf(pid_buf, "%d", getpid());
+    char name_buf[512];
+    name_buf[readlink("/proc/self/exe", name_buf, 511)]=0;
+     fprintf(f,"stack trace for %s pid=%s\n",name_buf,pid_buf);
+#if 0
+    int child_pid = fork();
+    if (!child_pid) {           
+        dup2(2,1); // redirect output to stderr
+        fprintf(stdout,"stack trace for %s pid=%s\n",name_buf,pid_buf);
+        execlp("gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", name_buf, pid_buf, NULL);
+        abort(); /* If gdb failed to start */
+    } else {
+        waitpid(child_pid,NULL,0);
+    }
+#endif
+}
+
 static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
 {
 	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
@@ -769,18 +788,21 @@ int _mpi_finalize()
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
 #if ENABLE_BACKTRACE
+/*
 		caller_info_t *ptr = callers_head;
 		FILE *caller_f;
 		if (getenv(OUTPUT_DIR_ENVVAR))
 		{
 			char filename[256];
 			sprintf(filename, "%s/callers.md", getenv(OUTPUT_DIR_ENVVAR));
+                        fprintf(stderr, "creating %s\n", filename);
 			caller_f = fopen(filename, "w");
 		}
 		else
 		{
 			caller_f = fopen("./callers.md", "w");
 		}
+                assert(caller_f);
 		while (ptr != NULL)
 		{
 			fprintf(caller_f, "Number of alltoallv calls: %d\n", ptr->n_calls);
@@ -788,7 +810,8 @@ int _mpi_finalize()
 			fprintf(caller_f, "BEGINING DATA\n%sEND DATA\n\n", ptr->caller);
 			ptr = ptr->next;
 		}
-		fclose(caller_f);
+		//fclose(caller_f);
+		//*/
 #endif // ENABLE_BACKTRACE
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
@@ -814,6 +837,7 @@ int _mpi_finalize()
 
 		logger_fini(&logger);
 
+#if 0
 		while (op_timing_exec_head != NULL)
 		{
 			avTimingsNode_t *t_ptr = op_timing_exec_head->next;
@@ -822,7 +846,7 @@ int _mpi_finalize()
 			op_timing_exec_head = t_ptr;
 		}
 		op_timing_exec_tail = NULL;
-
+#endif
 #if 0
 		fprintf(f, "# Hostnames\n");
                 int i;
@@ -891,13 +915,9 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 	return new_info;
 }
 
-static int insert_caller_data(char *caller, int n_call)
+static int insert_caller_data(char **trace, size_t size, int n_call)
 {
-	if (caller == NULL)
-	{
-		return 0;
-	}
-
+#if 0
 	if (callers_head == NULL)
 	{
 		caller_info_t *new_info = create_new_caller_info(caller, n_call);
@@ -927,6 +947,17 @@ static int insert_caller_data(char *caller, int n_call)
 		return 0;
 	}
 	return -1;
+#endif
+	char filename[256];
+	sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
+	FILE *f = fopen(filename, "w");
+	int i;
+	print_trace(f);
+	for (i  = 0; i < size; i++) {
+
+		fprintf(f, "%s\n", trace[i]);
+	}
+	fclose(f); 
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
@@ -942,28 +973,35 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_BACKTRACE
 	if (myrank == 0)
 	{
-		void *array[10];
+		void *array[16];
 		size_t _s;
 		char **strings;
 		char *caller_trace = NULL;
 
-		_s = backtrace(array, 10);
+		_s = backtrace(array, 16);
 		strings = backtrace_symbols(array, _s);
+#if 0
 		for (i = 0; i < _s; i++)
 		{
 			int start = 0;
+			int start2 = 0;
 			int end = 0;
 			bool found = false;
 			int num = 0;
+                        fprintf(stderr, "MMMMM: %s\n", strings[i]);
 			for (j = 0; j < strlen(strings[i]); j++)
 			{
 				//fprintf(stderr, "[%s:%d] Check content: %c\n", __FILE__, __LINE__, strings[i][j]);
-				if ((char)(strings[i][j]) == '(' && (char)(strings[i][j + 1]) == '+')
+				if ((char)(strings[i][j]) == '(') // && (char)(strings[i][j + 1]) == '+')
 				{
 					//fprintf(stderr, "[%s:%d] Check - found start\n", __FILE__, __LINE__);
 					start = j;
-					found = true;
 				}
+				if ((char)(strings[i][j]) == '+')
+                                {
+                                        start2 = j;
+					found = true;
+                                }
 				if (found && (char)(strings[i][j]) == ')')
 				{
 					end = j;
@@ -980,17 +1018,20 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 					file[j] = strings[i][j];
 				}
 				file[start] = '\0';
-				start = start + 2;
-				int k = end - start + 1;
+				start2 = start2 + 1;
+				int k = end - start2 + 1;
 				char addr[k];
 
-				for (j = 0; j < end - start; j++)
+				for (j = 0; j < end - start2; j++)
 				{
-					addr[j] = strings[i][start + j];
+					addr[j] = strings[i][start2 + j];
 				}
-				addr[end - start] = '\0';
+				addr[end - start2] = '\0';
+                                fprintf(stderr, "File: '%s'; addr: '%s'\n", file, addr);
 				sprintf(syscom, "addr2line %s -e %s", addr, file);
 
+				fprintf(stderr, "Running:%s\n", syscom);
+				/*
 				FILE *fp = popen(syscom, "r");
 				assert(fp);
 				char line[2048];
@@ -1011,12 +1052,17 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 					pclose(fp);
 					_num++;
 				}
+*/
+			} else {
+				fprintf(stderr, "Cannot find addr\n");
 			}
 			num++;
 		}
-		caller_trace[strlen(caller_trace)] = '\0';
-		insert_caller_data(caller_trace, avCalls);
-		free(strings);
+		//caller_trace[strlen(caller_trace)] = '\0';
+	#endif
+		//assert(caller_trace)
+		//fprintf("Length of caller trace: %d\n", strlen(caller_trace));
+		insert_caller_data(strings, _s, avCalls);
 	}
 #endif
 
