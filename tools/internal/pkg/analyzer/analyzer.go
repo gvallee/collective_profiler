@@ -363,10 +363,10 @@ func parseBacktraceLine(line string, exe string) (string, error) {
 	return addr, nil
 }
 
-func parseBacktraceFile(file string) (CallerInfo, error) {
+func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 	var info CallerInfo
 
-	data, err := ioutil.ReadFile(file)
+	data, err := ioutil.ReadFile(filepath.Join(dir, file))
 	if err != nil {
 		return info, err
 	}
@@ -428,7 +428,7 @@ func GetCallersFromBacktraces(dir string) ([]CallerInfo, error) {
 	}
 
 	for _, file := range f {
-		info, err := parseBacktraceFile(file.Name())
+		info, err := parseBacktraceFile(dir, file.Name())
 		if err != nil {
 			return alltoallvCallers, err
 		}
