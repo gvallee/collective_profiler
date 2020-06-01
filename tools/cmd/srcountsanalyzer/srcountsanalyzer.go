@@ -72,11 +72,17 @@ func displayCallPatterns(info datafilereader.CallInfo) {
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	dir := flag.String("dir", "", "Where all the data is")
+	outputDir := flag.String("output-dir", "", "Where all the output files will be created")
 	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	sizeThreshold := flag.Int("size-threshold", 200, "Threshold to differentiate size and large messages")
 
 	flag.Parse()
+
+	if !util.PathExists(*outputDir) {
+		fmt.Printf("%s does not exist", *outputDir)
+		os.Exit(1)
+	}
 
 	logFile := util.OpenLogFile("alltoallv", "srcountsanalyzer")
 	defer logFile.Close()
@@ -85,6 +91,17 @@ func main() {
 		log.SetOutput(nultiWriters)
 	} else {
 		log.SetOutput(ioutil.Discard)
+	}
+
+	defaultOutputFile := filepath.Join(*outputDir, fmt.Sprintf("stats-job%d-pid%d.md", *jobid, *pid))
+	patternsOutputFile := filepath.Join(*outputDir, fmt.Sprintf("patterns-job%d-pid%d.md", *jobid, *pid))
+	defaultFd, err := os.OpenFile(defaultOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		log.Fatalf("unable to create %s: %s", defaultOutputFile, err)
+	}
+	patternsFd, err := os.OpenFile(patternsOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		log.Fatalf("unable to create %s: %s", patternsOutputFile, err)
 	}
 
 	sendCountsFile, recvCountsFile := profiler.GetCountsFiles(*jobid, *pid)
@@ -103,7 +120,10 @@ func main() {
 		log.Fatalf("unable to get the number of alltoallv calls: %s", err)
 	}
 
-	fmt.Printf("Total number of alltoallv calls: %d\n", numCalls)
+	_, err = defaultFd.WriteString(fmt.Sprintf("Total number of alltoallv calls: %d\n\n", numCalls))
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 
 	//a := analyzer.CreateSRCountsAnalyzer(sendCountsFile, recvCountsFile)
 
@@ -225,70 +245,151 @@ func main() {
 		}
 	}
 
+	defaultFd.WriteString("# Datatypes\n\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	for datatypeSize, n := range datatypesSend {
-		fmt.Printf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize)
-	}
+		_, err := defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 
+	}
 	for datatypeSize, n := range datatypesRecv {
-		fmt.Printf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize)
+		_, err := defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
-	fmt.Printf("\n")
+	_, err = defaultFd.WriteString("\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 
+	_, err = defaultFd.WriteString("# Communicator size(s)\n\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	for commSize, n := range commSizes {
-		fmt.Printf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
-	fmt.Printf("\n")
+	_, err = defaultFd.WriteString("\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 
+	_, err = defaultFd.WriteString("# Message sizes\n\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	totalSendMsgs := numSendSmallMsgs + numSendLargeMsgs
-	fmt.Printf("%d/%d of all messages are large (threshold = %d)\n", numSendLargeMsgs, totalSendMsgs, *sizeThreshold)
-	fmt.Printf("%d/%d of all messages are small (threshold = %d)\n", numSendSmallMsgs, totalSendMsgs, *sizeThreshold)
-	fmt.Printf("%d/%d of all messages are small, but not 0-size (threshold = %d)\n", numSendSmallNotZeroMsgs, totalSendMsgs, *sizeThreshold)
+	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are large (threshold = %d)\n", numSendLargeMsgs, totalSendMsgs, *sizeThreshold))
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
+	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are small (threshold = %d)\n", numSendSmallMsgs, totalSendMsgs, *sizeThreshold))
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
+	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are small, but not 0-size (threshold = %d)\n", numSendSmallNotZeroMsgs, totalSendMsgs, *sizeThreshold))
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 
-	fmt.Printf("\n# Sparsity\n")
+	_, err = defaultFd.WriteString("\n# Sparsity\n\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	for numZeros, nCalls := range callSendSparsity {
-		fmt.Printf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 	for numZeros, nCalls := range callRecvSparsity {
-		fmt.Printf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 
-	fmt.Printf("\n# Min/max\n")
+	_, err = defaultFd.WriteString("\n# Min/max\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	for mins, n := range sendMins {
-		fmt.Printf("%d/%d calls have a send count min of %d\n", n, numCalls, mins)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 	for mins, n := range recvMins {
-		fmt.Printf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 
 	for mins, n := range sendNotZeroMins {
-		fmt.Printf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 	for mins, n := range recvNotZeroMins {
-		fmt.Printf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 
 	for maxs, n := range sendMaxs {
-		fmt.Printf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 	}
 	for maxs, n := range recvMaxs {
-		fmt.Printf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs)
+		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs))
 	}
 
-	fmt.Printf("\n# Patterns\n")
+	_, err = patternsFd.WriteString("# Patterns\n")
+	if err != nil {
+		log.Fatalf("unable to write data: %s", err)
+	}
 	num := 0
 	for _, cp := range globalPatterns.cp {
-		fmt.Printf("## Pattern #%d (%d alltoallv calls)\n", num, cp.count)
-		fmt.Printf("Alltoallv calls: %s\n", notation.CompressIntArray(cp.calls))
+		_, err = patternsFd.WriteString(fmt.Sprintf("## Pattern #%d (%d alltoallv calls)\n", num, cp.count))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
+		_, err = patternsFd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cp.calls)))
+		if err != nil {
+			log.Fatalf("unable to write data: %s", err)
+		}
 
 		for sendTo, n := range cp.send {
-			fmt.Printf("%d ranks sent to %d other ranks\n", n, sendTo)
+			_, err = patternsFd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
+			if err != nil {
+				log.Fatalf("unable to write data: %s", err)
+			}
 		}
 		for recvFrom, n := range cp.recv {
-			fmt.Printf("%d ranks recv'd from %d other ranks\n", n, recvFrom)
+			_, err = patternsFd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
+			if err != nil {
+				log.Fatalf("unable to write data: %s", err)
+			}
 		}
-
-		fmt.Printf("\n")
+		_, err = patternsFd.WriteString("\n")
 
 		num++
 	}
+
+	fmt.Println("Results are saved in:")
+	fmt.Printf("-> %s\n", defaultOutputFile)
+	fmt.Printf("-> %s\n", patternsOutputFile)
 }
