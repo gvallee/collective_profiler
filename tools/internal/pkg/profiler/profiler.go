@@ -17,9 +17,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/analyzer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 )
+
+type Bin struct {
+	Min  int
+	Max  int
+	Size int
+}
 
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
@@ -230,4 +238,91 @@ func GetCallRankData(sendCountersFile string, recvCountersFile string, callNum i
 	recvSum = recvSum * recvDatatypeSize
 
 	return sendSum, recvSum, nil
+}
+
+func createBins(listBins []int) []Bin {
+	var bins []Bin
+
+	start := 0
+	end := listBins[0]
+	for i := 0; i < len(listBins)+1; i++ {
+		var b Bin
+		b.Min = start
+		b.Max = end
+		b.Size = 0
+
+		start = end
+		if i+1 < len(listBins) {
+			end = listBins[i+1]
+		} else {
+			end = -1 // Means no max
+		}
+
+		bins = append(bins, b)
+	}
+
+	return bins
+}
+
+func GetBins(countFilePath string, listBins []int) ([]Bin, error) {
+	log.Printf("Creating bins out of values from %s\n", countFilePath)
+
+	bins := createBins(listBins)
+	log.Printf("Successfully initialized %d bins\n", len(bins))
+
+	f, err := os.Open(countFilePath)
+	if err != nil {
+		return bins, err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+
+	for {
+		_, numCalls, _, _, _, datatypeSize, readerr := datafilereader.GetHeader(reader)
+		if readerr == io.EOF {
+			break
+		}
+		if readerr != nil {
+			return bins, readerr
+		}
+
+		counters, err := datafilereader.GetCounters(reader)
+		if err != nil {
+			return bins, err
+		}
+		for _, c := range counters {
+			tokens := strings.Split(c, ": ")
+			ranks := tokens[0]
+			counts := strings.TrimRight(tokens[1], "\n")
+			ranks = strings.TrimLeft(ranks, "Rank(s) ")
+			listRanks, err := notation.ConvertCompressedCallListToIntSlice(ranks)
+			if err != nil {
+				return bins, err
+			}
+			nRanks := len(listRanks)
+
+			// Now we parse the counts one by one
+			for _, oneCount := range strings.Split(counts, " ") {
+				if oneCount == "" {
+					continue
+				}
+
+				countVal, err := strconv.Atoi(oneCount)
+				if err != nil {
+					return bins, err
+				}
+
+				val := countVal * datatypeSize
+				for i := 0; i < len(bins); i++ {
+					if (bins[i].Max != -1 && bins[i].Min <= val && val < bins[i].Max) || (bins[i].Max == -1 && val >= bins[i].Min) {
+						bins[i].Size += numCalls * nRanks
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return bins, nil
 }

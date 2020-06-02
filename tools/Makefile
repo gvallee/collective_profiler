@@ -1,6 +1,9 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata
+all: sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+
+getbins:
+	cd cmd/getbins; go build getbins.go
 
 getcalldata:
 	cd cmd/getcalldata; go build getcalldata.go
@@ -39,3 +42,4 @@ clean:
 	@rm -f cmd/analyzetimings/analyzetimings
 	@rm -f cmd/analyzebacktraces/analyzebacktraces
 	@rm -f cmd/getcalldata/getcalldata
+	@rm -f cmd/getbins/getbins
