@@ -29,13 +29,29 @@
 #define DEFAULT_TRACKED_CALLS (10)
 
 // A few switches to enable/disable a bunch of capabilities
-#define ENABLE_BACKTRACE (0)             // Switch to enable/disable getting the backtrace safely to get data about the alltoallv caller
+
+// Note that we check whether it is already set so we can define it while compiling and potentially generate multiple shared libraries
+
+// Switch to enable/disable getting the backtrace safely to get data about the alltoallv caller
+#ifndef ENABLE_BACKTRACE
+#define ENABLE_BACKTRACE (0)
+#endif // ENABLE_BACKTRACE
+
+// Switch to enable/disable the display of raw data (can be very time consuming)
+#ifndef ENABLE_RAW_DATA
+#define ENABLE_RAW_DATA (0)
+#endif // ENABLE_RAW_DATA
+
+// Switch to enable/disable timing of various operations
+#ifndef ENABLE_TIMING
+#define ENABLE_TIMING (0)
+#endif // ENABLE_TIMING
+
+// A few switches that are less commonly used by users and that cannot be set a compiling time from the compiler command
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
 #define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 #define ENABLE_MSG_SIZE_ANALYSIS (0)     // Switch to enable/disable live analysis of message size
-#define ENABLE_RAW_DATA (0)              // Switch to enable/disable the display of raw data (can be very time consuming)
 #define ENABLE_PER_RANK_STATS (0)        // SWitch to enable/disable per-rank data (can be very expensive)
-#define ENABLE_TIMING (0)                // Switch to enable/disable timing of various operations
 #define ENABLE_VALIDATION (0)            // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
 #define ENABLE_PATTERN_DETECTION (0)     // Switch to enable/disable pattern detection using the number of zero counts
 #define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?

@@ -29,36 +29,35 @@ used to compile the application, including MPI.
 
 The profiling shared library can gather a lot of data and while it is possible to
 gather all the data at once, it is not encouraged to do so. We advice to follow the
-following there steps:
-- Gather the send/receive counts associated to the alltoallv calls: edit the 
-`alltoallv/alltoallv_profiler.h` and ensure that `ENABLE_RAW_DATA` is set to `1`. This 
-will generate two files: `send-counters.job<JOBID>.pid<PID>.txt` and `recv-counters.
-job<JOBID>.pid<PID>.txt`. Note that these files automatically include the jobid (if 
-executed on a platform where Slurm is not used, it is strongly advised to set the 
-`SLURM_JOB_ID` environment variable to specify a unique identifier). Using these two 
-identifiers makes it easier to handle multiple traces from multiple application and/or
-platforms.
-- Gather timings: edit the `alltoallv/alltoallv_profiler.h` and ensure that 
-`ENABLE_TIMING` is set to `1`, while `ENABLE_RAW_DATA` is set to `0`. This generates
+following there steps. For convenience, multiple shared libraries are being generated
+with the adequate configuration for these steps.
+- Gather the send/receive counts associated to the alltoallv calls: use the 
+`liballtoallv_counts.so` library. This will generate two files: 
+`send-counters.job<JOBID>.pid<PID>.txt` and `recv-counters.job<JOBID>.pid<PID>.txt`. 
+Note that these files automatically include the jobid (if executed on a platform where
+Slurm is not used, it is strongly advised to set the `SLURM_JOB_ID` environment variable
+to specify a unique identifier). Using these two identifiers makes it easier to handle
+multiple traces from multiple application and/or platforms.
+- Gather timings: use the `liballtoallv_timings.so` shared library. This generates
 a file: `timings.job<JOBID>.pid<PID>.md`. 
-- Gather backtraces: edit the `alltoallv/alltoallv_profiler.h` and ensure that
-`ENABLE_BACKTRACE` is set to `1`, while both `ENABLE_RAW_DATA` and `ENABLE_TIMING` are
-set to `0`. This will generate files `backtrace_call<ID>.md`, one per alltoallv call.
-*It is important to note that the analysis tool assumes that these files are later manually moved to a `backtraces` folder in your output directory.*
-
-Everytime one of these values is changed, users are required to recompile the shared
-library.
+- Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
+files `backtrace_call<ID>.md`, one per alltoallv call. *It is important to note that
+the analysis tool assumes that these files are later manually moved to a `backtraces`
+folder in your output directory.*
 
 ### Compilation
 
 From the top directory of the repository source code, execute: `make library`.
 
-This will create the `alltoallv/liballtoallv.so` shared library.
+This will create the `liballtoallv_counts.so`,  `liballtoallv_timings.so`,
+`liballtoallv_backtrace.so` and`alltoallv/liballtoallv.so` shared libraries. For
+most cases, the first 3 libraries are all users need.
 
 ### Execution
 
 Before running the application to get a trace, users have the option to customize the
-tool behavior, mainly setting the place where the output files are stored (if not specified, the current directory) by using the `A2A_PROFILING_OUTPUT_DIR` environment variable.
+tool behavior, mainly setting the place where the output files are stored (if not specified,
+the current directory) by using the `A2A_PROFILING_OUTPUT_DIR` environment variable.
 
 Like any PMPI option, users need to use `LD_PRELOAD` while executing their application.
 
@@ -72,7 +71,7 @@ On a platform where a job manager is used, such as Slurm, users need to update t
 batch script used to submit an application run. For instance, with Open MPI and Slurm,
 it would look like:
 ```
-mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/alltoall_profiling/alltoallv/liballtoallv.so app.exe
+mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/alltoall_profiling/alltoallv/liballtoallv_counts.so app.exe
 ```
 
 # Post-mortem analysis
