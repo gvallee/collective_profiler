@@ -35,7 +35,7 @@ extracttimings:
 clean:
 	@rm -f cmd/countersextractor/validate
 	@rm -f cmd/getcounters/getcounters
-	@rm -f cmd/srcountanalyzer/srcountanalyzer
+	@rm -f cmd/srcountsanalyzer/srcountsanalyzer
 	@rm -f cmd/sendprofiler/sendprofiler
 	@rm -f cmd/recvprofiler/recvprofiler
 	@rm -f cmd/extracttimings/extracttimings
@@ -43,3 +43,4 @@ clean:
 	@rm -f cmd/analyzebacktraces/analyzebacktraces
 	@rm -f cmd/getcalldata/getcalldata
 	@rm -f cmd/getbins/getbins
+	@rm -f cmd/validate/validate

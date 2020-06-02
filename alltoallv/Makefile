@@ -33,4 +33,5 @@ check_grouping: grouping_test
 check: all check_grouping check_compress_array check_patterns_detection
 
 clean:
-	@rm -f *.so grouping_test *.o
+	@rm -f *.so *.o
+	@rm -f grouping_test compress_array_test patterns_detection_test 
