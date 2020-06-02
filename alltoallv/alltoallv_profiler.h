@@ -29,13 +29,13 @@
 #define DEFAULT_TRACKED_CALLS (10)
 
 // A few switches to enable/disable a bunch of capabilities
-#define ENABLE_BACKTRACE (1)             // Switch to enable/disable getting the backtrace safely to get data about the alltoallv caller
+#define ENABLE_BACKTRACE (0)             // Switch to enable/disable getting the backtrace safely to get data about the alltoallv caller
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
 #define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
 #define ENABLE_MSG_SIZE_ANALYSIS (0)     // Switch to enable/disable live analysis of message size
 #define ENABLE_RAW_DATA (0)              // Switch to enable/disable the display of raw data (can be very time consuming)
 #define ENABLE_PER_RANK_STATS (0)        // SWitch to enable/disable per-rank data (can be very expensive)
-#define ENABLE_TIMING (1)                // Switch to enable/disable timing of various operations
+#define ENABLE_TIMING (0)                // Switch to enable/disable timing of various operations
 #define ENABLE_VALIDATION (0)            // Switch to enable/disable gathering of extra data for validation. Be carefull when enabling it in addition of other features.
 #define ENABLE_PATTERN_DETECTION (0)     // Switch to enable/disable pattern detection using the number of zero counts
 #define COMMSIZE_BASED_PATTERNS (0)      // Do we want to differentiate patterns based on the communication size?
