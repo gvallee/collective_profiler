@@ -67,3 +67,65 @@ func GetNumberOfEltsFromCompressedNotation(str string) (int, error) {
 	}
 	return num, nil
 }
+
+func GetNumberOfRanksFromCompressedNotation(str string) (int, error) {
+	num := 0
+	t1 := strings.Split(str, ", ")
+	for _, t := range t1 {
+		t2 := strings.Split(t, "-")
+		if len(t2) == 2 {
+			val1, err := strconv.Atoi(t2[0])
+			if err != nil {
+				return 0, err
+			}
+			val2, err := strconv.Atoi(t2[1])
+			if err != nil {
+				return 0, err
+			}
+			num += val2 - val1 + 1
+		} else {
+			num++
+		}
+	}
+	return num, nil
+}
+
+func ConvertCompressedCallListToIntSlice(str string) ([]int, error) {
+	var callIDs []int
+
+	tokens := strings.Split(str, ", ")
+	tokensNoSpace := strings.Split(str, ",")
+	if len(tokens) == 1 && len(tokensNoSpace) > 1 {
+		//log.Printf("[INFO] Switching to notation without spaces for %s", str)
+		tokens = tokensNoSpace
+	}
+
+	for _, t := range tokens {
+		tokens2 := strings.Split(t, "-")
+		if len(tokens2) == 2 {
+			val1, err := strconv.Atoi(tokens2[0])
+			if err != nil {
+				return callIDs, err
+			}
+			val2, err := strconv.Atoi(tokens2[1])
+			if err != nil {
+				return callIDs, err
+			}
+			for i := val1; i <= val2; i++ {
+				callIDs = append(callIDs, i)
+			}
+		} else {
+			for _, t2 := range tokens2 {
+				n, err := strconv.Atoi(t2)
+				if err != nil {
+					return callIDs, fmt.Errorf("unable to parse compressed string: %s", str)
+				}
+				callIDs = append(callIDs, n)
+			}
+		}
+	}
+
+	//log.Printf("%s was decompressed into %d elements\n", str, len(callIDs))
+
+	return callIDs, nil
+}

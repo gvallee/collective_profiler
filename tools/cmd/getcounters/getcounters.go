@@ -14,7 +14,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -37,7 +37,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	sendCounters, recvCounters, err := profiler.FindCallRankCounters(*dir, *jobid, *pid, *rank, *call)
+	sendCounters, recvCounters, err := datafilereader.FindCallRankCounters(*dir, *jobid, *pid, *rank, *call)
 	if err != nil {
 		log.Fatalf("unable to find counters: %s", err)
 	}

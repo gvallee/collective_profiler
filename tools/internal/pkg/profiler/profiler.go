@@ -21,51 +21,6 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 )
 
-const (
-	sendCountersFilePrefix = "send-counters."
-	recvCountersFilePrefix = "recv-counters."
-)
-
-func findCountersFilesWithPrefix(basedir string, jobid string, pid string, prefix string) ([]string, error) {
-	var files []string
-
-	f, err := ioutil.ReadDir(basedir)
-	if err != nil {
-		return files, fmt.Errorf("[ERROR] unable to read %s: %w", basedir, err)
-	}
-
-	log.Printf("Looking for files from job %s and PID %s\n", jobid, pid)
-
-	for _, file := range f {
-		log.Printf("Checking file: %s\n", file.Name())
-
-		if strings.HasPrefix(file.Name(), prefix) && strings.Contains(file.Name(), "pid"+pid) && strings.Contains(file.Name(), "job"+jobid) {
-			log.Printf("-> Found a match: %s\n", file.Name())
-			path := filepath.Join(basedir, file.Name())
-			files = append(files, path)
-		}
-	}
-
-	return files, nil
-}
-
-func findSendCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
-	pidStr := strconv.Itoa(pid)
-	jobIDStr := strconv.Itoa(jobid)
-	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, sendCountersFilePrefix)
-}
-
-func findRecvCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
-	pidStr := strconv.Itoa(pid)
-	jobIDStr := strconv.Itoa(jobid)
-	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, recvCountersFilePrefix)
-}
-
-func GetCountsFiles(jobid int, pid int) (string, string) {
-	suffix := "job" + strconv.Itoa(jobid) + ".pid" + strconv.Itoa(pid) + ".txt"
-	return sendCountersFilePrefix + suffix, recvCountersFilePrefix + suffix
-}
-
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
 		if calls[i] == callNum {
@@ -73,144 +28,6 @@ func containsCall(callNum int, calls []int) bool {
 		}
 	}
 	return false
-}
-
-func extractRankCounters(callCounters []string, rank int) (string, error) {
-	//log.Printf("call counters: %s\n", strings.Join(callCounters, "\n"))
-	for i := 0; i < len(callCounters); i++ {
-		ts := strings.Split(callCounters[i], ": ")
-		ranks := ts[0]
-		counters := ts[1]
-		ranksListStr := strings.Split(strings.ReplaceAll(ranks, "Rank(s) ", ""), " ")
-		for j := 0; j < len(ranksListStr); j++ {
-			// We may have a list that includes ranges
-			tokens := strings.Split(ranksListStr[j], ",")
-			for _, t := range tokens {
-				tokens2 := strings.Split(t, "-")
-				if len(tokens2) == 2 {
-					startRank, _ := strconv.Atoi(tokens2[0])
-					endRank, _ := strconv.Atoi(tokens2[1])
-					if startRank <= rank && rank <= endRank {
-						return counters, nil
-					}
-				} else if len(tokens) == 1 {
-					rankID, _ := strconv.Atoi(tokens2[0])
-					if rankID == rank {
-						return counters, nil
-					}
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("unable to find counters for rank %d", rank)
-}
-
-func findCallRankCounters(files []string, rank int, callNum int) (string, int, bool, error) {
-	counters := ""
-	found := false
-	datatypeSize := 0
-
-	for _, f := range files {
-		file, err := os.Open(f)
-		if err != nil {
-			return "", datatypeSize, found, fmt.Errorf("unable to open %s: %w", f, err)
-		}
-		defer file.Close()
-
-		reader := bufio.NewReader(file)
-		for {
-			_, _, callIDs, _, _, dtSize, readerErr1 := datafilereader.GetHeader(reader)
-			datatypeSize = dtSize
-
-			if readerErr1 != nil && readerErr1 != io.EOF {
-				fmt.Printf("ERROR: %s", readerErr1)
-				return counters, datatypeSize, found, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
-			}
-
-			targetCall := false
-			for i := 0; i < len(callIDs); i++ {
-				if callIDs[i] == callNum {
-					targetCall = true
-					break
-				}
-			}
-
-			var readerErr2 error
-			var callCounters []string
-			if targetCall == true {
-				callCounters, readerErr2 = datafilereader.GetCounters(reader)
-				if readerErr2 != nil && readerErr2 != io.EOF {
-					return counters, datatypeSize, found, readerErr2
-				}
-
-				counters, err = extractRankCounters(callCounters, rank)
-				if err != nil {
-					return counters, datatypeSize, found, err
-				}
-				found = true
-
-				return counters, datatypeSize, found, nil
-			} else {
-				// The current counters are not about the call we care about, skipping...
-				_, err := datafilereader.GetCounters(reader)
-				if err != nil {
-					return counters, datatypeSize, found, err
-				}
-			}
-
-			if readerErr1 == io.EOF || readerErr2 == io.EOF {
-				break
-			}
-		}
-	}
-
-	return counters, datatypeSize, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
-}
-
-func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
-	files, err := findSendCountersFiles(basedir, jobid, pid)
-	if err != nil {
-		return "", err
-	}
-	counters, _, _, err := findCallRankCounters(files, rank, callNum)
-	if err != nil && err != io.EOF {
-		return "", fmt.Errorf("* unable to find counters for rank %d in call %d: %s", rank, callNum, err)
-	}
-
-	return counters, nil
-}
-
-func findCallRankRecvCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
-	files, err := findRecvCountersFiles(basedir, jobid, pid)
-	if err != nil {
-		return "", err
-	}
-	counters, _, _, err := findCallRankCounters(files, rank, callNum)
-	if err != nil && err != io.EOF {
-		return "", fmt.Errorf("unable to find counters for rank %d in call %d: %s", rank, callNum, err)
-	}
-
-	return counters, nil
-}
-
-func FindCallRankCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, string, error) {
-	sendCounters, err := findCallRankSendCounters(basedir, jobid, pid, rank, callNum)
-	if err != nil {
-		return "", "", err
-	}
-
-	recvCounters, err := findCallRankRecvCounters(basedir, jobid, pid, rank, callNum)
-	if err != nil {
-		return "", "", err
-	}
-
-	sendCounters = strings.TrimRight(sendCounters, "\n")
-	recvCounters = strings.TrimRight(recvCounters, "\n")
-	sendCounters = strings.TrimRight(sendCounters, " ")
-	recvCounters = strings.TrimRight(recvCounters, " ")
-
-	return sendCounters, recvCounters, nil
 }
 
 func HandleCounters(input string) error {
@@ -349,7 +166,7 @@ func Validate(jobid int, pid int, dir string) error {
 			return err
 		}
 
-		sendCounters2, recvCounters2, err := FindCallRankCounters(dir, jobid, pid, rank, call)
+		sendCounters2, recvCounters2, err := datafilereader.FindCallRankCounters(dir, jobid, pid, rank, call)
 		if err != nil {
 			fmt.Printf("unable to get counters: %s", err)
 			return err
@@ -370,11 +187,11 @@ func Validate(jobid int, pid int, dir string) error {
 }
 
 func GetCallRankData(sendCountersFile string, recvCountersFile string, callNum int, rank int) (int, int, error) {
-	sendCounters, sendDatatypeSize, _, err := findCallRankCounters([]string{sendCountersFile}, rank, callNum)
+	sendCounters, sendDatatypeSize, _, err := datafilereader.ReadCallRankCounters([]string{sendCountersFile}, rank, callNum)
 	if err != nil {
 		return 0, 0, err
 	}
-	recvCounters, recvDatatypeSize, _, err := findCallRankCounters([]string{recvCountersFile}, rank, callNum)
+	recvCounters, recvDatatypeSize, _, err := datafilereader.ReadCallRankCounters([]string{recvCountersFile}, rank, callNum)
 	if err != nil {
 		return 0, 0, err
 	}

@@ -60,10 +60,10 @@ func main() {
 	}
 
 	// For each element in callers, we try to translate the address to a file/line number
-	fmt.Printf("Found %d unique caller\n", len(callers.Callers));
+	fmt.Printf("Found %d unique caller\n", len(callers.Callers))
 	numCaller := 0
 	for _, c := range callers.Callers {
-		var codeInfo []string 
+		var codeInfo []string
 		addr2lineBin, err := exec.LookPath("addr2line")
 		if err != nil {
 			log.Fatalf("unable to locate addr2line binary: %s", err)
@@ -88,7 +88,7 @@ func main() {
 			if strings.HasPrefix(output.String(), "??:0") || strings.HasPrefix(output.String(), "??:?") {
 				continue
 			}
-                        fmt.Printf("%d - Reference to %s\n", numCaller, output.String())
+			fmt.Printf("%d - Reference to %s\n", numCaller, output.String())
 			codeInfo = append(codeInfo, output.String())
 		}
 
@@ -102,23 +102,19 @@ func main() {
 		// Save the results
 		sort.Ints(c.Calls)
 		header := "Alltoallv calls: " + notation.CompressIntArray(c.Calls) + "\n"
-		/*
-		for _, callnum := range c.Calls {
-			header += " " + strconv.Itoa(callnum)
-		}
-		*/
+
 		str := ""
 		for _, ci := range codeInfo {
 			str += ci
 		}
-                if str != "" {
+		if str != "" {
 			//str = notation.CompressIntArray(c.Calls) + "\n" + str
 			resultFilename := filepath.Join(*dir, fmt.Sprintf("alltoallv_caller_%d.txt", numCaller))
-                        log.Printf("Saving results in %s (%d elements)\n", resultFilename, len(codeInfo)) 
-		        ioutil.WriteFile(resultFilename, []byte(header+str), 0755)
-                } else {
+			log.Printf("Saving results in %s (%d elements)\n", resultFilename, len(codeInfo))
+			ioutil.WriteFile(resultFilename, []byte(header+str), 0755)
+		} else {
 			log.Printf("unable to find information about caller %d\n", numCaller)
-                }
+		}
 		numCaller++
 	}
 }

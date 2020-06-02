@@ -19,7 +19,6 @@ import (
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -93,8 +92,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	defaultOutputFile := filepath.Join(*outputDir, fmt.Sprintf("stats-job%d-pid%d.md", *jobid, *pid))
-	patternsOutputFile := filepath.Join(*outputDir, fmt.Sprintf("patterns-job%d-pid%d.md", *jobid, *pid))
+	defaultOutputFile := datafilereader.GetStatsFilePath(*outputDir, *jobid, *pid)
+	patternsOutputFile := datafilereader.GetPatternFilePath(*outputDir, *jobid, *pid)
 	defaultFd, err := os.OpenFile(defaultOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		log.Fatalf("unable to create %s: %s", defaultOutputFile, err)
@@ -104,7 +103,7 @@ func main() {
 		log.Fatalf("unable to create %s: %s", patternsOutputFile, err)
 	}
 
-	sendCountsFile, recvCountsFile := profiler.GetCountsFiles(*jobid, *pid)
+	sendCountsFile, recvCountsFile := datafilereader.GetCountsFiles(*jobid, *pid)
 	sendCountsFile = filepath.Join(*dir, sendCountsFile)
 	recvCountsFile = filepath.Join(*dir, recvCountsFile)
 
