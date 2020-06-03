@@ -1,10 +1,22 @@
-all:
-	cd examples && make
+all: alltoallv examples tools tests
+
+.PHONY: alltoallv examples tools check tests
+
+alltoallv:
 	cd alltoallv && make
+
+examples: alltoallv
+	cd examples && make
+	
+tools:
 	cd tools && make
 
-check:
+
+check: alltoallv
 	cd alltoallv && make check
+
+tests:
+	cd tests && make
 
 clean:
 	cd examples && make clean
