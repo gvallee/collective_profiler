@@ -167,7 +167,7 @@ END DATA
 
 From the top directory of the source code, execute the following command:
 ```
-cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_timings.so mpirun -np 3 ./alltoallv_c
+cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_timings.so mpirun -np 3 ./alltoallv_f
 ```
 
 A single `timings.pid<ID>.md` file should have been created with a content similar to:
@@ -196,7 +196,7 @@ Rank 2: 0.000002
 
 From the top directory of the source code, execute the following command:
 ```
-cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_backtrace.so mpirun -np 3 ./alltoallv_c
+cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_backtrace.so mpirun -np 3 ./alltoallv_f
 ```
 
 A `backtrace_call0.md` file should have been created with a content similar to:
