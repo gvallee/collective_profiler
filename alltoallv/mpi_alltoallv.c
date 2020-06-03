@@ -53,23 +53,14 @@ extern int mpi_fortran_bottom_;
 #define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
 #define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
 
-void print_trace(FILE *f) {
+void print_trace(FILE *f)
+{
+	assert(f);
 	char pid_buf[30];
 	sprintf(pid_buf, "%d", getpid());
-    char name_buf[512];
-    name_buf[readlink("/proc/self/exe", name_buf, 511)]=0;
-     fprintf(f,"stack trace for %s pid=%s\n",name_buf,pid_buf);
-#if 0
-    int child_pid = fork();
-    if (!child_pid) {           
-        dup2(2,1); // redirect output to stderr
-        fprintf(stdout,"stack trace for %s pid=%s\n",name_buf,pid_buf);
-        execlp("gdb", "gdb", "--batch", "-n", "-ex", "thread", "-ex", "bt", name_buf, pid_buf, NULL);
-        abort(); /* If gdb failed to start */
-    } else {
-        waitpid(child_pid,NULL,0);
-    }
-#endif
+	char name_buf[512];
+	name_buf[readlink("/proc/self/exe", name_buf, 511)] = 0;
+	fprintf(f, "stack trace for %s pid=%s\n", name_buf, pid_buf);
 }
 
 static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
@@ -917,47 +908,26 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 
 static int insert_caller_data(char **trace, size_t size, int n_call)
 {
-#if 0
-	if (callers_head == NULL)
+	char filename[256];
+	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		caller_info_t *new_info = create_new_caller_info(caller, n_call);
-		callers_head = new_info;
-		callers_tail = new_info;
-		return 0;
+		sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
 	}
 	else
 	{
-		// Is the caller data already in the list
-		caller_info_t *ptr = callers_head;
-		while (ptr != NULL)
-		{
-			if (strcmp(ptr->caller, caller) == 0)
-			{
-				// We found the caller info
-				ptr->calls[ptr->n_calls] = n_call;
-				ptr->n_calls++;
-				return 0;
-			}
-			ptr = ptr->next;
-		}
-
-		caller_info_t *new_info = create_new_caller_info(caller, n_call);
-		callers_tail->next = new_info;
-		callers_tail = new_info;
-		return 0;
+		sprintf(filename, "backtrace_call%d.md", n_call);
 	}
-	return -1;
-#endif
-	char filename[256];
-	sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
+
 	FILE *f = fopen(filename, "w");
+	assert(f);
 	int i;
 	print_trace(f);
-	for (i  = 0; i < size; i++) {
+	for (i = 0; i < size; i++)
+	{
 
 		fprintf(f, "%s\n", trace[i]);
 	}
-	fclose(f); 
+	fclose(f);
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
@@ -1059,7 +1029,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			num++;
 		}
 		//caller_trace[strlen(caller_trace)] = '\0';
-	#endif
+#endif
 		//assert(caller_trace)
 		//fprintf("Length of caller trace: %d\n", strlen(caller_trace));
 		insert_caller_data(strings, _s, avCalls);
