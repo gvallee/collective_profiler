@@ -31,7 +31,7 @@ liballtoallv_counts.so: logger_counts.o grouping.o pattern.o mpi_alltoallv.c all
 	mpicc -g -shared -fPIC -DENABLE_RAW_DATA=1 logger_counts.o grouping.o mpi_alltoallv.c -o liballtoallv_counts.so
 
 liballtoallv_timings.so: logger_timings.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -g -shared -fPIC -DENABLE_TIMING=1 logger.o grouping.o mpi_alltoallv.c -o liballtoallv_timings.so
+	mpicc -g -shared -fPIC -DENABLE_TIMING=1 logger_timings.o grouping.o mpi_alltoallv.c -o liballtoallv_timings.so
 
 liballtoallv_backtrace.so: logger_backtrace.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC -DENABLE_BACKTRACE=1 logger_backtrace.o grouping.o mpi_alltoallv.c -o liballtoallv_backtrace.so
