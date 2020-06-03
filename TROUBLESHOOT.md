@@ -126,7 +126,9 @@ If one of these files is missing, please open an issue on our Github project pag
 If the files were successfully created, please check their content:
 - `profile_alltoallv.pid<ID>.md` should have the following first 3 lines:
 ```
-# Summary                                                                                                               Total number of alltoallv calls = 2 (limit is -1; -1 means no limit)                                                    Alltoallv call range: [0-1] 
+# Summary
+Total number of alltoallv calls = 2 (limit is -1; -1 means no limit)
+Alltoallv call range: [0-1] 
 ```
 - `send-counters.pid<ID>.txt` should have the following content:
 ```
