@@ -57,7 +57,8 @@ void print_trace(FILE *f)
 {
 	assert(f);
 	char pid_buf[30];
-	sprintf(pid_buf, "%d", getpid());
+	int size = sprintf(pid_buf, "%d", getpid());
+	assert(size < 30);
 	char name_buf[512];
 	name_buf[readlink("/proc/self/exe", name_buf, 511)] = 0;
 	fprintf(f, "stack trace for %s pid=%s\n", name_buf, pid_buf);
@@ -404,6 +405,8 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	DEBUG_ALLTOALLV_PROFILING("Insert data for a new alltoallv call...\n");
 
+	assert(sbuf);
+	assert(rbuf);
 	assert(logger);
 #if DEBUG
 	assert(logger->f);
@@ -500,18 +503,6 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	DEBUG_ALLTOALLV_PROFILING("Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
-	/*
-	for (i = 0; i < size; i++)
-	{
-		for (j = 0; j < size; j++)
-		{
-			newNode->send_data[j] = sbuf[num];
-			newNode->recv_data[j] = rbuf[num];
-			num++;
-		}
-	}
-*/
-
 	if (head == NULL)
 	{
 		head = newNode;
@@ -581,17 +572,19 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 static void save_call_patterns(int uniqueID)
 {
 	char filename[MAX_PATH_LEN];
+	int size;
 
 	DEBUG_ALLTOALLV_PROFILING("Saving call patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		sprintf(filename, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		size = sprintf(filename, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
 	}
 	else
 	{
-		sprintf(filename, "call-patterns-pid%d.txt", uniqueID);
+		size = sprintf(filename, "call-patterns-pid%d.txt", uniqueID);
 	}
+	assert(size < MAX_PATH_LEN);
 
 	FILE *fh = fopen(filename, "w");
 	assert(fh);
@@ -611,18 +604,23 @@ static void save_patterns(int uniqueID)
 {
 	char spatterns_filename[MAX_PATH_LEN];
 	char rpatterns_filename[MAX_PATH_LEN];
+	int size;
 
 	DEBUG_ALLTOALLV_PROFILING("Saving patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		sprintf(spatterns_filename, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
-		sprintf(rpatterns_filename, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		size = sprintf(spatterns_filename, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		assert(size < MAX_PATH_LEN);
+		size = sprintf(rpatterns_filename, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		assert(size < MAX_PATH_LEN);
 	}
 	else
 	{
-		sprintf(spatterns_filename, "patterns-send-pid%d.txt", uniqueID);
-		sprintf(rpatterns_filename, "patterns-recv-pid%d.txt", uniqueID);
+		size = sprintf(spatterns_filename, "patterns-send-pid%d.txt", uniqueID);
+		assert(size < MAX_PATH_LEN);
+		size = sprintf(rpatterns_filename, "patterns-recv-pid%d.txt", uniqueID);
+		assert(size < MAX_PATH_LEN);
 	}
 
 	FILE *spatterns_fh = fopen(spatterns_filename, "w");
@@ -641,15 +639,17 @@ static void save_patterns(int uniqueID)
 static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
 {
 	char filename[MAX_PATH_LEN];
+	int rc;
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		sprintf(filename, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
+		rc = sprintf(filename, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
 	}
 	else
 	{
-		sprintf(filename, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
+		rc = sprintf(filename, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
 	}
+	assert(rc < MAX_PATH_LEN);
 
 	FILE *fh = fopen(filename, "w");
 	assert(fh);
@@ -744,11 +744,9 @@ int _mpi_finalize()
 {
 	if (myrank == 0)
 	{
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-		DEBUG_ALLTOALLV_PROFILING("Logging profiling data...\n");
 		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
-		DEBUG_ALLTOALLV_PROFILING("Logging completed\n");
 
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
 		// All data has been handled, now we can clean up
 		int i;
 		while (head != NULL)
@@ -828,7 +826,6 @@ int _mpi_finalize()
 
 		logger_fini(&logger);
 
-#if 0
 		while (op_timing_exec_head != NULL)
 		{
 			avTimingsNode_t *t_ptr = op_timing_exec_head->next;
@@ -837,7 +834,7 @@ int _mpi_finalize()
 			op_timing_exec_head = t_ptr;
 		}
 		op_timing_exec_tail = NULL;
-#endif
+
 #if 0
 		fprintf(f, "# Hostnames\n");
                 int i;
@@ -908,15 +905,17 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 
 static int insert_caller_data(char **trace, size_t size, int n_call)
 {
-	char filename[256];
+	char filename[MAX_FILENAME_LEN];
+	int rc;
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
+		rc = sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
 	}
 	else
 	{
-		sprintf(filename, "backtrace_call%d.md", n_call);
+		rc = sprintf(filename, "backtrace_call%d.md", n_call);
 	}
+	assert(rc < MAX_FILENAME_LEN);
 
 	FILE *f = fopen(filename, "w");
 	assert(f);
@@ -950,88 +949,6 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		_s = backtrace(array, 16);
 		strings = backtrace_symbols(array, _s);
-#if 0
-		for (i = 0; i < _s; i++)
-		{
-			int start = 0;
-			int start2 = 0;
-			int end = 0;
-			bool found = false;
-			int num = 0;
-                        fprintf(stderr, "MMMMM: %s\n", strings[i]);
-			for (j = 0; j < strlen(strings[i]); j++)
-			{
-				//fprintf(stderr, "[%s:%d] Check content: %c\n", __FILE__, __LINE__, strings[i][j]);
-				if ((char)(strings[i][j]) == '(') // && (char)(strings[i][j + 1]) == '+')
-				{
-					//fprintf(stderr, "[%s:%d] Check - found start\n", __FILE__, __LINE__);
-					start = j;
-				}
-				if ((char)(strings[i][j]) == '+')
-                                {
-                                        start2 = j;
-					found = true;
-                                }
-				if (found && (char)(strings[i][j]) == ')')
-				{
-					end = j;
-					break;
-				}
-			}
-
-			if (found)
-			{
-				char syscom[256];
-				char file[start + 1];
-				for (j = 0; j < start; j++)
-				{
-					file[j] = strings[i][j];
-				}
-				file[start] = '\0';
-				start2 = start2 + 1;
-				int k = end - start2 + 1;
-				char addr[k];
-
-				for (j = 0; j < end - start2; j++)
-				{
-					addr[j] = strings[i][start2 + j];
-				}
-				addr[end - start2] = '\0';
-                                fprintf(stderr, "File: '%s'; addr: '%s'\n", file, addr);
-				sprintf(syscom, "addr2line %s -e %s", addr, file);
-
-				fprintf(stderr, "Running:%s\n", syscom);
-				/*
-				FILE *fp = popen(syscom, "r");
-				assert(fp);
-				char line[2048];
-				int _num = 0;
-				while (fgets(line, sizeof(line), fp) != NULL)
-				{
-					if (caller_trace == NULL)
-					{
-						caller_trace = strdup(line);
-						caller_trace[strlen(line)] = '\0';
-					}
-					else
-					{
-						int start = strlen(caller_trace);
-						caller_trace = realloc(caller_trace, (strlen(caller_trace) + strlen(line) + 2) * sizeof(char));
-						sprintf(caller_trace, "%s%s", caller_trace, line);
-					}
-					pclose(fp);
-					_num++;
-				}
-*/
-			} else {
-				fprintf(stderr, "Cannot find addr\n");
-			}
-			num++;
-		}
-		//caller_trace[strlen(caller_trace)] = '\0';
-#endif
-		//assert(caller_trace)
-		//fprintf("Length of caller trace: %d\n", strlen(caller_trace));
 		insert_caller_data(strings, _s, avCalls);
 	}
 #endif

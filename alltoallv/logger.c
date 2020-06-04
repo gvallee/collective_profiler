@@ -37,6 +37,7 @@ static char *get_full_filename(int ctxt, char *id)
     char *filename = malloc(MAX_FILENAME_LEN * sizeof(char));
     char *dir = NULL;
     char *jobid = NULL;
+    int size;
 
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
@@ -54,22 +55,26 @@ static char *get_full_filename(int ctxt, char *id)
         {
             if (jobid != NULL)
             {
-                sprintf(filename, "profile_alltoallv.job%s.pid%d.md", jobid, getpid());
+                size = sprintf(filename, "profile_alltoallv.job%s.pid%d.md", jobid, getpid());
+                assert(size < MAX_FILENAME_LEN);
             }
             else
             {
-                sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+                size = sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
+                assert(size < MAX_FILENAME_LEN);
             }
         }
         else
         {
             if (jobid != NULL)
             {
-                sprintf(filename, "%s.job%s.pid%d.md", id, jobid, getpid());
+                size = sprintf(filename, "%s.job%s.pid%d.md", id, jobid, getpid());
+                assert(size < MAX_FILENAME_LEN);
             }
             else
             {
-                sprintf(filename, "%s.pid%d.md", id, getpid());
+                size = sprintf(filename, "%s.pid%d.md", id, getpid());
+                assert(size < MAX_FILENAME_LEN);
             }
         }
     }
@@ -78,18 +83,21 @@ static char *get_full_filename(int ctxt, char *id)
         char *context = ctx_to_string(ctxt);
         if (jobid != NULL)
         {
-            sprintf(filename, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
+            size = sprintf(filename, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
+            assert(size < MAX_FILENAME_LEN);
         }
         else
         {
-            sprintf(filename, "%s-%s.pid%d.txt", context, id, getpid());
+            size = sprintf(filename, "%s-%s.pid%d.txt", context, id, getpid());
+            assert(size < MAX_FILENAME_LEN);
         }
     }
 
     if (dir != NULL)
     {
         char *path = malloc(MAX_PATH_LEN * sizeof(char));
-        sprintf(path, "%s/%s", dir, filename);
+        size = sprintf(path, "%s/%s", dir, filename);
+        assert(size < MAX_PATH_LEN);
         free(filename);
         return path;
     }
@@ -250,6 +258,7 @@ static char *add_singleton(char *str, int n)
 {
 
     int size;
+    int rc;
     if (str == NULL)
     {
         size = MAX_STRING_LEN;
@@ -262,7 +271,8 @@ static char *add_singleton(char *str, int n)
     if (str == NULL)
     {
         str = (char *)malloc(size * sizeof(char));
-        sprintf(str, "%d", n);
+        rc = sprintf(str, "%d", n);
+        assert(rc <= size);
         return str;
     }
 
@@ -578,9 +588,8 @@ static void log_timings(logger_t *logger, int num_call, double *timings, double 
 
 static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
-    int i;
+#if ENABLE_RAW_DATA
     avSRCountNode_t *srCountPtr;
-    avTimingsNode_t *tPtr;
 
     // Display the send/receive counts data
     srCountPtr = counters_list;
@@ -607,9 +616,12 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);
         srCountPtr = srCountPtr->next;
     }
+#endif
 
 #if ENABLE_TIMING
     // Handle the timing data
+    avTimingsNode_t *tPtr;
+    int i;
     tPtr = times_list;
     i = 0;
     while (tPtr != NULL)
