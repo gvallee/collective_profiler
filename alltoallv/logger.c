@@ -200,6 +200,7 @@ static char *add_range(char *str, int start, int end)
     if (str == NULL)
     {
         str = (char *)malloc(size * sizeof(char));
+        assert(str);
         while (ret >= size)
         {
             ret = snprintf(str, size, "%d-%d", start, end);
@@ -213,6 +214,7 @@ static char *add_range(char *str, int start, int end)
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
                 str = (char *)realloc(str, size);
+                assert(str);
             }
         }
         return str;
@@ -226,12 +228,14 @@ static char *add_range(char *str, int start, int end)
             if (s == NULL)
             {
                 s = (char *)malloc(size * sizeof(char));
+                assert(s);
             }
             else
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
                 s = (char *)realloc(s, size);
+                assert(s);
             }
             ret = snprintf(s, size, "%s, %d-%d", str, start, end);
             if (ret < 0)
@@ -271,6 +275,7 @@ static char *add_singleton(char *str, int n)
     if (str == NULL)
     {
         str = (char *)malloc(size * sizeof(char));
+        assert(str);
         rc = sprintf(str, "%d", n);
         assert(rc <= size);
         return str;
@@ -283,12 +288,14 @@ static char *add_singleton(char *str, int n)
         if (s == NULL)
         {
             s = (char *)malloc(size * sizeof(char));
+            assert(s);
         }
         else
         {
             // truncated result, increasing the size of the buffer and trying again
             size = size * 2;
             s = (char *)realloc(s, size);
+            assert(s);
         }
         ret = snprintf(s, size, "%s, %d", str, n);
         if (ret < 0)

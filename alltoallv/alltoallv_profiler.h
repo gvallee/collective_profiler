@@ -161,11 +161,13 @@ get_remainder(int n, int d)
             if (str == NULL)                                        \
             {                                                       \
                 str = (char *)malloc(__asprintf_size);              \
+                assert(str);                                        \
             }                                                       \
             else                                                    \
             {                                                       \
                 __asprintf_size += MAX_STRING_LEN;                  \
                 str = (char *)realloc(str, __asprintf_size);        \
+                assert(str);                                        \
             }                                                       \
             ret = snprintf(str, __asprintf_size, fmt, __VA_ARGS__); \
         }                                                           \

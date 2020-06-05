@@ -280,6 +280,7 @@ static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)
 	{
 		counters_data->max_ranks = counters_data->num_ranks + MAX_TRACKED_RANKS;
 		counters_data->ranks = (int *)realloc(counters_data->ranks, counters_data->max_ranks * sizeof(int));
+		assert(counters_data->ranks);
 	}
 
 	counters_data->ranks[counters_data->num_ranks] = rank;
@@ -456,8 +457,8 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	newNode->size = size;
 	newNode->count = 1;
 	newNode->list_calls = (int *)malloc(DEFAULT_TRACKED_CALLS * sizeof(int));
-	newNode->max_calls = DEFAULT_TRACKED_CALLS;
 	assert(newNode->list_calls);
+	newNode->max_calls = DEFAULT_TRACKED_CALLS;
 	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
 	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
 	assert(newNode->send_data);
@@ -519,9 +520,11 @@ static void insert_op_exec_times_data(double *timings, double *t_arrivals, int s
 {
 	assert(timings);
 	struct avTimingsNode *newNode = (struct avTimingsNode *)calloc(1, sizeof(struct avTimingsNode));
-	newNode->timings = (double *)malloc(size * sizeof(double));
-	newNode->t_arrivals = (double *)malloc(size * sizeof(double));
 	assert(newNode);
+	newNode->timings = (double *)malloc(size * sizeof(double));
+	assert(newNode->timings);
+	newNode->t_arrivals = (double *)malloc(size * sizeof(double));
+	assert(newNode->t_arrivals);
 
 	newNode->size = size;
 	int i;
