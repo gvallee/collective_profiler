@@ -394,36 +394,32 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         break;
     }
 
+    assert(fh);
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Datatype size: %d\n", type_size);
     fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
     char *calls_str = compress_int_array(calls, count);
     fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
-    /*
-    for (i = 0; i < count; i++)
-    {
-        fprintf(fh, "%d ", calls[i]);
-    }
-    */
     fprintf(fh, "\n\nBEGINNING DATA\n");
     DEBUG_ALLTOALLV_PROFILING("Saving counts...\n");
     // Save the compressed version of the data
     int count_data_number, _num_ranks, n;
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
-        DEBUG_ALLTOALLV_PROFILING("Number of ranks: %d\n", counters[count_data_number]->num_ranks);
+        DEBUG_ALLTOALLV_PROFILING("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
 
-        char *str = compress_int_array(counters[count_data_number]->ranks, counters[count_data_number]->num_ranks);
+        char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks);
         fprintf(fh, "Rank(s) %s: ", str);
         if (str != NULL)
         {
             free(str);
+            str = NULL;
         }
 
         for (n = 0; n < size; n++)
         {
-            fprintf(fh, "%d ", counters[count_data_number]->counters[n]);
+            fprintf(fh, "%d ", (counters[count_data_number])->counters[n]);
         }
         fprintf(fh, "\n");
     }
@@ -588,11 +584,13 @@ static void log_timings(logger_t *logger, int num_call, double *timings, double 
 
 static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
+    assert(logger);
 #if ENABLE_RAW_DATA
-    avSRCountNode_t *srCountPtr;
 
     // Display the send/receive counts data
-    srCountPtr = counters_list;
+    assert(counters_list);
+    avSRCountNode_t *srCountPtr = counters_list;
+    assert(logger->f);
     fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
     while (srCountPtr != NULL)
     {
@@ -620,10 +618,9 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 
 #if ENABLE_TIMING
     // Handle the timing data
-    avTimingsNode_t *tPtr;
-    int i;
-    tPtr = times_list;
-    i = 0;
+    assert(time_list);
+    avTimingsNode_t *tPtr = time_list;
+    int i = 0;
     while (tPtr != NULL)
     {
         log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);

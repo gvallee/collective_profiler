@@ -780,33 +780,6 @@ int _mpi_finalize()
 #endif // ENABLE_TIMING
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
-#if ENABLE_BACKTRACE
-/*
-		caller_info_t *ptr = callers_head;
-		FILE *caller_f;
-		if (getenv(OUTPUT_DIR_ENVVAR))
-		{
-			char filename[256];
-			sprintf(filename, "%s/callers.md", getenv(OUTPUT_DIR_ENVVAR));
-                        fprintf(stderr, "creating %s\n", filename);
-			caller_f = fopen(filename, "w");
-		}
-		else
-		{
-			caller_f = fopen("./callers.md", "w");
-		}
-                assert(caller_f);
-		while (ptr != NULL)
-		{
-			fprintf(caller_f, "Number of alltoallv calls: %d\n", ptr->n_calls);
-			fprintf(caller_f, "Calls %s\n", compress_int_array(ptr->calls, ptr->n_calls));
-			fprintf(caller_f, "BEGINING DATA\n%sEND DATA\n\n", ptr->caller);
-			ptr = ptr->next;
-		}
-		//fclose(caller_f);
-		//*/
-#endif // ENABLE_BACKTRACE
-
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 		save_patterns(getpid());
 #endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
@@ -859,18 +832,22 @@ int _mpi_finalize()
 		if (rbuf != NULL)
 		{
 			free(rbuf);
+			rbuf = NULL;
 		}
 		if (sbuf != NULL)
 		{
 			free(sbuf);
+			sbuf = NULL;
 		}
 		if (op_exec_times != NULL)
 		{
 			free(op_exec_times);
+			op_exec_times = NULL;
 		}
 		if (late_arrival_timings != NULL)
 		{
 			free(late_arrival_timings);
+			late_arrival_timings = NULL;
 		}
 #if 0
 		if (hostnames)
@@ -956,7 +933,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		strings = backtrace_symbols(array, _s);
 		insert_caller_data(strings, _s, avCalls);
 	}
-#endif
+#endif // ENABLE_BACKTRACE
 
 	// Check if we need to profile that specific call
 	if (avCalls < _num_call_start_profiling)
