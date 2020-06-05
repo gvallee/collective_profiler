@@ -11,7 +11,6 @@ examples: alltoallv
 tools:
 	cd tools && make
 
-
 check: alltoallv
 	cd alltoallv && make check
 
@@ -22,3 +21,4 @@ clean:
 	cd examples && make clean
 	cd alltoallv && make clean
 	cd tools && make clean
+	cd tests && make clean
