@@ -9,6 +9,8 @@
 
 #include <stdbool.h>
 #include <assert.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 #define DEBUG (0)
 #define HOSTNAME_LEN 16
@@ -63,7 +65,7 @@
 
 #if DEBUG
 #define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
-    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
     do                                      \
@@ -147,5 +149,26 @@ get_remainder(int n, int d)
 {
     return (n - d * (n / d));
 }
+
+#define _asprintf(str, ret, fmt, ...)                               \
+    do                                                              \
+    {                                                               \
+        assert(str == NULL);                                        \
+        int __asprintf_size = MAX_STRING_LEN;                       \
+        ret = __asprintf_size;                                      \
+        while (ret >= __asprintf_size)                              \
+        {                                                           \
+            if (str == NULL)                                        \
+            {                                                       \
+                str = (char *)malloc(__asprintf_size);              \
+            }                                                       \
+            else                                                    \
+            {                                                       \
+                __asprintf_size += MAX_STRING_LEN;                  \
+                str = (char *)realloc(str, __asprintf_size);        \
+            }                                                       \
+            ret = snprintf(str, __asprintf_size, fmt, __VA_ARGS__); \
+        }                                                           \
+    } while (0)
 
 #endif // ALLTOALLV_PROFILER_H

@@ -34,7 +34,7 @@ static char *ctx_to_string(int ctx)
 
 static char *get_full_filename(int ctxt, char *id)
 {
-    char *filename = malloc(MAX_FILENAME_LEN * sizeof(char));
+    char *filename = NULL;
     char *dir = NULL;
     char *jobid = NULL;
     int size;
@@ -55,26 +55,26 @@ static char *get_full_filename(int ctxt, char *id)
         {
             if (jobid != NULL)
             {
-                size = sprintf(filename, "profile_alltoallv.job%s.pid%d.md", jobid, getpid());
-                assert(size < MAX_FILENAME_LEN);
+                _asprintf(filename, size, "profile_alltoallv.job%s.pid%d.md", jobid, getpid());
+                assert(size > 0);
             }
             else
             {
-                size = sprintf(filename, "profile_alltoallv.pid%d.md", getpid());
-                assert(size < MAX_FILENAME_LEN);
+                _asprintf(filename, size, "profile_alltoallv.pid%d.md", getpid());
+                assert(size > 0);
             }
         }
         else
         {
             if (jobid != NULL)
             {
-                size = sprintf(filename, "%s.job%s.pid%d.md", id, jobid, getpid());
-                assert(size < MAX_FILENAME_LEN);
+                _asprintf(filename, size, "%s.job%s.pid%d.md", id, jobid, getpid());
+                assert(size > 0);
             }
             else
             {
-                size = sprintf(filename, "%s.pid%d.md", id, getpid());
-                assert(size < MAX_FILENAME_LEN);
+                _asprintf(filename, size, "%s.pid%d.md", id, getpid());
+                assert(size > 0);
             }
         }
     }
@@ -83,21 +83,21 @@ static char *get_full_filename(int ctxt, char *id)
         char *context = ctx_to_string(ctxt);
         if (jobid != NULL)
         {
-            size = sprintf(filename, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
-            assert(size < MAX_FILENAME_LEN);
+            _asprintf(filename, size, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
+            assert(size > 0);
         }
         else
         {
-            size = sprintf(filename, "%s-%s.pid%d.txt", context, id, getpid());
-            assert(size < MAX_FILENAME_LEN);
+            _asprintf(filename, size, "%s-%s.pid%d.txt", context, id, getpid());
+            assert(size > 0);
         }
     }
 
     if (dir != NULL)
     {
-        char *path = malloc(MAX_PATH_LEN * sizeof(char));
-        size = sprintf(path, "%s/%s", dir, filename);
-        assert(size < MAX_PATH_LEN);
+        char *path = NULL;
+        _asprintf(path, size, "%s/%s", dir, filename);
+        assert(size > 0);
         free(filename);
         return path;
     }

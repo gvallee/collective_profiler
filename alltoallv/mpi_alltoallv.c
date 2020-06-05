@@ -571,20 +571,20 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 
 static void save_call_patterns(int uniqueID)
 {
-	char filename[MAX_PATH_LEN];
+	char *filename = NULL;
 	int size;
 
 	DEBUG_ALLTOALLV_PROFILING("Saving call patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		size = sprintf(filename, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		_asprintf(filename, size, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
 	}
 	else
 	{
-		size = sprintf(filename, "call-patterns-pid%d.txt", uniqueID);
+		_asprintf(filename, size, "call-patterns-pid%d.txt", uniqueID);
 	}
-	assert(size < MAX_PATH_LEN);
+	assert(size > 0);
 
 	FILE *fh = fopen(filename, "w");
 	assert(fh);
@@ -598,29 +598,30 @@ static void save_call_patterns(int uniqueID)
 		ptr = ptr->next;
 	}
 	fclose(fh);
+	free(filename);
 }
 
 static void save_patterns(int uniqueID)
 {
-	char spatterns_filename[MAX_PATH_LEN];
-	char rpatterns_filename[MAX_PATH_LEN];
+	char *spatterns_filename = NULL;
+	char *rpatterns_filename = NULL;
 	int size;
 
 	DEBUG_ALLTOALLV_PROFILING("Saving patterns...\n");
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		size = sprintf(spatterns_filename, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
-		assert(size < MAX_PATH_LEN);
-		size = sprintf(rpatterns_filename, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
-		assert(size < MAX_PATH_LEN);
+		_asprintf(spatterns_filename, size, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		assert(size > 0);
+		_asprintf(rpatterns_filename, size, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		assert(size > 0);
 	}
 	else
 	{
-		size = sprintf(spatterns_filename, "patterns-send-pid%d.txt", uniqueID);
-		assert(size < MAX_PATH_LEN);
-		size = sprintf(rpatterns_filename, "patterns-recv-pid%d.txt", uniqueID);
-		assert(size < MAX_PATH_LEN);
+		_asprintf(spatterns_filename, size, "patterns-send-pid%d.txt", uniqueID);
+		assert(size > 0);
+		_asprintf(rpatterns_filename, size, "patterns-recv-pid%d.txt", uniqueID);
+		assert(size > 0);
 	}
 
 	FILE *spatterns_fh = fopen(spatterns_filename, "w");
@@ -634,20 +635,22 @@ static void save_patterns(int uniqueID)
 
 	fclose(spatterns_fh);
 	fclose(rpatterns_fh);
+	free(spatterns_filename);
+	free(rpatterns_filename);
 }
 
 static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
 {
-	char filename[MAX_PATH_LEN];
+	char *filename;
 	int rc;
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		rc = sprintf(filename, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
+		_asprintf(filename, rc, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
 	}
 	else
 	{
-		rc = sprintf(filename, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
+		_asprintf(filename, rc, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
 	}
 	assert(rc < MAX_PATH_LEN);
 
@@ -667,6 +670,7 @@ static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, 
 	}
 
 	fclose(fh);
+	free(filename);
 }
 
 int _mpi_init(int *argc, char ***argv)
@@ -905,17 +909,17 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 
 static int insert_caller_data(char **trace, size_t size, int n_call)
 {
-	char filename[MAX_FILENAME_LEN];
+	char *filename = NULL;
 	int rc;
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		rc = sprintf(filename, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
+		_asprintf(filename, rc, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
 	}
 	else
 	{
-		rc = sprintf(filename, "backtrace_call%d.md", n_call);
+		_asprintf(filename, rc, "backtrace_call%d.md", n_call);
 	}
-	assert(rc < MAX_FILENAME_LEN);
+	assert(rc > 0);
 
 	FILE *f = fopen(filename, "w");
 	assert(f);
@@ -927,6 +931,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call)
 		fprintf(f, "%s\n", trace[i]);
 	}
 	fclose(f);
+	free(filename);
 }
 
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
