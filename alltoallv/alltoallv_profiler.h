@@ -16,7 +16,7 @@
 #define HOSTNAME_LEN 16
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
-#define MAX_STRING_LEN (8)
+#define MAX_STRING_LEN (64)
 #define SYNC 0 // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
 
 // A few environment variables to control a few things at runtime
