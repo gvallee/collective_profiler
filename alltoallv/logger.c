@@ -643,19 +643,23 @@ logger_t *logger_init()
     logger_t *l = calloc(1, sizeof(logger_t));
     if (l == NULL)
     {
-        return l;
+        return NULL;
     }
 
     l->f = open_log_file(MAIN_CTX, NULL);
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
     l->recvcounters_fh = open_log_file(RECV_CTX, "counters");
+    assert(l->recvcounters_fh);
     l->sendcounters_fh = open_log_file(SEND_CTX, "counters");
+    assert(l->sendcounters_fh);
 #endif
 #if ENABLE_POSTMORTEM_GROUPING
     l->sums_fh = open_log_file(MAIN_CTX, "sums");
+    assert(l->sums_fh);
 #endif
 #if ENABLE_TIMING
     l->timing_fh = open_log_file(MAIN_CTX, "timings");
+    assert(l->timing_fh);
 #endif
 
     return l;
@@ -678,6 +682,14 @@ void logger_fini(logger_t **l)
             if ((*l)->recvcounters_fh)
             {
                 fclose((*l)->recvcounters_fh);
+            }
+            if ((*l)->timing_fh)
+            {
+                fclose((*l)->timing_fh);
+            }
+            if ((*l)->sums_fh)
+            {
+                fclose((*l)->sums_fh);
             }
             free(*l);
             *l = NULL;

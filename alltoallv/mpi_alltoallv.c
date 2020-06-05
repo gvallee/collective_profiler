@@ -702,6 +702,7 @@ int _mpi_init(int *argc, char ***argv)
 	if (myrank == 0)
 	{
 		logger = logger_init();
+		assert(logger);
 	}
 
 	// Allocate buffers reused between alltoallv calls
