@@ -625,8 +625,8 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 
 #if ENABLE_TIMING
     // Handle the timing data
-    assert(time_list);
-    avTimingsNode_t *tPtr = time_list;
+    assert(times_list);
+    avTimingsNode_t *tPtr = times_list;
     int i = 0;
     while (tPtr != NULL)
     {
