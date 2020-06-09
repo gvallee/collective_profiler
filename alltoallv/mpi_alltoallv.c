@@ -5,6 +5,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
+#include <sys/stat.h>
 #include <mpi.h>
 
 #include "alltoallv_profiler.h"
@@ -891,16 +892,29 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 static int insert_caller_data(char **trace, size_t size, int n_call)
 {
 	char *filename = NULL;
+	char *target_dir = NULL;
 	int rc;
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/backtrace_call%d.md", getenv(OUTPUT_DIR_ENVVAR), n_call);
+		_asprintf(target_dir, rc, "%s/backtraces", getenv(OUTPUT_DIR_ENVVAR));
 	}
 	else
 	{
-		_asprintf(filename, rc, "backtrace_call%d.md", n_call);
+		target_dir = strdup("backtraces");
 	}
 	assert(rc > 0);
+	_asprintf(filename, rc, "%s/backtrace_call%d.md", target_dir, n_call);
+	assert(rc > 0);
+
+	// Make sure the target directory exists
+	struct stat dir_stat = {0};
+	if (stat(target_dir, &dir_stat) == -1)
+	{
+		if (mkdir(target_dir, 0755))
+		{
+			return -1;
+		}
+	}
 
 	FILE *f = fopen(filename, "w");
 	assert(f);
@@ -912,6 +926,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call)
 		fprintf(f, "%s\n", trace[i]);
 	}
 	fclose(f);
+	free(target_dir);
 	free(filename);
 }
 
