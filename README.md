@@ -41,9 +41,8 @@ multiple traces from multiple application and/or platforms.
 - Gather timings: use the `liballtoallv_timings.so` shared library. This generates
 a file: `timings.job<JOBID>.pid<PID>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
-files `backtrace_call<ID>.md`, one per alltoallv call. *It is important to note that
-the analysis tool assumes that these files are later manually moved to a `backtraces`
-folder in your output directory.*
+files `backtrace_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
+directory.
 
 ### Compilation
 
