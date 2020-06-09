@@ -360,11 +360,13 @@ func GetCallsTimings(reader *bufio.Reader) ([]OpTimeStat, error) {
 func parseBacktraceLine(line string, exe string) (string, error) {
 	addr := ""
 	tokens := strings.Split(line, " ")
-	if strings.HasPrefix(tokens[0], exe) {
+	// We compare the path we get with an address and if the executable (not the full path)
+	// matches the binary name passed in, we save the corresponding address.
+	if strings.Contains(tokens[0], exe) {
 		// This is a line that is about the main binary that was executed
 		addr = strings.ReplaceAll(tokens[1], "[", "")
 		addr = strings.ReplaceAll(addr, "]", "")
-                log.Printf("Address found: %s\n", addr)
+		log.Printf("Address found: %s\n", addr)
 	}
 	return addr, nil
 }
@@ -385,7 +387,7 @@ func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 	binary := strings.ReplaceAll(lines[0], "stack trace for ", "")
 	binary = (strings.Split(binary, " "))[0]
 	binaryExe := filepath.Base(binary)
-        log.Printf("Found binary: %s\n", binaryExe)
+	log.Printf("Found binary: %s\n", binaryExe)
 
 	// Now get the backtrace
 	info.Binary = binary
@@ -404,7 +406,7 @@ func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 	return info, nil
 }
 
-func (a *AlltoallvCallers)addInfo(info CallerInfo, callNum int) error {
+func (a *AlltoallvCallers) addInfo(info CallerInfo, callNum int) error {
 	for i := 0; i < len(a.Callers); i++ {
 		if a.Callers[i].Binary == info.Binary {
 			num := 0
@@ -468,18 +470,18 @@ func GetCallersFromBacktraces(dir string) (*AlltoallvCallers, error) {
 		}
 
 		fmt.Printf("Adding info about call #%d\n", numCall)
-		err = alltoallvCallers.addInfo(info, numCall) 
+		err = alltoallvCallers.addInfo(info, numCall)
 		if err != nil {
 			return nil, err
 		}
 		/*
-		{
-			info.Calls = append(info.Calls, numCall)
-                        log.Printf("Caller's info does not already exist")
-			alltoallvCallers = append(alltoallvCallers, info)
-		} else {
-			log.Printf("Caller's info already exists with %d addresses\n", len(info.Addresses))
-		}
+					{
+						info.Calls = append(info.Calls, numCall)
+			                        log.Printf("Caller's info does not already exist")
+						alltoallvCallers = append(alltoallvCallers, info)
+					} else {
+						log.Printf("Caller's info already exists with %d addresses\n", len(info.Addresses))
+					}
 		*/
 	}
 

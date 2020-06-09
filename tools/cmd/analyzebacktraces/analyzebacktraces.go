@@ -34,7 +34,8 @@ func printCallerInfo(info analyzer.CallerInfo) {
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
-	dir := flag.String("dir", "", "Where all the data is")
+	inputdir := flag.String("input-dir", "", "Where all the data is")
+	outputdir := flag.String("output-dir", "", "Where the result files will be stored")
 
 	flag.Parse()
 
@@ -47,7 +48,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	callers, err := analyzer.GetCallersFromBacktraces(*dir)
+	callers, err := analyzer.GetCallersFromBacktraces(*inputdir)
 	if err != nil {
 		log.Fatalf("unable to get callers from backtraces: %s", err)
 	}
@@ -109,8 +110,8 @@ func main() {
 		}
 		if str != "" {
 			//str = notation.CompressIntArray(c.Calls) + "\n" + str
-			resultFilename := filepath.Join(*dir, fmt.Sprintf("alltoallv_caller_%d.txt", numCaller))
-			log.Printf("Saving results in %s (%d elements)\n", resultFilename, len(codeInfo))
+			resultFilename := filepath.Join(*outputdir, fmt.Sprintf("alltoallv_caller_%d.txt", numCaller))
+			fmt.Printf("Saving results in %s (%d elements)\n", resultFilename, len(codeInfo))
 			ioutil.WriteFile(resultFilename, []byte(header+str), 0755)
 		} else {
 			log.Printf("unable to find information about caller %d\n", numCaller)
