@@ -1,4 +1,4 @@
-all: alltoallv examples tools tests
+all: alltoallv examples tools tests doc
 
 .PHONY: alltoallv examples tools check tests
 
@@ -17,8 +17,12 @@ check: alltoallv
 tests:
 	cd tests && make
 
+doc:
+	cd doc && make
+
 clean:
 	cd examples && make clean
 	cd alltoallv && make clean
 	cd tools && make clean
 	cd tests && make clean
+	cd doc && make clean
