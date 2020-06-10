@@ -85,11 +85,11 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 				stats.Min = count
 			}
 
-			if stats.MinWithoutZero == -1 && count >= 0 {
+			if stats.MinWithoutZero == -1 && count > 0 {
 				stats.MinWithoutZero = count
 			}
 
-			if stats.MinWithoutZero != -1 && count < stats.MinWithoutZero {
+			if stats.MinWithoutZero != -1 && count > 0 && count < stats.MinWithoutZero {
 				stats.MinWithoutZero = count
 			}
 		}
@@ -285,6 +285,42 @@ func GetCounters(reader *bufio.Reader) ([]string, error) {
 	return callCounters, nil
 }
 
+func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
+	sendStats, err := parseCounts(info.SendCounts, msgSizeThreshold, info.SendDatatypeSize)
+	if err != nil {
+		return err
+	}
+
+	info.Patterns.SendPatterns = sendStats.Patterns
+	info.Patterns.SendZeroCounts = sendStats.ZerosPerRankPatterns
+	info.Patterns.SendNotZeroCounts = sendStats.NoZerosPerRankPatterns
+	info.SendLargeMsgs = sendStats.LargeMsgs
+	info.SendMax = sendStats.Max
+	info.SendMin = sendStats.Min
+	info.SendNotZeroMin = sendStats.MinWithoutZero
+	info.SendSmallMsgs = sendStats.SmallMsgs
+	info.SendSmallNotZeroMsgs = sendStats.SmallNotZeroMsgs
+	info.TotalSendZeroCounts = sendStats.TotalZeroCounts
+
+	recvStats, err := parseCounts(info.RecvCounts, msgSizeThreshold, info.RecvDatatypeSize)
+	if err != nil {
+		return err
+	}
+
+	info.Patterns.RecvPatterns = recvStats.Patterns
+	info.Patterns.RecvZeroCounts = recvStats.ZerosPerRankPatterns
+	info.Patterns.RecvNotZeroCounts = recvStats.NoZerosPerRankPatterns
+	info.RecvNotZeroMin = recvStats.MinWithoutZero
+	info.RecvMin = recvStats.Min
+	info.RecvMax = recvStats.Max
+	info.RecvSmallMsgs = recvStats.SmallMsgs
+	info.RecvSmallNotZeroMsgs = recvStats.SmallNotZeroMsgs
+	info.RecvLargeMsgs = recvStats.LargeMsgs
+	info.TotalRecvZeroCounts = recvStats.TotalZeroCounts
+
+	return nil
+}
+
 func lookupCallfromCountsFile(reader *bufio.Reader, numCall int) (int, int, []string, error) {
 	var counts []string
 	var err error
@@ -331,17 +367,15 @@ func LookupCall(sendCountsFile string, recvCountsFile string, numCall int, msgSi
 	recvCountsReader := bufio.NewReader(fRecvCounts)
 
 	// find the call's data from the send counts file first
-	var sendCounts []string
 	sendNumRanks := 0
-	sendNumRanks, info.SendDatatypeSize, sendCounts, err = lookupCallfromCountsFile(sendCountsReader, numCall)
+	sendNumRanks, info.SendDatatypeSize, info.SendCounts, err = lookupCallfromCountsFile(sendCountsReader, numCall)
 	if err != nil {
 		return info, err
 	}
 
 	// find the call's data from the recv counts file then
-	var recvCounts []string
 	recvNumRanks := 0
-	recvNumRanks, info.RecvDatatypeSize, recvCounts, err = lookupCallfromCountsFile(recvCountsReader, numCall)
+	recvNumRanks, info.RecvDatatypeSize, info.RecvCounts, err = lookupCallfromCountsFile(recvCountsReader, numCall)
 	if err != nil {
 		return info, err
 	}
@@ -354,39 +388,11 @@ func LookupCall(sendCountsFile string, recvCountsFile string, numCall int, msgSi
 	var cp CallPattern
 	cp.SendZeroCounts = make(map[int]int)
 	cp.RecvZeroCounts = make(map[int]int)
-	//info.SendNotZeroMin, info.SendMin, info.SendMax, info.SendSmallMsgs, info.SendSmallNotZeroMsgs, info.SendLargeMsgs, info.Patterns.SendZeroCounts, info.Patterns.SendNotZeroCounts, info.Patterns.SendPatterns, err = parseCounts(sendCounts, msgSizeThreshold, info.SendDatatypeSize)
-	sendStats, err := parseCounts(sendCounts, msgSizeThreshold, info.SendDatatypeSize)
+
+	err = info.getCallStatsFromCounts(msgSizeThreshold)
 	if err != nil {
 		return info, err
 	}
-
-	info.Patterns.SendPatterns = sendStats.Patterns
-	info.Patterns.SendZeroCounts = sendStats.ZerosPerRankPatterns
-	info.Patterns.SendNotZeroCounts = sendStats.NoZerosPerRankPatterns
-	info.SendLargeMsgs = sendStats.LargeMsgs
-	info.SendMax = sendStats.Max
-	info.SendMin = sendStats.Min
-	info.SendNotZeroMin = sendStats.MinWithoutZero
-	info.SendSmallMsgs = sendStats.SmallMsgs
-	info.SendSmallNotZeroMsgs = sendStats.SmallNotZeroMsgs
-	info.TotalSendZeroCounts = sendStats.TotalZeroCounts
-
-	//info.RecvNotZeroMin, info.RecvMin, info.RecvMax, info.RecvSmallMsgs, info.RecvSmallNotZeroMsgs, info.RecvLargeMsgs, info.Patterns.RecvZeroCounts, info.Patterns.RecvNotZeroCounts, info.Patterns.RecvPatterns, err = parseCounts(recvCounts, msgSizeThreshold, info.RecvDatatypeSize)
-	recvStats, err := parseCounts(recvCounts, msgSizeThreshold, info.RecvDatatypeSize)
-	if err != nil {
-		return info, err
-	}
-
-	info.Patterns.RecvPatterns = recvStats.Patterns
-	info.Patterns.RecvZeroCounts = recvStats.ZerosPerRankPatterns
-	info.Patterns.RecvNotZeroCounts = recvStats.NoZerosPerRankPatterns
-	info.RecvNotZeroMin = recvStats.MinWithoutZero
-	info.RecvMin = recvStats.Min
-	info.RecvMax = recvStats.Max
-	info.RecvSmallMsgs = recvStats.SmallMsgs
-	info.RecvSmallNotZeroMsgs = recvStats.SmallNotZeroMsgs
-	info.RecvLargeMsgs = recvStats.LargeMsgs
-	info.TotalRecvZeroCounts = recvStats.TotalZeroCounts
 
 	return info, nil
 }

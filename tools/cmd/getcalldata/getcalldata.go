@@ -8,12 +8,85 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/go_util/pkg/util"
 )
+
+func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
+	_, err := f.WriteString("## Summary\n\n")
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Communicator size: %d\n", callInfo.CommSize))
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString("### Send counts summary\n\n")
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Send data type size: %d\n", callInfo.SendDatatypeSize))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Max send count: %d\n", callInfo.SendMax))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Min send count: %d\n", callInfo.SendMin))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Min non-zero send count: %d\n", callInfo.SendNotZeroMin))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.SendSmallNotZeroMsgs))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.SendLargeMsgs))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString("### Receive counts summary\n\n")
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Recv data type size: %d\n", callInfo.RecvDatatypeSize))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Max recv count: %d\n", callInfo.RecvMax))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Min recv count: %d\n", callInfo.RecvMin))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Min non-zero recv count: %d\n", callInfo.RecvNotZeroMin))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.RecvSmallNotZeroMsgs))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.RecvLargeMsgs))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
@@ -68,17 +141,20 @@ func main() {
 		fmt.Printf("\n")
 	}
 
+	var callsInfo []datafilereader.CallInfo
 	for _, callNum := range listCalls {
 		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *pid, callNum)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}
+		callsInfo = append(callsInfo, callInfo)
 
 		callFilePath := filepath.Join(*dir, fmt.Sprintf("call%d-job%d-pid%d.md", callNum, *jobid, *pid))
 		newFile, err := os.OpenFile(callFilePath, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			log.Fatalf("unable to create %s: %s", callFilePath, err)
 		}
+		defer newFile.Close()
 
 		_, err = newFile.WriteString("\n# Bracktrace\n\n")
 		if err != nil {
@@ -131,6 +207,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
+
+		err = saveCountsSummary(newFile, callInfo)
+
 		_, err = newFile.WriteString("## Send counts\n\n")
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
@@ -183,4 +262,82 @@ func main() {
 		}
 		fmt.Printf("Data for call #%d saved in %s\n", callNum, callFilePath)
 	}
+
+	summaryFilePath := filepath.Join(*dir, fmt.Sprintf("calls-%s.md", *calls))
+	summaryFile, err := os.OpenFile(summaryFilePath, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		log.Fatalf("unable to open file %s: %s", summaryFilePath, err)
+	}
+	defer summaryFile.Close()
+
+	var uniqueBacktraces []string
+	// Find unique backtraces
+	for _, info := range callsInfo {
+		backtraceExists := false
+		for _, bt := range uniqueBacktraces {
+			if info.Backtrace == bt {
+				backtraceExists = true
+				break
+			}
+		}
+
+		if !backtraceExists {
+			uniqueBacktraces = append(uniqueBacktraces, info.Backtrace)
+		}
+	}
+
+	num := 1
+	for _, ubt := range uniqueBacktraces {
+		_, err = summaryFile.WriteString("# Backtraces\n\n")
+		if err != nil {
+			log.Fatalf("unable to write to file: %s", err)
+		}
+		_, err = summaryFile.WriteString(fmt.Sprintf("## Backtrace %d\n\n", num))
+		if err != nil {
+			log.Fatalf("unable to write to file: %s", err)
+		}
+		_, err = summaryFile.WriteString(fmt.Sprintf("%s\n", ubt))
+		if err != nil {
+			log.Fatalf("unable to write to file: %s", err)
+		}
+		num++
+	}
+
+	// Find unique min/max counts
+	var uniqueMinMaxCallsInfo []datafilereader.CallInfo
+	callIDs := make([][]int, len(callsInfo))
+	num = 0
+	for _, info := range callsInfo {
+		dataExists := false
+		for _, uniqueMinMaxInfo := range uniqueMinMaxCallsInfo {
+			if info.CommSize == uniqueMinMaxInfo.CommSize &&
+				info.RecvDatatypeSize == uniqueMinMaxInfo.RecvDatatypeSize &&
+				info.SendDatatypeSize == uniqueMinMaxInfo.SendDatatypeSize &&
+				reflect.DeepEqual(info.RecvCounts, uniqueMinMaxInfo.RecvCounts) &&
+				reflect.DeepEqual(info.SendCounts, uniqueMinMaxInfo.SendCounts) {
+				dataExists = true
+				callIDs[num] = append(callIDs[num], info.ID)
+				break
+			}
+		}
+
+		if !dataExists {
+			uniqueMinMaxCallsInfo = append(uniqueMinMaxCallsInfo, info)
+			callIDs[len(uniqueMinMaxCallsInfo)-1] = append(callIDs[len(uniqueMinMaxCallsInfo)-1], info.ID)
+		}
+		num++
+	}
+
+	num = 0
+	for _, uniqueInfo := range uniqueMinMaxCallsInfo {
+		_, err = summaryFile.WriteString(fmt.Sprintf("Calls: %s\n", notation.CompressIntArray(callIDs[num])))
+		if err != nil {
+			log.Fatalf("unable to write to file: %s", err)
+		}
+		err = saveCountsSummary(summaryFile, uniqueInfo)
+		if err != nil {
+			log.Fatalf("unable to write to file: %s", err)
+		}
+	}
+	fmt.Printf("Summary is saved in %s\n", summaryFilePath)
 }

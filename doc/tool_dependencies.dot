@@ -25,5 +25,7 @@ digraph G {
     late_arrivals_timings -> getcalls;
     alltoallv_call_contexts -> getcalls;
     call_specific_files [label="Alltoallv call specific files", shape=box, style=filled,color=".6 .2 1.0"];
+    calls_summary [label="Alltoallv calls statistics", shape=box, style=filled,color=".6 .2 1.0"];
     getcalls -> call_specific_files;
+    getcalls -> calls_summary;
 }

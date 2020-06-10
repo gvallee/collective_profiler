@@ -30,6 +30,8 @@ const (
 
 	sendCountersFilePrefix = "send-counters."
 	recvCountersFilePrefix = "recv-counters."
+
+	defaultMsgSizeThreshold = 200
 )
 
 type CallPattern struct {
@@ -42,6 +44,7 @@ type CallPattern struct {
 }
 
 type CallInfo struct {
+	ID                   int
 	Patterns             CallPattern
 	PatternStr           string
 	SendCounts           []string
@@ -112,6 +115,7 @@ func GetStatsFilePath(basedir string, jobid int, pid int) string {
 
 func GetCallData(dir string, jobid int, pid int, callNum int) (CallInfo, error) {
 	var info CallInfo
+	info.ID = callNum
 
 	// Load the counts from raw data
 	log.Printf("Extracting send/receive counts for call #%d\n", callNum)
@@ -133,13 +137,17 @@ func GetCallData(dir string, jobid int, pid int, callNum int) (CallInfo, error) 
 	defer recvCountsFd.Close()
 	recvCountsFileReader := bufio.NewReader(recvCountsFd)
 
-	_, _, info.SendCounts, err = lookupCallfromCountsFile(sendCountsFileReader, callNum)
+	_, info.SendDatatypeSize, info.SendCounts, err = lookupCallfromCountsFile(sendCountsFileReader, callNum)
 	if err != nil {
 		return info, nil
 	}
-	_, _, info.RecvCounts, err = lookupCallfromCountsFile(recvCountsFileReader, callNum)
+	_, info.RecvDatatypeSize, info.RecvCounts, err = lookupCallfromCountsFile(recvCountsFileReader, callNum)
 	if err != nil {
 		return info, nil
+	}
+	err = info.getCallStatsFromCounts(defaultMsgSizeThreshold)
+	if err != nil {
+		return info, err
 	}
 
 	// Get timings from formatted timing file
