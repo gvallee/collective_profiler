@@ -24,7 +24,7 @@ func main() {
 
 	flag.Parse()
 
-	logFile := util.OpenLogFile("alltoallv", "extracttimings")
+	logFile := util.OpenLogFile("alltoallv", "getcalldata")
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)
