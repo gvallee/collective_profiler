@@ -1,0 +1,29 @@
+digraph G {
+    backtraces_orig [label="Call backtrace files", shape=box, style=filled,color=".7 .3 1.0"];
+    send_counts_orig [label="Send counts file", shape=box, style=filled,color=".7 .3 1.0"];
+    recv_counts_orig [label="Receive counts file", shape=box, style=filled,color=".7 .3 1.0"];
+    timings_orig [label="Timings file", shape=box, style=filled,color=".7 .3 1.0"];
+    backtraces_orig -> analyzebacktrace;
+    alltoallv_call_contexts [label="Alltoallv call contexts\n(unique backtraces)", shape=box, style=filled,color=".6 .2 1.0"];
+    analyzebacktrace -> alltoallv_call_contexts;
+    send_counts_orig -> srcountsanalyzer;
+    recv_counts_orig -> srcountsanalyzer;
+    patterns [shape=box, style=filled,color=".6 .2 1.0"];
+    stats [shape=box, style=filled,color=".6 .2 1.0"];
+    srcountsanalyzer -> patterns;
+    srcountsanalyzer -> stats;
+    timings_orig -> extracttimings;
+    alltoallv_timings [label="Alltoallv timings", shape=box, style=filled,color=".6 .2 1.0"];
+    late_arrivals_timings [label="Late arrivals timings", shape=box, style=filled,color=".6 .2 1.0"];
+    extracttimings -> alltoallv_timings;
+    extracttimings -> late_arrivals_timings;
+    getcalls [label="getcalldata"]
+    send_counts_orig -> getcalls;
+    recv_counts_orig -> getcalls;
+    patterns -> getcalls;
+    alltoallv_timings -> getcalls;
+    late_arrivals_timings -> getcalls;
+    alltoallv_call_contexts -> getcalls;
+    call_specific_files [label="Alltoallv call specific files", shape=box, style=filled,color=".6 .2 1.0"];
+    getcalls -> call_specific_files;
+}
