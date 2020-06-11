@@ -748,74 +748,67 @@ int mpi_init_(MPI_Fint *ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
 }
 
-// During Finalize, it prints all stored data to a file.
-int _mpi_finalize()
+static int _release_counts_resources()
 {
-	if (myrank == 0)
+	// All data has been handled, now we can clean up
+	int i;
+	while (head != NULL)
 	{
-		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+		avSRCountNode_t *c_ptr = head->next;
 
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-		// All data has been handled, now we can clean up
-		int i;
-		while (head != NULL)
+		for (i = 0; i < head->send_data_size; i++)
 		{
-			avSRCountNode_t *c_ptr = head->next;
-
-			for (i = 0; i < head->send_data_size; i++)
-			{
-				delete_counter_data(&(head->send_data[i]));
-			}
-
-			for (i = 0; i < head->recv_data_size; i++)
-			{
-				delete_counter_data(&(head->recv_data[i]));
-			}
-
-			free(head->recv_data);
-			free(head->send_data);
-			free(head->list_calls);
-
-			free(head);
-			head = c_ptr;
+			delete_counter_data(&(head->send_data[i]));
 		}
-#else
-#if ENABLE_TIMING
-		log_timing_data(logger, op_timing_exec_head);
-#endif // ENABLE_TIMING
+
+		for (i = 0; i < head->recv_data_size; i++)
+		{
+			delete_counter_data(&(head->recv_data[i]));
+		}
+
+		free(head->recv_data);
+		free(head->send_data);
+		free(head->list_calls);
+
+		free(head);
+		head = c_ptr;
+	}
+	return 0;
+}
+
+static int _release_pattern_resources()
+{
+	while (rpatterns != NULL)
+	{
+		avPattern_t *rp = rpatterns->next;
+		free(rpatterns);
+		rpatterns = rp;
+	}
+
+	while (spatterns != NULL)
+	{
+		avPattern_t *sp = spatterns->next;
+		free(spatterns);
+		spatterns = sp;
+	}
+
+	return 0;
+}
+
+static int _release_profiling_resources()
+{
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
+	_release_counts_resources();
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
-#if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
-		save_patterns(getpid());
-#endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
-
-#if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
-		save_call_patterns(getpid());
-		while (spatterns != NULL)
-		{
-			avPattern_t *sp = spatterns->next;
-			free(spatterns);
-			spatterns = sp;
-		}
-
-		while (rpatterns != NULL)
-		{
-			avPattern_t *rp = rpatterns->next;
-			free(rpatterns);
-			rpatterns = rp;
-		}
-#endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
-
-		logger_fini(&logger);
-
-		while (op_timing_exec_head != NULL)
-		{
-			avTimingsNode_t *t_ptr = op_timing_exec_head->next;
-			free(op_timing_exec_head->timings);
-			free(op_timing_exec_head);
-			op_timing_exec_head = t_ptr;
-		}
-		op_timing_exec_tail = NULL;
+	while (op_timing_exec_head != NULL)
+	{
+		avTimingsNode_t *t_ptr = op_timing_exec_head->next;
+		free(op_timing_exec_head->timings);
+		free(op_timing_exec_head);
+		op_timing_exec_head = t_ptr;
+	}
+	op_timing_exec_tail = NULL;
 
 #if 0
 		fprintf(f, "# Hostnames\n");
@@ -833,34 +826,71 @@ int _mpi_finalize()
 		}
 #endif
 
-		// Free all the memory allocated during MPI_Init() for profiling purposes
-		if (rbuf != NULL)
-		{
-			free(rbuf);
-			rbuf = NULL;
-		}
-		if (sbuf != NULL)
-		{
-			free(sbuf);
-			sbuf = NULL;
-		}
-		if (op_exec_times != NULL)
-		{
-			free(op_exec_times);
-			op_exec_times = NULL;
-		}
-		if (late_arrival_timings != NULL)
-		{
-			free(late_arrival_timings);
-			late_arrival_timings = NULL;
-		}
+	_release_pattern_resources();
+
+	// Free all the memory allocated during MPI_Init() for profiling purposes
+	if (rbuf != NULL)
+	{
+		free(rbuf);
+		rbuf = NULL;
+	}
+	if (sbuf != NULL)
+	{
+		free(sbuf);
+		sbuf = NULL;
+	}
+	if (op_exec_times != NULL)
+	{
+		free(op_exec_times);
+		op_exec_times = NULL;
+	}
+	if (late_arrival_timings != NULL)
+	{
+		free(late_arrival_timings);
+		late_arrival_timings = NULL;
+	}
 #if 0
 		if (hostnames)
 		{
 			free(hostnames);
 		}
 #endif
+	return 0;
+}
+
+static int _finalize_profiling()
+{
+	logger_fini(&logger);
+	_release_profiling_resources();
+}
+
+static int _commit_data()
+{
+	if (myrank == 0)
+	{
+		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+
+#if ENABLE_TIMING
+		log_timing_data(logger, op_timing_exec_head);
+#endif // ENABLE_TIMING
+
+#if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
+		save_patterns(getpid());
+#endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
+
+#if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
+		save_call_patterns(getpid());
+#endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
 	}
+
+	return 0;
+}
+
+// During Finalize, it prints all stored data to a file.
+int _mpi_finalize()
+{
+	_commit_data();
+	_finalize_profiling();
 	return PMPI_Finalize();
 }
 
@@ -874,6 +904,31 @@ void mpi_finalize_(MPI_Fint *ierr)
 	int c_ierr = _mpi_finalize();
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
+}
+
+int _mpi_abort(MPI_Comm comm, int exit_code)
+{
+	_commit_data();
+	_finalize_profiling();
+	return PMPI_Abort(comm, exit_code);
+}
+
+int MPI_Abort(MPI_Comm comm, int exit_code)
+{
+	return _mpi_abort(comm, exit_code);
+}
+
+void mpi_abort_(MPI_Fint *comm, MPI_Fint exit_code, MPI_Fint *ierr)
+{
+	int c_ierr;
+	MPI_Comm c_comm;
+
+	c_comm = PMPI_Comm_f2c(*comm);
+	c_ierr = _mpi_abort(c_comm, exit_code);
+	if (NULL != ierr)
+	{
+		*ierr = OMPI_INT_2_FINT(c_ierr);
+	}
 }
 
 static caller_info_t *create_new_caller_info(char *caller, int n_call)
@@ -1061,6 +1116,23 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	// does not artificially fall behind.
 	MPI_Barrier(comm);
 #endif
+
+	char *need_data_commit_str = getenv(A2A_COMMIT_PROFILER_DATA_AT_ENVVAR);
+	char *need_to_free_data = getenv(A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR);
+
+	if (need_data_commit_str != NULL)
+	{
+		int targetCallID = atoi(need_data_commit_str);
+		if (avCalls == targetCallID)
+		{
+			_commit_data();
+		}
+	}
+
+	if (need_to_free_data != NULL && need_to_free_data != "0")
+	{
+		_release_profiling_resources();
+	}
 
 	return ret;
 }

@@ -24,6 +24,8 @@
 #define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR"   // Name of the environment variable to specify where output files will be created
 #define NUM_CALL_START_PROFILING_ENVVAR "A2A_NUM_CALL_START_PROFILING"
 #define LIMIT_ALLTOALLV_CALLS_ENVVAR "A2A_LIMIT_ALLTOALLV_CALLS_ENVVAR"
+#define A2A_COMMIT_PROFILER_DATA_AT_ENVVAR "A2A_COMMIT_PROFILER_DATA_AT"
+#define A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR "A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT"
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
 #define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
