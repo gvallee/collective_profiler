@@ -19,6 +19,7 @@
         }                                            \
     } while (0);
 
+
 typedef struct alltoallv_info
 {
     int *send_buffer;

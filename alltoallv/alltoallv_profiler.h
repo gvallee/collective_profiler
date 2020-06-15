@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #define DEBUG (0)
 #define HOSTNAME_LEN 16

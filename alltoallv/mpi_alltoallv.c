@@ -24,15 +24,15 @@ static caller_info_t *callers_head = NULL;
 static caller_info_t *callers_tail = NULL;
 
 static int world_size = -1;
-static int myrank = -1;
-static int avCalls = 0;		  // Total number of alltoallv calls that we went through (indexed on 0, not 1)
-static int avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
-static int avCallStart = -1;  // Number of alltoallv call during which we started to gather data
+static int world_rank = -1;
+static uint64_t avCalls = 0;	   // Total number of alltoallv calls that we went through (indexed on 0, not 1)
+static uint64_t avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
+static uint64_t avCallStart = -1;  // Number of alltoallv call during which we started to gather data
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
-static int _num_call_start_profiling = NUM_CALL_START_PROFILING;
-static int _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
+static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
+static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
 
 // Buffers used to store data through all alltoallv calls
 int *sbuf = NULL;
@@ -697,14 +697,13 @@ int _mpi_init(int *argc, char ***argv)
 
 	ret = PMPI_Init(argc, argv);
 
-	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	if (myrank == 0)
-	{
-		logger = logger_init();
-		assert(logger);
-	}
+	// We do not know what rank will gather alltoallv data since alltoallv can
+	// be called on any communicator
+	logger = logger_init(world_rank);
+	assert(logger);
 
 	// Allocate buffers reused between alltoallv calls
 	// Note the buffer may be used on a communicator that is not comm_world
@@ -866,22 +865,20 @@ static int _finalize_profiling()
 
 static int _commit_data()
 {
-	if (myrank == 0)
-	{
-		log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+
+	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
 
 #if ENABLE_TIMING
-		log_timing_data(logger, op_timing_exec_head);
+	log_timing_data(logger, op_timing_exec_head);
 #endif // ENABLE_TIMING
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
-		save_patterns(getpid());
+	save_patterns(getpid());
 #endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 
 #if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
-		save_call_patterns(getpid());
+	save_call_patterns(getpid());
 #endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
-	}
 
 	return 0;
 }
@@ -994,9 +991,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int localrank;
 	int ret;
 	bool need_profile = true;
+	int my_comm_rank;
+
+	MPI_Comm_rank(comm, &my_comm_rank);
 
 #if ENABLE_BACKTRACE
-	if (myrank == 0)
+	if (my_comm_rank == 0)
 	{
 		void *array[16];
 		size_t _s;
@@ -1032,7 +1032,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		MPI_Comm_size(comm, &size);
 
 #if 0
-	if (myrank == 0)
+	if (my_comm_rank == 0)
 	{
 		hostnames = (char *)malloc(size * HOSTNAME_LEN * sizeof(char));
 	}
@@ -1045,7 +1045,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		// A tool is available to compare that data with the counter file we have, using the underlying infrastructure
 		// we have to gather stats
 		int uniqueID;
-		if (myrank == 0)
+		if (my_comm_rank == 0)
 		{
 			uniqueID = getpid();
 			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
@@ -1082,7 +1082,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_TIMING \
 	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
-		if (myrank == 0)
+		if (my_comm_rank == 0)
 		{
 #if DEBUG
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
@@ -1100,9 +1100,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_TIMING
 			insert_op_exec_times_data(op_exec_times, late_arrival_timings, size);
 #endif
+			avCallsLogged++;
 		}
 		avCalls++;
-		avCallsLogged++;
 	}
 	else
 	{

@@ -32,7 +32,7 @@ static char *ctx_to_string(int ctx)
     return context;
 }
 
-static char *get_full_filename(int ctxt, char *id)
+static char *get_full_filename(int ctxt, char *id, int world_rank)
 {
     char *filename = NULL;
     char *dir = NULL;
@@ -55,12 +55,12 @@ static char *get_full_filename(int ctxt, char *id)
         {
             if (jobid != NULL)
             {
-                _asprintf(filename, size, "profile_alltoallv.job%s.pid%d.md", jobid, getpid());
+                _asprintf(filename, size, "profile_alltoallv_rank%d.job%s.pid%d.md", world_rank, jobid, getpid());
                 assert(size > 0);
             }
             else
             {
-                _asprintf(filename, size, "profile_alltoallv.pid%d.md", getpid());
+                _asprintf(filename, size, "profile_alltoallv_rank%d.pid%d.md", world_rank, getpid());
                 assert(size > 0);
             }
         }
@@ -68,12 +68,12 @@ static char *get_full_filename(int ctxt, char *id)
         {
             if (jobid != NULL)
             {
-                _asprintf(filename, size, "%s.job%s.pid%d.md", id, jobid, getpid());
+                _asprintf(filename, size, "%s.rank%d.job%s.pid%d.md", id, world_rank, jobid, getpid());
                 assert(size > 0);
             }
             else
             {
-                _asprintf(filename, size, "%s.pid%d.md", id, getpid());
+                _asprintf(filename, size, "%s.rank%d.pid%d.md", id, world_rank, getpid());
                 assert(size > 0);
             }
         }
@@ -83,12 +83,12 @@ static char *get_full_filename(int ctxt, char *id)
         char *context = ctx_to_string(ctxt);
         if (jobid != NULL)
         {
-            _asprintf(filename, size, "%s-%s.job%s.pid%d.txt", context, id, jobid, getpid());
+            _asprintf(filename, size, "%s-%s.rank%d.job%s.pid%d.txt", context, id, world_rank, jobid, getpid());
             assert(size > 0);
         }
         else
         {
-            _asprintf(filename, size, "%s-%s.pid%d.txt", context, id, getpid());
+            _asprintf(filename, size, "%s-%s.rank%d.pid%d.txt", context, id, world_rank, getpid());
             assert(size > 0);
         }
     }
@@ -132,17 +132,6 @@ void log_groups(logger_t *logger, group_t *gps, int num_gps)
     }
 }
 
-static FILE *open_log_file(int ctxt, char *id)
-{
-    FILE *fp = NULL;
-    char *path;
-
-    path = get_full_filename(ctxt, id);
-    fp = fopen(path, "w");
-    free(path);
-    return fp;
-}
-
 static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 {
     int i;
@@ -151,7 +140,8 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 
     if (logger->sums_fh == NULL)
     {
-        return;
+        logger->sums_filename = get_full_filename(MAIN_CTX, "sums", logger->rank);
+        logger->sums_fh = fopen(logger->sums_filename, "w");
     }
 
     fprintf(logger->sums_fh, "# Rank\tAmount of data (bytes)\n");
@@ -358,7 +348,13 @@ char *compress_int_array(int *array, int size)
 static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
 {
     int i, j, num = 0;
-    FILE *fh;
+    FILE *fh = NULL;
+
+    if (counters == NULL)
+    {
+        // Nothing to log, we exit
+        return;
+    }
 
 #if ENABLE_PER_RANK_STATS
     int *zeros = (int *)calloc(size, sizeof(int));
@@ -383,16 +379,32 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
 
     assert(logger);
+
+    if (logger->f == NULL)
+    {
+        logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+        logger->f = fopen(logger->main_filename, "w");
+    }
     assert(logger->f);
 
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
     switch (ctx)
     {
     case RECV_CTX:
+        if (logger->recvcounters_fh == NULL)
+        {
+            logger->recvcounts_filename = get_full_filename(RECV_CTX, "counters", logger->rank);
+            logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
+        }
         fh = logger->recvcounters_fh;
         break;
 
     case SEND_CTX:
+        if (logger->sendcounters_fh == NULL)
+        {
+            logger->sendcounts_filename = get_full_filename(SEND_CTX, "counters", logger->rank);
+            logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
+        }
         fh = logger->sendcounters_fh;
         break;
 
@@ -575,6 +587,12 @@ static void log_timings(logger_t *logger, int num_call, double *timings, double 
 {
     int j;
 
+    if (logger->timing_fh == NULL)
+    {
+        logger->timing_filename = get_full_filename(MAIN_CTX, "timings", logger->rank);
+        logger->timing_fh = fopen(logger->timing_filename, "w");
+    }
+
     fprintf(logger->timing_fh, "Alltoallv call #%d\n", num_call);
     fprintf(logger->timing_fh, "# Late arrival timings\n");
     for (j = 0; j < size; j++)
@@ -586,7 +604,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, double 
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
     }
-    fprintf(logger->f, "\n");
+    fprintf(logger->timing_fh, "\n");
 }
 
 static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
@@ -595,49 +613,58 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 #if ENABLE_RAW_DATA
 
     // Display the send/receive counts data
-    assert(counters_list);
-    avSRCountNode_t *srCountPtr = counters_list;
-    assert(logger->f);
-    fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
-    while (srCountPtr != NULL)
+    if (counters_list != NULL)
     {
-        fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
+        avSRCountNode_t *srCountPtr = counters_list;
+        if (logger->f == NULL)
+        {
+            logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->f = fopen(logger->main_filename, "w");
+        }
+        assert(logger->f);
+        fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
+        while (srCountPtr != NULL)
+        {
+            fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
 
-        DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %d\n", srCountPtr->count);
-        DEBUG_ALLTOALLV_PROFILING("Logging send counts\n");
-        fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
+            DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %d\n", srCountPtr->count);
+            DEBUG_ALLTOALLV_PROFILING("Logging send counts\n");
+            fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
-        _log_data(logger, startcall, endcall,
-                  SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
-                  srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+            _log_data(logger, startcall, endcall,
+                      SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
+                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 
-        DEBUG_ALLTOALLV_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
-        fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
+            DEBUG_ALLTOALLV_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
+            fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
-        _log_data(logger, startcall, endcall,
-                  RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
-                  srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+            _log_data(logger, startcall, endcall,
+                      RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
+                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
-        DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);
-        srCountPtr = srCountPtr->next;
+            DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);
+            srCountPtr = srCountPtr->next;
+        }
     }
 #endif
 
 #if ENABLE_TIMING
     // Handle the timing data
-    assert(times_list);
-    avTimingsNode_t *tPtr = times_list;
-    int i = 0;
-    while (tPtr != NULL)
+    if (times_list != NULL)
     {
-        log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
-        tPtr = tPtr->next;
-        i++;
+        avTimingsNode_t *tPtr = times_list;
+        int i = 0;
+        while (tPtr != NULL)
+        {
+            log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
+            tPtr = tPtr->next;
+            i++;
+        }
     }
 #endif
 }
 
-logger_t *logger_init()
+logger_t *logger_init(int world_rank)
 {
     char filename[128];
     logger_t *l = calloc(1, sizeof(logger_t));
@@ -646,21 +673,17 @@ logger_t *logger_init()
         return NULL;
     }
 
-    l->f = open_log_file(MAIN_CTX, NULL);
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-    l->recvcounters_fh = open_log_file(RECV_CTX, "counters");
-    assert(l->recvcounters_fh);
-    l->sendcounters_fh = open_log_file(SEND_CTX, "counters");
-    assert(l->sendcounters_fh);
-#endif
-#if ENABLE_POSTMORTEM_GROUPING
-    l->sums_fh = open_log_file(MAIN_CTX, "sums");
-    assert(l->sums_fh);
-#endif
-#if ENABLE_TIMING
-    l->timing_fh = open_log_file(MAIN_CTX, "timings");
-    assert(l->timing_fh);
-#endif
+    l->rank = world_rank;
+    l->f = NULL;
+    l->main_filename = NULL;
+    l->recvcounters_fh = NULL;
+    l->recvcounts_filename = NULL;
+    l->sendcounters_fh = NULL;
+    l->sendcounts_filename = NULL;
+    l->sums_fh = NULL;
+    l->sums_filename = NULL;
+    l->timing_fh = NULL;
+    l->timing_filename = NULL;
 
     return l;
 }
@@ -671,26 +694,26 @@ void logger_fini(logger_t **l)
     {
         if (*l != NULL)
         {
-            if ((*l)->f != NULL)
-            {
+            if ((*l)->f)
                 fclose((*l)->f);
-            }
+            if ((*l)->main_filename)
+                free((*l)->main_filename);
             if ((*l)->sendcounters_fh)
-            {
                 fclose((*l)->sendcounters_fh);
-            }
+            if ((*l)->sendcounts_filename)
+                free((*l)->sendcounts_filename);
             if ((*l)->recvcounters_fh)
-            {
                 fclose((*l)->recvcounters_fh);
-            }
+            if ((*l)->recvcounts_filename)
+                free((*l)->recvcounts_filename);
             if ((*l)->timing_fh)
-            {
                 fclose((*l)->timing_fh);
-            }
+            if ((*l)->timing_filename)
+                free((*l)->timing_filename);
             if ((*l)->sums_fh)
-            {
                 fclose((*l)->sums_fh);
-            }
+            if ((*l)->sums_filename)
+                free((*l)->sums_filename);
             free(*l);
             *l = NULL;
         }
@@ -716,8 +739,14 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
 void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);
-    if (logger->f != NULL)
+    // We check if we actually have data to save or not
+    if (avCalls > 0 && (counters_list != NULL || times_list != NULL))
     {
+        if (logger->f == NULL)
+        {
+            logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->f = fopen(logger->main_filename, "w");
+        }
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
         fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed

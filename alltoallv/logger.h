@@ -17,11 +17,17 @@
 
 typedef struct logger
 {
-    FILE *f;               // File handle to save general profile data. Other files are created for specific data
-    FILE *sendcounters_fh; // File handle used to save send counters
-    FILE *recvcounters_fh; // File handle used to save recv counters
-    FILE *sums_fh;         // File handle used to save data related to amount of data exchanged
-    FILE *timing_fh;       // File handle used to save data related to timing of operations
+    int rank;                  // Rank that is handling the current logger.
+    char *main_filename;       // Path to the main profile file.
+    FILE *f;                   // File handle to save general profile data. Other files are created for specific data.
+    char *sendcounts_filename; // Path of the send counts profile.
+    FILE *sendcounters_fh;     // File handle used to save send counters.
+    char *recvcounts_filename; // Path of the receive counts profile.
+    FILE *recvcounters_fh;     // File handle used to save recv counters.
+    char *sums_filename;       // Path of the sums profiles.
+    FILE *sums_fh;             // File handle used to save data related to amount of data exchanged.
+    char *timing_filename;     // Path of the timing profile.
+    FILE *timing_fh;           // File handle used to save data related to timing of operations.
 } logger_t;
 
 extern logger_t *logger_init();
