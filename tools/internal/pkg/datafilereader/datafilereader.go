@@ -220,7 +220,7 @@ func GetCallData(dir string, jobid int, pid int, callNum int, msgSizeThreshold i
 	defer recvCountsFd.Close()
 	recvCountsFileReader := bufio.NewReader(recvCountsFd)
 
-	_, info.SendDatatypeSize, info.SendCounts, err = lookupCallfromCountsFile(sendCountsFileReader, callNum)
+	info.CommSize, info.SendDatatypeSize, info.SendCounts, err = lookupCallfromCountsFile(sendCountsFileReader, callNum)
 	if err != nil {
 		return info, nil
 	}
