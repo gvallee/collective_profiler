@@ -904,12 +904,12 @@ static int insert_caller_data(char **trace, size_t size, int n_call)
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
 		_asprintf(target_dir, rc, "%s/backtraces", getenv(OUTPUT_DIR_ENVVAR));
+		assert(rc > 0);
 	}
 	else
 	{
 		target_dir = strdup("backtraces");
 	}
-	assert(rc > 0);
 	_asprintf(filename, rc, "%s/backtrace_call%d.md", target_dir, n_call);
 	assert(rc > 0);
 
