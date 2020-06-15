@@ -28,6 +28,8 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 	stats.Patterns = make(map[int]int)
 	stats.NoZerosPerRankPatterns = make(map[int]int)
 	stats.ZerosPerRankPatterns = make(map[int]int)
+	stats.Sum = 0
+	stats.MsgSizeThreshold = msgSizeThreshold
 
 	zeros := 0
 	nonZeros := 0
@@ -60,6 +62,8 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 				log.Printf("unable to parse %s (%s): %s", w, tokens[1], err)
 				return stats, err
 			}
+			stats.Sum += count
+
 			if count == 0 {
 				zeros++
 				stats.TotalZeroCounts += numberOfRanks
@@ -301,6 +305,7 @@ func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
 	info.SendSmallMsgs = sendStats.SmallMsgs
 	info.SendSmallNotZeroMsgs = sendStats.SmallNotZeroMsgs
 	info.TotalSendZeroCounts = sendStats.TotalZeroCounts
+	info.SendSum = sendStats.Sum
 
 	recvStats, err := parseCounts(info.RecvCounts, msgSizeThreshold, info.RecvDatatypeSize)
 	if err != nil {
@@ -317,6 +322,7 @@ func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
 	info.RecvSmallNotZeroMsgs = recvStats.SmallNotZeroMsgs
 	info.RecvLargeMsgs = recvStats.LargeMsgs
 	info.TotalRecvZeroCounts = recvStats.TotalZeroCounts
+	info.RecvSum = sendStats.Sum
 
 	return nil
 }

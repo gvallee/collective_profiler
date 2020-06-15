@@ -31,7 +31,8 @@ const (
 	sendCountersFilePrefix = "send-counters."
 	recvCountersFilePrefix = "recv-counters."
 
-	defaultMsgSizeThreshold = 200
+	// DefaultMsgSizeThreshold is the default threshold to differentiate message and large messages.
+	DefaultMsgSizeThreshold = 200
 )
 
 type CallPattern struct {
@@ -43,45 +44,127 @@ type CallPattern struct {
 	RecvPatterns      map[int]int
 }
 
+// CallInfo gathers all the data extracted about a specific alltoallv call
 type CallInfo struct {
-	ID                   int
-	Patterns             CallPattern
-	PatternStr           string
-	SendCounts           []string
-	RecvCounts           []string
-	Timings              CallTimings
-	Backtrace            string
-	SendMin              int
-	RecvMin              int
-	SendNotZeroMin       int
-	RecvNotZeroMin       int
-	SendMax              int
-	RecvMax              int
-	SendDatatypeSize     int
-	RecvDatatypeSize     int
-	CommSize             int
-	SendSmallMsgs        int
+	// ID is the call number (zero-indexed)
+	ID int
+
+	// Patterns gathers all the communication patterns associated to the alltoallv call
+	Patterns CallPattern
+
+	// PatternStr is the string version of the communication patterns
+	PatternStr string
+
+	// SendCounts is the string representing all the send counts
+	SendCounts []string
+
+	// RecvCounts is the string representing all the receive counts
+	RecvCounts []string
+
+	// Timings represent all the timings associated to the alltoallv call (e.g., late arrival and execution timings)
+	Timings CallTimings
+
+	// Backtrace is the string version of the alltoallv call's backtrace
+	Backtrace string
+
+	// SendSum is the sum of all the send counts. It can be used to calculate how much data is sent during the alltoallv call.
+	SendSum int
+
+	// RecvSum is the sum of all the receive counts. It can be used to calculate how much data is received during the alltoallv call.
+	RecvSum int
+
+	// SendMin is the minimum send count of the alltoallv call.
+	SendMin int
+
+	// RecvMin is the minimum receive count of the alltoallv call.
+	RecvMin int
+
+	// SendNotZeroMin is the minimum send count not equal to zero of the alltoallv call.
+	SendNotZeroMin int
+
+	// RecvNotZeroMin is the minimum receive count not equal to zero of the alltoallv call.
+	RecvNotZeroMin int
+
+	// SencMax is the maximum send count of the alltoallv call.
+	SendMax int
+
+	// RecvMax is the maximum receive count of the alltoallv call.
+	RecvMax int
+
+	// SendDatatypeSize is the size of the datatype used by the alltoallv call while sending data.
+	SendDatatypeSize int
+
+	// RecvDatatypeSize is the size of the datatype used by the alltoallv call while receiving data.
+	RecvDatatypeSize int
+
+	// CommSize is the communicator size of the alltoallv call.
+	CommSize int
+
+	// MsgSizeThreshold is the size value that differentiate small and large messages.
+	MsgSizeThreshold int
+
+	// SendSmallMsgs is the number of small messages sent during the alltoallv call. The size threshold can be adjusted at run time.
+	SendSmallMsgs int
+
+	// SendSmallNotZeroMsgs is the number of small messages but not of size 0 that is send during the alltoallv call. The size threshold can be adjusted at run time.
 	SendSmallNotZeroMsgs int
-	SendLargeMsgs        int
-	RecvSmallMsgs        int
+
+	// SendLargeMsgs is the number of large message sent during the alltoallv call. The size threshold can be adjusted at run time.
+	SendLargeMsgs int
+
+	// RecvSmallMsgs is the number of small message received during the alltoallv call. The size threshold can be adjusted at run time.
+	RecvSmallMsgs int
+
+	// RecvSmallNotZeroMsgs is the number of small message but not of size 0 that are received during the alltoallv call. The size threshold can be adjusted at run time.
 	RecvSmallNotZeroMsgs int
-	RecvLargeMsgs        int
-	TotalSendZeroCounts  int
-	TotalRecvZeroCounts  int
+
+	// RecvLargeMsgs is the number of large messages received during the alltoallv call. The size threshold can be adjusted at run time.
+	RecvLargeMsgs int
+
+	// TotalSendZeroCounts is the total number of send count equal to zero
+	TotalSendZeroCounts int
+
+	// TotalRecvZeroCounts is the total number of receive count equal to zero
+	TotalRecvZeroCounts int
 }
 
 // CountsStats gathers all the stats from counts (send or receive) for a given alltoallv call
 type CountsStats struct {
-	MinWithoutZero         int         // Min from the entire counts not including zero
-	Min                    int         // Min from the entire counts, including zero
-	Max                    int         // Max from the entire counts
-	SmallMsgs              int         // Number of small message from counts, including 0-size count
-	SmallNotZeroMsgs       int         // Number of small message from counts, not including 0-size counts
-	LargeMsgs              int         // Number of large messages from counts
-	TotalZeroCounts        int         // Total number of zero counts from counters
-	ZerosPerRankPatterns   map[int]int // Number of 0-counts on a per-rank basis ('X ranks have Y 0-counts')
-	NoZerosPerRankPatterns map[int]int // Number of non-0-counts on a per-rank bases ('X ranks have Y non-0-counts)
-	Patterns               map[int]int // Number of peers involved in actual communication, i.e., non-zeroa ('X ranks are sendinng to Y ranks')
+	// Sum is the total count for all ranks data is sent to or received from
+	Sum int
+
+	// MinWithoutZero from the entire counts not including zero
+	MinWithoutZero int
+
+	// Min from the entire counts, including zero
+	Min int
+
+	// Max from the entire counts
+	Max int
+
+	// SmallMsgs is the number of small message from counts, including 0-size count
+	SmallMsgs int
+
+	// SmallNotZerroMsgs is the number of small message from counts, not including 0-size counts
+	SmallNotZeroMsgs int
+
+	// LargeMsgs is the number of large messages from counts
+	LargeMsgs int
+
+	// TotalZeroCounts is the total number of zero counts from counters
+	TotalZeroCounts int
+
+	// ZerosPerRankPatterns gathers the number of 0-counts on a per-rank basis ('X ranks have Y 0-counts')
+	ZerosPerRankPatterns map[int]int
+
+	// NoZerosPerRankPatterns gathers the number of non-0-counts on a per-rank bases ('X ranks have Y non-0-counts)
+	NoZerosPerRankPatterns map[int]int
+
+	// Patterns gathers the number of peers involved in actual communication, i.e., non-zeroa ('X ranks are sendinng to Y ranks')
+	Patterns map[int]int
+
+	// MsgSizeThreshold is the message size used to differentiate small messages from larrge messages while parsing the counts
+	MsgSizeThreshold int
 }
 
 func GetNumCalls(path string) (int, error) {
@@ -113,7 +196,7 @@ func GetStatsFilePath(basedir string, jobid int, pid int) string {
 	return filepath.Join(basedir, fmt.Sprintf("stats-job%d-pid%d.md", jobid, pid))
 }
 
-func GetCallData(dir string, jobid int, pid int, callNum int) (CallInfo, error) {
+func GetCallData(dir string, jobid int, pid int, callNum int, msgSizeThreshold int) (CallInfo, error) {
 	var info CallInfo
 	info.ID = callNum
 
@@ -145,7 +228,7 @@ func GetCallData(dir string, jobid int, pid int, callNum int) (CallInfo, error) 
 	if err != nil {
 		return info, nil
 	}
-	err = info.getCallStatsFromCounts(defaultMsgSizeThreshold)
+	err = info.getCallStatsFromCounts(msgSizeThreshold)
 	if err != nil {
 		return info, err
 	}

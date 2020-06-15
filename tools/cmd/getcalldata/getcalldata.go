@@ -19,20 +19,20 @@ import (
 )
 
 func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
-	_, err := f.WriteString("## Summary\n\n")
-	if err != nil {
-		return err
-	}
-	_, err = f.WriteString(fmt.Sprintf("Communicator size: %d\n", callInfo.CommSize))
+	_, err := f.WriteString(fmt.Sprintf("Communicator size: %d\n", callInfo.CommSize))
 	if err != nil {
 		return err
 	}
 
-	_, err = f.WriteString("### Send counts summary\n\n")
+	_, err = f.WriteString("\n### Send counts summary\n\n")
 	if err != nil {
 		return err
 	}
 	_, err = f.WriteString(fmt.Sprintf("Send data type size: %d\n", callInfo.SendDatatypeSize))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Total amount of data sent: %d\n", callInfo.SendSum*callInfo.SendDatatypeSize))
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,15 @@ func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString("### Receive counts summary\n\n")
+	_, err = f.WriteString("\n### Receive counts summary\n\n")
 	if err != nil {
 		return err
 	}
 	_, err = f.WriteString(fmt.Sprintf("Recv data type size: %d\n", callInfo.RecvDatatypeSize))
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(fmt.Sprintf("Total amount of data received: %d\n", callInfo.RecvSum*callInfo.RecvDatatypeSize))
 	if err != nil {
 		return err
 	}
@@ -94,8 +98,17 @@ func main() {
 	dir := flag.String("dir", "", "Where the data files are stored")
 	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
+	msgSizeThreshold := flag.Int("msg-size-threshold", datafilereader.DefaultMsgSizeThreshold, "Message size threshold to differentiate small messages from large messages.")
+	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
+
+	if *help {
+		filename := filepath.Base(os.Args[0])
+		fmt.Printf("%s extracts the data related to one or more alltoallv call.", filename)
+		fmt.Println("Note that it will overwrite any previous result files since the command gathers statistics based on a run-time parameters.")
+		flag.PrintDefaults()
+	}
 
 	logFile := util.OpenLogFile("alltoallv", "getcalldata")
 	defer logFile.Close()
@@ -143,7 +156,7 @@ func main() {
 
 	var callsInfo []datafilereader.CallInfo
 	for _, callNum := range listCalls {
-		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *pid, callNum)
+		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *pid, callNum, *msgSizeThreshold)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}
@@ -209,8 +222,11 @@ func main() {
 		}
 
 		err = saveCountsSummary(newFile, callInfo)
+		if err != nil {
+			log.Fatalf("unable to save counts summary: %s", err)
+		}
 
-		_, err = newFile.WriteString("## Send counts\n\n")
+		_, err = newFile.WriteString("\n## Send counts\n\n")
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
@@ -329,8 +345,12 @@ func main() {
 	}
 
 	num = 0
+	_, err = summaryFile.WriteString("\n## Summary\n\n")
+	if err != nil {
+		log.Fatalf("unable to write to file: %s", err)
+	}
 	for _, uniqueInfo := range uniqueMinMaxCallsInfo {
-		_, err = summaryFile.WriteString(fmt.Sprintf("Calls: %s\n", notation.CompressIntArray(callIDs[num])))
+		_, err = summaryFile.WriteString(fmt.Sprintf("Call(s): %s\n", notation.CompressIntArray(callIDs[num])))
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
