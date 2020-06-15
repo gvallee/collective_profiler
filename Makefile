@@ -7,9 +7,15 @@ alltoallv:
 
 examples: alltoallv
 	cd examples && make
-	
+
+GOCMD := $(shell command -v go 2>/dev/null)
+ifndef GOCMD
 tools:
-	cd tools && make
+	@echo "Go not installed; skipping tools' compilation"
+else
+tools:
+	cd tools && make;
+endif
 
 check: alltoallv
 	cd alltoallv && make check
