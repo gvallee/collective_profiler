@@ -883,51 +883,6 @@ static int _commit_data()
 	return 0;
 }
 
-// During Finalize, it prints all stored data to a file.
-int _mpi_finalize()
-{
-	_commit_data();
-	_finalize_profiling();
-	return PMPI_Finalize();
-}
-
-int MPI_Finalize()
-{
-	return _mpi_finalize();
-}
-
-void mpi_finalize_(MPI_Fint *ierr)
-{
-	int c_ierr = _mpi_finalize();
-	if (NULL != ierr)
-		*ierr = OMPI_INT_2_FINT(c_ierr);
-}
-
-int _mpi_abort(MPI_Comm comm, int exit_code)
-{
-	_commit_data();
-	_finalize_profiling();
-	return PMPI_Abort(comm, exit_code);
-}
-
-int MPI_Abort(MPI_Comm comm, int exit_code)
-{
-	return _mpi_abort(comm, exit_code);
-}
-
-void mpi_abort_(MPI_Fint *comm, MPI_Fint exit_code, MPI_Fint *ierr)
-{
-	int c_ierr;
-	MPI_Comm c_comm;
-
-	c_comm = PMPI_Comm_f2c(*comm);
-	c_ierr = _mpi_abort(c_comm, exit_code);
-	if (NULL != ierr)
-	{
-		*ierr = OMPI_INT_2_FINT(c_ierr);
-	}
-}
-
 static caller_info_t *create_new_caller_info(char *caller, int n_call)
 {
 	caller_info_t *new_info = malloc(sizeof(caller_info_t));
@@ -1170,4 +1125,11 @@ void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_F
 						   c_recvtype, c_comm);
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
+}
+
+void __attribute__((destructor)) calledLast();
+void calledLast()
+{
+	_commit_data();
+	_finalize_profiling();
 }

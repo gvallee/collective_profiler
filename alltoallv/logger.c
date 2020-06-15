@@ -738,7 +738,11 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
 
 void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
-    assert(logger);
+    // We log the data most of the time right before unloading our shared
+    // library, and it includes the mpirun process. So the logger may be NULL.
+    if (logger == NULL)
+        return;
+
     // We check if we actually have data to save or not
     if (avCalls > 0 && (counters_list != NULL || times_list != NULL))
     {
