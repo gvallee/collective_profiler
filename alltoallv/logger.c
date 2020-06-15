@@ -744,7 +744,7 @@ void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCa
         return;
 
     // We check if we actually have data to save or not
-    if (avCalls > 0 && (counters_list != NULL || times_list != NULL))
+    if (avCallsLogged > 0 && (counters_list != NULL || times_list != NULL))
     {
         if (logger->f == NULL)
         {

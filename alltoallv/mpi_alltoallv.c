@@ -941,13 +941,14 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
 				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
 {
-	int size;
+	int comm_size;
 	int i, j;
 	int localrank;
 	int ret;
 	bool need_profile = true;
 	int my_comm_rank;
 
+	MPI_Comm_size(comm, &comm_size);
 	MPI_Comm_rank(comm, &my_comm_rank);
 
 #if ENABLE_BACKTRACE
@@ -983,8 +984,6 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		{
 			avCallStart = avCalls;
 		}
-		MPI_Comm_rank(comm, &localrank);
-		MPI_Comm_size(comm, &size);
 
 #if 0
 	if (my_comm_rank == 0)
@@ -1029,8 +1028,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_TIMING
 
 		// Gather a bunch of counters
-		MPI_Gather(sendcounts, size, MPI_INT, sbuf, size, MPI_INT, 0, comm);
-		MPI_Gather(recvcounts, size, MPI_INT, rbuf, size, MPI_INT, 0, comm);
+		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
+		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
@@ -1043,7 +1042,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
 #if ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
-			if (insert_sendrecv_data(sbuf, rbuf, size, sizeof(sendtype), sizeof(recvtype)))
+			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype)))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
@@ -1053,7 +1052,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
 #if ENABLE_TIMING
-			insert_op_exec_times_data(op_exec_times, late_arrival_timings, size);
+			insert_op_exec_times_data(op_exec_times, late_arrival_timings, comm_size);
 #endif
 			avCallsLogged++;
 		}
