@@ -17,6 +17,7 @@
 
 typedef struct logger
 {
+    int world_size;            // COMM_WORLD size
     int rank;                  // Rank that is handling the current logger.
     char *main_filename;       // Path to the main profile file.
     FILE *f;                   // File handle to save general profile data. Other files are created for specific data.

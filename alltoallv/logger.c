@@ -482,7 +482,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         }
     }
 #endif
-    fprintf(logger->f, "### Amount of data per rank\n");
+    fprintf(logger->f, "#### Amount of data per rank\n");
 #if ENABLE_PER_RANK_STATS
     for (i = 0; i < size; i++)
     {
@@ -493,7 +493,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
     fprintf(logger->f, "\n");
 
-    fprintf(logger->f, "### Number of zeros\n");
+    fprintf(logger->f, "#### Number of zeros\n");
     int total_zeros = 0;
 #if ENABLE_PER_RANK_STATS
     for (i = 0; i < size; i++)
@@ -509,7 +509,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(logger->f, "Total: %d/%d (%f%%)\n", total_zeros, size * size, ratio_zeros);
     fprintf(logger->f, "\n");
 
-    fprintf(logger->f, "### Data size min/max\n");
+    fprintf(logger->f, "#### Data size min/max\n");
 #if ENABLE_MSG_SIZE_ANALYSIS
     for (i = 0; i < size; i++)
     {
@@ -520,7 +520,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
     fprintf(logger->f, "\n");
 
-    fprintf(logger->f, "### Small vs. large messages\n");
+    fprintf(logger->f, "#### Small vs. large messages\n");
 #if ENABLE_MSG_SIZE_ANALYSIS
     int total_small_msgs = 0;
     for (i = 0; i < size; i++)
@@ -537,7 +537,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(logger->f, "\n");
 
     // Group information for the send data (using the sums)
-    fprintf(logger->f, "\n### Grouping based on the total amount per ranks\n\n");
+    fprintf(logger->f, "\n#### Grouping based on the total amount per ranks\n\n");
 #if ENABLE_POSTMORTEM_GROUPING
     log_sums(logger, ctx, sums, size);
 #endif
@@ -623,20 +623,22 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         }
         assert(logger->f);
         fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
+        int count = 0;
         while (srCountPtr != NULL)
         {
+            fprintf(logger->f, "\n## Data set #%d\n\n", count);
             fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
 
             DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %d\n", srCountPtr->count);
             DEBUG_ALLTOALLV_PROFILING("Logging send counts\n");
-            fprintf(logger->f, "## Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
+            fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 
             DEBUG_ALLTOALLV_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
-            fprintf(logger->f, "## Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
+            fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
@@ -644,6 +646,7 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 
             DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);
             srCountPtr = srCountPtr->next;
+            count++;
         }
     }
 #endif
@@ -664,7 +667,7 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
 #endif
 }
 
-logger_t *logger_init(int world_rank)
+logger_t *logger_init(int world_rank, int world_size)
 {
     char filename[128];
     logger_t *l = calloc(1, sizeof(logger_t));
@@ -674,6 +677,7 @@ logger_t *logger_init(int world_rank)
     }
 
     l->rank = world_rank;
+    l->world_size = world_size;
     l->f = NULL;
     l->main_filename = NULL;
     l->recvcounters_fh = NULL;
@@ -752,6 +756,7 @@ void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCa
             logger->f = fopen(logger->main_filename, "w");
         }
         fprintf(logger->f, "# Summary\n");
+        fprintf(logger->f, "COMM_WORLD size: %d\n", logger->world_size);
         fprintf(logger->f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
         fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);

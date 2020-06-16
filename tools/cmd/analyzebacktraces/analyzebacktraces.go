@@ -36,10 +36,21 @@ func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	inputdir := flag.String("input-dir", "", "Where all the data is")
 	outputdir := flag.String("output-dir", "", "Where the result files will be stored")
+	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
 
-	logFile := util.OpenLogFile("alltoallv", "analyzebacktraces")
+	if *help {
+		filename := filepath.Base(os.Args[0])
+		fmt.Printf("%s analyses the data gathered while executing the application with liballtoallv_backtrace.so (or equivalent shared library gathering backtrace data).", filename)
+		fmt.Println("The lirbary saves all the backtraces in a  'backtraces' directory and within it, files are named 'backtrace_rank<RANK>_call<CALLID>.md'.")
+		fmt.Println("The files are on a rank basis because any rank can be rank 0 on a sub-communicator used for the alltoallv operation.")
+		fmt.Println("The command parses all these files and report unique backtrace, i.e., unique contexts in which alltoallv is called.")
+		fmt.Println("\nUsage:")
+		flag.PrintDefaults()
+	}
+
+	logFile := util.OpenLogFile("alltoallv", filepath.Base(os.Args[0]))
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)

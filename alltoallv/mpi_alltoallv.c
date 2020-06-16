@@ -702,7 +702,7 @@ int _mpi_init(int *argc, char ***argv)
 
 	// We do not know what rank will gather alltoallv data since alltoallv can
 	// be called on any communicator
-	logger = logger_init(world_rank);
+	logger = logger_init(world_rank, world_size);
 	assert(logger);
 
 	// Allocate buffers reused between alltoallv calls
@@ -865,7 +865,6 @@ static int _finalize_profiling()
 
 static int _commit_data()
 {
-
 	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
 
 #if ENABLE_TIMING
@@ -896,7 +895,7 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 	return new_info;
 }
 
-static int insert_caller_data(char **trace, size_t size, int n_call)
+static int insert_caller_data(char **trace, size_t size, int n_call, int world_rank)
 {
 	char *filename = NULL;
 	char *target_dir = NULL;
@@ -910,7 +909,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call)
 	{
 		target_dir = strdup("backtraces");
 	}
-	_asprintf(filename, rc, "%s/backtrace_call%d.md", target_dir, n_call);
+	_asprintf(filename, rc, "%s/backtrace_rank%d_call%d.md", target_dir, world_rank, n_call);
 	assert(rc > 0);
 
 	// Make sure the target directory exists
@@ -961,7 +960,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		_s = backtrace(array, 16);
 		strings = backtrace_symbols(array, _s);
-		insert_caller_data(strings, _s, avCalls);
+		insert_caller_data(strings, _s, avCalls, world_rank);
 	}
 #endif // ENABLE_BACKTRACE
 
@@ -1056,13 +1055,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif
 			avCallsLogged++;
 		}
-		avCalls++;
 	}
 	else
 	{
 		// No need to profile that call but we still count the number of alltoallv calls
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
-		avCalls++;
 	}
 
 #if SYNC
@@ -1070,6 +1067,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	// does not artificially fall behind.
 	MPI_Barrier(comm);
 #endif
+
+	avCalls++;
 
 	char *need_data_commit_str = getenv(A2A_COMMIT_PROFILER_DATA_AT_ENVVAR);
 	char *need_to_free_data = getenv(A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR);

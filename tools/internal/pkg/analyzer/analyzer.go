@@ -57,6 +57,10 @@ type AlltoallvCallers struct {
 	Callers []CallerInfo
 }
 
+const (
+	backtraceFilePrefix = "backtrace_rank"
+)
+
 func CreateAnalyzer() *analyzer {
 	a := new(analyzer)
 	a.realEndpoints = make(map[int]int)
@@ -357,18 +361,31 @@ func GetCallsTimings(reader *bufio.Reader) ([]OpTimeStat, error) {
 	return stats, nil
 }
 
-func parseBacktraceLine(line string, exe string) (string, error) {
-	addr := ""
+func parseBacktraceLine(line string, exe string) ([]string, error) {
+	var addrs []string
 	tokens := strings.Split(line, " ")
 	// We compare the path we get with an address and if the executable (not the full path)
 	// matches the binary name passed in, we save the corresponding address.
+
+	// Absolute addresses are after the binary, between brackets
 	if strings.Contains(tokens[0], exe) {
 		// This is a line that is about the main binary that was executed
-		addr = strings.ReplaceAll(tokens[1], "[", "")
+		addr := strings.ReplaceAll(tokens[1], "[", "")
 		addr = strings.ReplaceAll(addr, "]", "")
 		log.Printf("Address found: %s\n", addr)
+		addrs = append(addrs, addr)
 	}
-	return addr, nil
+
+	// Relative addresses are right after the binary (without space), between paranthesis
+	if strings.Contains(tokens[0], exe+"(") {
+		pos := strings.Index(tokens[0], exe+"(")
+		pos += len(exe + "(")
+		addr := tokens[0][pos:]
+		addr = strings.TrimRight(addr, ")")
+		addrs = append(addrs, addr)
+	}
+
+	return addrs, nil
 }
 
 func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
@@ -392,14 +409,14 @@ func parseBacktraceFile(dir string, file string) (CallerInfo, error) {
 	// Now get the backtrace
 	info.Binary = binary
 	for i := 1; i < len(lines); i++ {
-		addr, err := parseBacktraceLine(lines[i], binaryExe)
+		addrs, err := parseBacktraceLine(lines[i], binaryExe)
 		if err != nil {
 			return info, err
 		}
-		if addr == "" {
+		if len(addrs) == 0 {
 			continue
 		}
-		info.Addresses = append(info.Addresses, addr)
+		info.Addresses = append(info.Addresses, addrs...)
 	}
 	log.Printf("We found %d addresses", len(info.Addresses))
 
@@ -437,7 +454,13 @@ func (a *AlltoallvCallers) addInfo(info CallerInfo, callNum int) error {
 }
 
 func getNumCallFromBacktraceFile(filename string) (int, error) {
-	str := strings.TrimLeft(filename, "backtrace_call")
+	str := strings.TrimLeft(filename, backtraceFilePrefix)
+	tokens := strings.Split(str, "_")
+	if len(tokens) != 2 {
+		return -1, fmt.Errorf("invalid format: %s", str)
+	}
+	str = tokens[1]
+	str = strings.TrimLeft(str, "call")
 	str = strings.TrimRight(str, ".md")
 	n, err := strconv.Atoi(str)
 	if err != nil {
@@ -455,7 +478,7 @@ func GetCallersFromBacktraces(dir string) (*AlltoallvCallers, error) {
 	}
 
 	for _, file := range f {
-		if !strings.HasPrefix(file.Name(), "backtrace_call") {
+		if !strings.HasPrefix(file.Name(), backtraceFilePrefix) {
 			continue
 		}
 
@@ -469,7 +492,6 @@ func GetCallersFromBacktraces(dir string) (*AlltoallvCallers, error) {
 			return nil, err
 		}
 
-		fmt.Printf("Adding info about call #%d\n", numCall)
 		err = alltoallvCallers.addInfo(info, numCall)
 		if err != nil {
 			return nil, err
