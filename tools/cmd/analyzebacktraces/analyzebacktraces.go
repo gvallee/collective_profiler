@@ -40,9 +40,9 @@ func main() {
 
 	flag.Parse()
 
+	cmdName := filepath.Base(os.Args[0])
 	if *help {
-		filename := filepath.Base(os.Args[0])
-		fmt.Printf("%s analyses the data gathered while executing the application with liballtoallv_backtrace.so (or equivalent shared library gathering backtrace data).", filename)
+		fmt.Printf("%s analyses the data gathered while executing the application with liballtoallv_backtrace.so (or equivalent shared library gathering backtrace data).", cmdName)
 		fmt.Println("The lirbary saves all the backtraces in a  'backtraces' directory and within it, files are named 'backtrace_rank<RANK>_call<CALLID>.md'.")
 		fmt.Println("The files are on a rank basis because any rank can be rank 0 on a sub-communicator used for the alltoallv operation.")
 		fmt.Println("The command parses all these files and report unique backtrace, i.e., unique contexts in which alltoallv is called.")
@@ -50,7 +50,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	logFile := util.OpenLogFile("alltoallv", filepath.Base(os.Args[0]))
+	logFile := util.OpenLogFile("alltoallv", cmdName)
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)

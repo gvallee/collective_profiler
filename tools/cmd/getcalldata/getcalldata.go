@@ -103,14 +103,15 @@ func main() {
 
 	flag.Parse()
 
+	cmdName := filepath.Base(os.Args[0])
 	if *help {
-		filename := filepath.Base(os.Args[0])
-		fmt.Printf("%s extracts the data related to one or more alltoallv call.", filename)
+		fmt.Printf("%s extracts the data related to one or more alltoallv call.", cmdName)
 		fmt.Println("Note that it will overwrite any previous result files since the command gathers statistics based on a run-time parameters.")
+		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
 	}
 
-	logFile := util.OpenLogFile("alltoallv", "getcalldata")
+	logFile := util.OpenLogFile("alltoallv", cmdName)
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)
