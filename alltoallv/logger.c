@@ -55,12 +55,12 @@ static char *get_full_filename(int ctxt, char *id, int world_rank)
         {
             if (jobid != NULL)
             {
-                _asprintf(filename, size, "profile_alltoallv_rank%d.job%s.pid%d.md", world_rank, jobid, getpid());
+                _asprintf(filename, size, "profile_alltoallv_job%s.rank%d.md", jobid, world_rank);
                 assert(size > 0);
             }
             else
             {
-                _asprintf(filename, size, "profile_alltoallv_rank%d.pid%d.md", world_rank, getpid());
+                _asprintf(filename, size, "profile_alltoallv_rank%d.md", world_rank);
                 assert(size > 0);
             }
         }
@@ -68,12 +68,12 @@ static char *get_full_filename(int ctxt, char *id, int world_rank)
         {
             if (jobid != NULL)
             {
-                _asprintf(filename, size, "%s.rank%d.job%s.pid%d.md", id, world_rank, jobid, getpid());
+                _asprintf(filename, size, "%s.job%s.rank%d.md", id, jobid, world_rank);
                 assert(size > 0);
             }
             else
             {
-                _asprintf(filename, size, "%s.rank%d.pid%d.md", id, world_rank, getpid());
+                _asprintf(filename, size, "%s.rank%d.md", id, world_rank);
                 assert(size > 0);
             }
         }
@@ -83,12 +83,12 @@ static char *get_full_filename(int ctxt, char *id, int world_rank)
         char *context = ctx_to_string(ctxt);
         if (jobid != NULL)
         {
-            _asprintf(filename, size, "%s-%s.rank%d.job%s.pid%d.txt", context, id, world_rank, jobid, getpid());
+            _asprintf(filename, size, "%s-%s.job%s.rank%d.txt", context, id, jobid, world_rank);
             assert(size > 0);
         }
         else
         {
-            _asprintf(filename, size, "%s-%s.rank%d.pid%d.txt", context, id, world_rank, getpid());
+            _asprintf(filename, size, "%s-%s.rank%d.txt", context, id, world_rank);
             assert(size > 0);
         }
     }

@@ -58,7 +58,7 @@ void print_trace(FILE *f)
 {
 	assert(f);
 	char pid_buf[30];
-	int size = sprintf(pid_buf, "%d", getpid());
+	int size = sprintf(pid_buf, "%d", getpid()); // The system file's name used to get the backtrace is based on the PID
 	assert(size < 30);
 	char name_buf[512];
 	name_buf[readlink("/proc/self/exe", name_buf, 511)] = 0;
@@ -582,11 +582,11 @@ static void save_call_patterns(int uniqueID)
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, size, "%s/call-patterns-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		_asprintf(filename, size, "%s/call-patterns-rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), world_rank);
 	}
 	else
 	{
-		_asprintf(filename, size, "call-patterns-pid%d.txt", uniqueID);
+		_asprintf(filename, size, "call-patterns-rank%d.txt", world_rank);
 	}
 	assert(size > 0);
 
@@ -605,7 +605,7 @@ static void save_call_patterns(int uniqueID)
 	free(filename);
 }
 
-static void save_patterns(int uniqueID)
+static void save_patterns(int world_rank)
 {
 	char *spatterns_filename = NULL;
 	char *rpatterns_filename = NULL;
@@ -615,16 +615,16 @@ static void save_patterns(int uniqueID)
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(spatterns_filename, size, "%s/patterns-send-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		_asprintf(spatterns_filename, size, "%s/patterns-send-rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), world_rank);
 		assert(size > 0);
-		_asprintf(rpatterns_filename, size, "%s/patterns-recv-pid%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID);
+		_asprintf(rpatterns_filename, size, "%s/patterns-recv-rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), world_rank);
 		assert(size > 0);
 	}
 	else
 	{
-		_asprintf(spatterns_filename, size, "patterns-send-pid%d.txt", uniqueID);
+		_asprintf(spatterns_filename, size, "patterns-send-rank%d.txt", world_rank);
 		assert(size > 0);
-		_asprintf(rpatterns_filename, size, "patterns-recv-pid%d.txt", uniqueID);
+		_asprintf(rpatterns_filename, size, "patterns-recv-rank%d.txt", world_rank);
 		assert(size > 0);
 	}
 
@@ -643,18 +643,18 @@ static void save_patterns(int uniqueID)
 	free(rpatterns_filename);
 }
 
-static void save_counters_for_validation(int uniqueID, int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
+static void save_counters_for_validation(int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
 {
 	char *filename;
 	int rc;
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/validation_data-pid%d-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), uniqueID, myrank, avCalls);
+		_asprintf(filename, rc, "%s/validation_data-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), myrank, avCalls);
 	}
 	else
 	{
-		_asprintf(filename, rc, "validation_data-pid%d-rank%d-call%d.txt", uniqueID, myrank, avCalls);
+		_asprintf(filename, rc, "validation_data-rank%d-call%d.txt", myrank, avCalls);
 	}
 	assert(rc < MAX_PATH_LEN);
 
@@ -872,11 +872,11 @@ static int _commit_data()
 #endif // ENABLE_TIMING
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
-	save_patterns(getpid());
+	save_patterns(world_rank);
 #endif // ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 
 #if ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
-	save_call_patterns(getpid());
+	save_call_patterns(world_rank);
 #endif // ENABLE_PATTERN_DETECTION && TRACK_PATTERNS_ON_CALL_BASIS
 
 	return 0;
@@ -991,28 +991,6 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	}
 #endif
 
-		int uniqueID = 0;
-#if 0
-		// Quite simple: rank 0 broadcast a unique ID (its PID) to other rank so we have a unique way to group files
-		// Then we randomly save counters in separate file on a per-rank and per-alltoallv-call basis.
-		// A tool is available to compare that data with the counter file we have, using the underlying infrastructure
-		// we have to gather stats
-		int uniqueID;
-		if (my_comm_rank == 0)
-		{
-			uniqueID = getpid();
-			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
-		}
-		else
-		{
-			MPI_Bcast(&uniqueID, 1, MPI_INT, 0, comm);
-		}
-
-		if (get_remainder(rand(), 100) <= VALIDATION_THRESHOLD)
-		{
-			save_counters_for_validation(uniqueID, myrank, avCalls, size, sendcounts, recvcounts);
-		}
-#endif
 #if ENABLE_TIMING
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
