@@ -33,15 +33,15 @@ following there steps. For convenience, multiple shared libraries are being gene
 with the adequate configuration for these steps.
 - Gather the send/receive counts associated to the alltoallv calls: use the 
 `liballtoallv_counts.so` library. This will generate two files: 
-`send-counters.job<JOBID>.pid<PID>.txt` and `recv-counters.job<JOBID>.pid<PID>.txt`. 
+`send-counters.job<JOBID>.rank<RANK>.txt` and `recv-counters.job<JOBID>.rank<RANK>.txt`. 
 Note that these files automatically include the jobid (if executed on a platform where
 Slurm is not used, it is strongly advised to set the `SLURM_JOB_ID` environment variable
 to specify a unique identifier). Using these two identifiers makes it easier to handle
 multiple traces from multiple application and/or platforms.
 - Gather timings: use the `liballtoallv_timings.so` shared library. This generates
-a file: `timings.job<JOBID>.pid<PID>.md`. 
+a file: `timings.job<JOBID>.rank<RANK>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
-files `backtrace_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
+files `backtrace_rank<RANK>_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
 directory.
 
 ### Compilation

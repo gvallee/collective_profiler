@@ -33,16 +33,16 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_counts.so mpirun -np 3 ./alltoallv_c
 ```
 
-If successful, 3 files should have been created: `recv-counters.pid<ID>.txt`, 
-`send-counters.pid<ID>.txt`, and `profile_alltoallv.pid<ID>.md`.
+If successful, 3 files should have been created: `recv-counters.rank<ID>.txt`, 
+`send-counters.rank<ID>.txt`, and `profile_alltoallv.rank<ID>.md`.
 
 If one of these files is missing, please open an issue on our Github project page.
 If the files were successfully created, please check their content:
-- `profile_alltoallv.pid<ID>.md` should have the following first 3 lines:
+- `profile_alltoallv.rank<ID>.md` should have the following first 3 lines:
 ```
 # Summary                                                                                                               Total number of alltoallv calls = 1 (limit is -1; -1 means no limit)                                                    Alltoallv call range: [0-0] 
 ```
-- `send-counters.pid<ID>.txt` should have the following content:
+- `send-counters.rank<ID>.txt` should have the following content:
 ```
 # Raw counters
 
@@ -56,7 +56,7 @@ BEGINNING DATA
 Rank(s) 0-2: 0 1 2
 END DATA
 ```
-- `recv-counters.pid<ID>.txt` should have the following content:
+- `recv-counters.rank<ID>.txt` should have the following content:
 ```
 # Raw counters
 
@@ -80,7 +80,7 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_timings.so mpirun -np 3 ./alltoallv_c
 ```
 
-A single `timings.pid<ID>.md` file should have been created with a content similar to:
+A single `timings.rank<ID>.md` file should have been created with a content similar to:
 ```
 Alltoallv call #0
 # Late arrival timings
@@ -100,7 +100,7 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_backtrace.so mpirun -np 3 ./alltoallv_c
 ```
 
-A `backtrace_call0.md` file should have been created with a content similar to:
+A `backtrace_rank0_call0.md` file should have been created with a content similar to:
 ```
 stack trace for /home/toto/alltoall_profiling/examples/alltoallv_c pid=5880
 ../alltoallv/liballtoallv_backtrace.so(_mpi_alltoallv+0x95) [0x7f5e5eff5ec3]
@@ -119,18 +119,18 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_counts.so mpirun -np 3 ./alltoallv_f
 ```
 
-If successful, 3 files should have been created: `recv-counters.pid<ID>.txt`, 
-`send-counters.pid<ID>.txt`, and `profile_alltoallv.pid<ID>.md`.
+If successful, 3 files should have been created: `recv-counters.rank<ID>.txt`, 
+`send-counters.rank<ID>.txt`, and `profile_alltoallv.rank<ID>.md`.
 
 If one of these files is missing, please open an issue on our Github project page.
 If the files were successfully created, please check their content:
-- `profile_alltoallv.pid<ID>.md` should have the following first 3 lines:
+- `profile_alltoallv.rank<ID>.md` should have the following first 3 lines:
 ```
 # Summary
 Total number of alltoallv calls = 2 (limit is -1; -1 means no limit)
 Alltoallv call range: [0-1] 
 ```
-- `send-counters.pid<ID>.txt` should have the following content:
+- `send-counters.rank<ID>.txt` should have the following content:
 ```
 # Raw counters
 
@@ -146,7 +146,7 @@ Rank(s) 1: 0 0 3
 Rank(s) 2: 1 0 0 
 END DATA
 ```
-- `recv-counters.pid<ID>.txt` should have the following content:
+- `recv-counters.rank<ID>.txt` should have the following content:
 ```
 # Raw counters
 
@@ -170,7 +170,7 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_timings.so mpirun -np 3 ./alltoallv_f
 ```
 
-A single `timings.pid<ID>.md` file should have been created with a content similar to:
+A single `timings.rank<ID>.md` file should have been created with a content similar to:
 ```
 Alltoallv call #0
 # Late arrival timings
@@ -199,7 +199,7 @@ From the top directory of the source code, execute the following command:
 cd examples ; LD_PRELOAD=../alltoallv/liballtoallv_backtrace.so mpirun -np 3 ./alltoallv_f
 ```
 
-A `backtrace_call0.md` file should have been created with a content similar to:
+A `backtraces` directory and a `backtrace_rank0_call0.md` file within the directory should have been created with a content similar to:
 ```
 stack trace for /home/toto/alltoall_profiling/examples/alltoallv_f pid=6874
 ../alltoallv/liballtoallv_backtrace.so(_mpi_alltoallv+0x95) [0x7ffd7d5f5f62] 
