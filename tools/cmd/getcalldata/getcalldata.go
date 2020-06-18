@@ -96,8 +96,8 @@ func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	calls := flag.String("calls", "", "Calls for which we want to extract data. It can be a comma-separated list of call number as well as ranges in the format X-Y.")
 	dir := flag.String("dir", "", "Where the data files are stored")
-	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
+	rank := flag.Int("rank", 0, "Rank for which we want to analyse the counters. When using multiple communicators for alltoallv operations, results for multiple ranks are reported.")
 	msgSizeThreshold := flag.Int("msg-size-threshold", datafilereader.DefaultMsgSizeThreshold, "Message size threshold to differentiate small messages from large messages.")
 	help := flag.Bool("h", false, "Help message")
 
@@ -157,13 +157,13 @@ func main() {
 
 	var callsInfo []datafilereader.CallInfo
 	for _, callNum := range listCalls {
-		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *pid, callNum, *msgSizeThreshold)
+		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *rank, callNum, *msgSizeThreshold)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}
 		callsInfo = append(callsInfo, callInfo)
 
-		callFilePath := filepath.Join(*dir, fmt.Sprintf("call%d-job%d-pid%d.md", callNum, *jobid, *pid))
+		callFilePath := filepath.Join(*dir, fmt.Sprintf("call%d-job%d-rank%d.md", callNum, *jobid, *rank))
 		newFile, err := os.OpenFile(callFilePath, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			log.Fatalf("unable to create %s: %s", callFilePath, err)

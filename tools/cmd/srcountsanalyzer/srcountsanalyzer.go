@@ -30,7 +30,23 @@ type callPattern struct {
 }
 
 type GlobalPatterns struct {
-	cp []*callPattern
+	cp     []*callPattern
+	oneToN []*callPattern
+}
+
+type countStats struct {
+	numSendSmallMsgs        int
+	numSendLargeMsgs        int
+	sizeThreshold           int
+	numSendSmallNotZeroMsgs int
+	callSendSparsity        map[int]int
+	callRecvSparsity        map[int]int
+	sendMins                map[int]int
+	recvMins                map[int]int
+	sendMaxs                map[int]int
+	recvMaxs                map[int]int
+	sendNotZeroMins         map[int]int
+	recvNotZeroMins         map[int]int
 }
 
 func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[int]int, recvPatterns map[int]int) error {
@@ -40,6 +56,19 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 			log.Printf("-> Alltoallv call #%d - Adding alltoallv to pattern %d...\n", callNum, idx)
 			x.count++
 			x.calls = append(x.calls, callNum)
+
+			// todo: We may want to track 1 -> N more independently but right now, we handle pointers
+			// so the details are only about the main list.
+			/*
+				if sentTo > n*100 {
+					// This is also a 1->n pattern and we need to update the list of such patterns
+					for _, candidatePattern := range globalPatterns.oneToN {
+						if datafilereader.CompareCallPatterns(candidatePattern.send, sendPatterns) && datafilereader.CompareCallPatterns(candidatePattern.recv, recvPatterns) {
+							candidatePattern.count ++
+						}
+					}
+				}
+			*/
 			return nil
 		}
 	}
@@ -52,6 +81,168 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 	new_cp.count = 1
 	new_cp.calls = append(new_cp.calls, callNum)
 	globalPatterns.cp = append(globalPatterns.cp, new_cp)
+
+	// Detect 1 -> n patterns using the send counts only
+	for sendTo, n := range sendPatterns {
+		if sendTo > n*100 {
+			globalPatterns.oneToN = append(globalPatterns.oneToN, new_cp)
+		}
+	}
+
+	return nil
+}
+
+func writePatternsToFile(fd *os.File, num int, cp *callPattern) error {
+	_, err := fd.WriteString(fmt.Sprintf("## Pattern #%d (%d alltoallv calls)\n", num, cp.count))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cp.calls)))
+	if err != nil {
+		return err
+	}
+
+	for sendTo, n := range cp.send {
+		_, err = fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
+		if err != nil {
+			return err
+		}
+	}
+	for recvFrom, n := range cp.recv {
+		_, err = fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, datatypesRecv map[int]int) error {
+	_, err := fd.WriteString("# Datatypes\n\n")
+	if err != nil {
+		return err
+	}
+	for datatypeSize, n := range datatypesSend {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			return err
+		}
+	}
+	for datatypeSize, n := range datatypesRecv {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeCommunicatorSizesToFile(fd *os.File, numCalls int, commSizes map[int]int) error {
+	_, err := fd.WriteString("# Communicator size(s)\n\n")
+	if err != nil {
+		return err
+	}
+	for commSize, n := range commSizes {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs countStats) error { // numSendSmallMsgs int, numSendLargeMsgs int, sizeThreshold int, numSendSmallNotZeroMsgs int, callSendSparsity map[int]int, callRecvSparsity map[int]int, sendMins map[int]int, recvMins map[int]int) error {
+	_, err := fd.WriteString("# Message sizes\n\n")
+	if err != nil {
+		return err
+	}
+	totalSendMsgs := cs.numSendSmallMsgs + cs.numSendLargeMsgs
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are large (threshold = %d)\n", cs.numSendLargeMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are small (threshold = %d)\n", cs.numSendSmallMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are small, but not 0-size (threshold = %d)\n", cs.numSendSmallNotZeroMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+
+	_, err = fd.WriteString("\n# Sparsity\n\n")
+	if err != nil {
+		return err
+	}
+	for numZeros, nCalls := range cs.callSendSparsity {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			return err
+		}
+	}
+	for numZeros, nCalls := range cs.callRecvSparsity {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n# Min/max\n")
+	if err != nil {
+		return err
+	}
+	for mins, n := range cs.sendMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+	for mins, n := range cs.recvMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+
+	for mins, n := range cs.sendNotZeroMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+	for mins, n := range cs.recvNotZeroMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+
+	for maxs, n := range cs.sendMaxs {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs))
+		if err != nil {
+			return err
+		}
+	}
+	for maxs, n := range cs.recvMaxs {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs))
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -68,22 +259,48 @@ func displayCallPatterns(info datafilereader.CallInfo) {
 	}
 }
 
+func newCountStats() countStats {
+	cs := countStats{
+		sendMins:                make(map[int]int),
+		recvMins:                make(map[int]int),
+		sendMaxs:                make(map[int]int),
+		recvMaxs:                make(map[int]int),
+		recvNotZeroMins:         make(map[int]int),
+		sendNotZeroMins:         make(map[int]int),
+		callSendSparsity:        make(map[int]int),
+		callRecvSparsity:        make(map[int]int),
+		numSendSmallMsgs:        0,
+		numSendSmallNotZeroMsgs: 0,
+		numSendLargeMsgs:        0,
+	}
+	return cs
+}
+
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	dir := flag.String("dir", "", "Where all the data is")
 	outputDir := flag.String("output-dir", "", "Where all the output files will be created")
-	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
+	rank := flag.Int("rank", 0, "Rank for which we want to analyse the counters. When using multiple communicators for alltoallv operations, results for multiple ranks are reported.")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	sizeThreshold := flag.Int("size-threshold", 200, "Threshold to differentiate size and large messages")
+	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
 
+	cmdName := filepath.Base(os.Args[0])
+	if *help {
+		fmt.Printf("%s extracts data from send and receive counts and gathers statistics about them.", cmdName)
+		fmt.Println("\nUsage:")
+		flag.PrintDefaults()
+	}
+
 	if !util.PathExists(*outputDir) {
-		fmt.Printf("%s does not exist", *outputDir)
+		fmt.Printf("Output directory '%s' does not exist", *outputDir)
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	logFile := util.OpenLogFile("alltoallv", "srcountsanalyzer")
+	logFile := util.OpenLogFile("alltoallv", cmdName)
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)
@@ -92,23 +309,31 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	defaultOutputFile := datafilereader.GetStatsFilePath(*outputDir, *jobid, *pid)
-	patternsOutputFile := datafilereader.GetPatternFilePath(*outputDir, *jobid, *pid)
+	defaultOutputFile := datafilereader.GetStatsFilePath(*outputDir, *jobid, *rank)
+	patternsOutputFile := datafilereader.GetPatternFilePath(*outputDir, *jobid, *rank)
+	patternsSummaryOutputFile := datafilereader.GetPatternSummaryFilePath(*outputDir, *jobid, *rank)
 	defaultFd, err := os.OpenFile(defaultOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		log.Fatalf("unable to create %s: %s", defaultOutputFile, err)
 	}
+	defer defaultFd.Close()
 	patternsFd, err := os.OpenFile(patternsOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		log.Fatalf("unable to create %s: %s", patternsOutputFile, err)
 	}
+	defer patternsFd.Close()
+	patternsSummaryFd, err := os.OpenFile(patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		log.Fatalf("unable to create %s: %s", patternsSummaryOutputFile, err)
+	}
+	patternsSummaryFd.Close()
 
-	sendCountsFile, recvCountsFile := datafilereader.GetCountsFiles(*jobid, *pid)
+	sendCountsFile, recvCountsFile := datafilereader.GetCountsFiles(*jobid, *rank)
 	sendCountsFile = filepath.Join(*dir, sendCountsFile)
 	recvCountsFile = filepath.Join(*dir, recvCountsFile)
 
 	if !util.PathExists(sendCountsFile) || !util.PathExists(recvCountsFile) {
-		log.Fatalf("unable to locate send or recv counts file(s) in %s", *dir)
+		log.Fatalf("unable to locate send or recv counts file(s) (%s, %s) in %s", sendCountsFile, recvCountsFile, *dir)
 	}
 
 	log.Printf("Send counts file: %s\n", sendCountsFile)
@@ -143,21 +368,12 @@ func main() {
 	*/
 
 	var globalPatterns GlobalPatterns
+	var patterns1ToN []*callPattern
 	datatypesSend := make(map[int]int)
 	datatypesRecv := make(map[int]int)
 	commSizes := make(map[int]int)
-	sendMins := make(map[int]int)
-	recvMins := make(map[int]int)
-	sendMaxs := make(map[int]int)
-	recvMaxs := make(map[int]int)
-	recvNotZeroMins := make(map[int]int)
-	sendNotZeroMins := make(map[int]int)
-	callSendSparsity := make(map[int]int)
-	callRecvSparsity := make(map[int]int)
 
-	numSendSmallMsgs := 0
-	numSendSmallNotZeroMsgs := 0
-	numSendLargeMsgs := 0
+	cs := newCountStats()
 
 	for i := 0; i < numCalls; i++ {
 		log.Printf("Analyzing call #%d\n", i)
@@ -166,9 +382,9 @@ func main() {
 			log.Fatalf("unable to lookup call #%d: %s", i, err)
 		}
 
-		numSendSmallMsgs += callInfo.SendSmallMsgs
-		numSendSmallNotZeroMsgs += callInfo.SendSmallNotZeroMsgs
-		numSendLargeMsgs += callInfo.SendLargeMsgs
+		cs.numSendSmallMsgs += callInfo.SendSmallMsgs
+		cs.numSendSmallNotZeroMsgs += callInfo.SendSmallNotZeroMsgs
+		cs.numSendLargeMsgs += callInfo.SendLargeMsgs
 
 		if _, ok := datatypesSend[callInfo.SendDatatypeSize]; ok {
 			datatypesSend[callInfo.SendDatatypeSize]++
@@ -188,52 +404,52 @@ func main() {
 			commSizes[callInfo.CommSize] = 1
 		}
 
-		if _, ok := sendMins[callInfo.SendMin]; ok {
-			sendMins[callInfo.SendMin]++
+		if _, ok := cs.sendMins[callInfo.SendMin]; ok {
+			cs.sendMins[callInfo.SendMin]++
 		} else {
-			sendMins[callInfo.SendMin] = 1
+			cs.sendMins[callInfo.SendMin] = 1
 		}
 
-		if _, ok := recvMins[callInfo.RecvMin]; ok {
-			recvMins[callInfo.RecvMin]++
+		if _, ok := cs.recvMins[callInfo.RecvMin]; ok {
+			cs.recvMins[callInfo.RecvMin]++
 		} else {
-			recvMins[callInfo.RecvMin] = 1
+			cs.recvMins[callInfo.RecvMin] = 1
 		}
 
-		if _, ok := sendMaxs[callInfo.SendMax]; ok {
-			sendMaxs[callInfo.SendMax]++
+		if _, ok := cs.sendMaxs[callInfo.SendMax]; ok {
+			cs.sendMaxs[callInfo.SendMax]++
 		} else {
-			sendMaxs[callInfo.SendMax] = 1
+			cs.sendMaxs[callInfo.SendMax] = 1
 		}
 
-		if _, ok := recvMaxs[callInfo.RecvMax]; ok {
-			recvMaxs[callInfo.RecvMax]++
+		if _, ok := cs.recvMaxs[callInfo.RecvMax]; ok {
+			cs.recvMaxs[callInfo.RecvMax]++
 		} else {
-			recvMaxs[callInfo.RecvMax] = 1
+			cs.recvMaxs[callInfo.RecvMax] = 1
 		}
 
-		if _, ok := sendNotZeroMins[callInfo.SendNotZeroMin]; ok {
-			sendMins[callInfo.SendNotZeroMin]++
+		if _, ok := cs.sendNotZeroMins[callInfo.SendNotZeroMin]; ok {
+			cs.sendMins[callInfo.SendNotZeroMin]++
 		} else {
-			sendMins[callInfo.SendNotZeroMin] = 1
+			cs.sendMins[callInfo.SendNotZeroMin] = 1
 		}
 
-		if _, ok := recvNotZeroMins[callInfo.RecvNotZeroMin]; ok {
-			recvMins[callInfo.RecvNotZeroMin]++
+		if _, ok := cs.recvNotZeroMins[callInfo.RecvNotZeroMin]; ok {
+			cs.recvMins[callInfo.RecvNotZeroMin]++
 		} else {
-			recvMins[callInfo.RecvNotZeroMin] = 1
+			cs.recvMins[callInfo.RecvNotZeroMin] = 1
 		}
 
-		if _, ok := callSendSparsity[callInfo.TotalSendZeroCounts]; ok {
-			callSendSparsity[callInfo.TotalSendZeroCounts]++
+		if _, ok := cs.callSendSparsity[callInfo.TotalSendZeroCounts]; ok {
+			cs.callSendSparsity[callInfo.TotalSendZeroCounts]++
 		} else {
-			callSendSparsity[callInfo.TotalSendZeroCounts] = 1
+			cs.callSendSparsity[callInfo.TotalSendZeroCounts] = 1
 		}
 
-		if _, ok := callRecvSparsity[callInfo.TotalRecvZeroCounts]; ok {
-			callRecvSparsity[callInfo.TotalRecvZeroCounts]++
+		if _, ok := cs.callRecvSparsity[callInfo.TotalRecvZeroCounts]; ok {
+			cs.callRecvSparsity[callInfo.TotalRecvZeroCounts]++
 		} else {
-			callRecvSparsity[callInfo.TotalRecvZeroCounts] = 1
+			cs.callRecvSparsity[callInfo.TotalRecvZeroCounts] = 1
 		}
 
 		//displayCallPatterns(callInfo)
@@ -244,116 +460,19 @@ func main() {
 		}
 	}
 
-	defaultFd.WriteString("# Datatypes\n\n")
+	err = writeDatatypeToFile(defaultFd, numCalls, datatypesSend, datatypesRecv)
 	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	for datatypeSize, n := range datatypesSend {
-		_, err := defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-
-	}
-	for datatypeSize, n := range datatypesRecv {
-		_, err := defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	_, err = defaultFd.WriteString("\n")
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
+		log.Fatalf("unable to write datatype to file: %s", err)
 	}
 
-	_, err = defaultFd.WriteString("# Communicator size(s)\n\n")
+	err = writeCommunicatorSizesToFile(defaultFd, numCalls, commSizes)
 	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	for commSize, n := range commSizes {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	_, err = defaultFd.WriteString("\n")
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
+		log.Fatalf("unable to write communicator sizes to file: %s", err)
 	}
 
-	_, err = defaultFd.WriteString("# Message sizes\n\n")
+	err = writeCountStatsToFile(defaultFd, numCalls, *sizeThreshold, cs)
 	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	totalSendMsgs := numSendSmallMsgs + numSendLargeMsgs
-	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are large (threshold = %d)\n", numSendLargeMsgs, totalSendMsgs, *sizeThreshold))
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are small (threshold = %d)\n", numSendSmallMsgs, totalSendMsgs, *sizeThreshold))
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all messages are small, but not 0-size (threshold = %d)\n", numSendSmallNotZeroMsgs, totalSendMsgs, *sizeThreshold))
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-
-	_, err = defaultFd.WriteString("\n# Sparsity\n\n")
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	for numZeros, nCalls := range callSendSparsity {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	for numZeros, nCalls := range callRecvSparsity {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-
-	_, err = defaultFd.WriteString("\n# Min/max\n")
-	if err != nil {
-		log.Fatalf("unable to write data: %s", err)
-	}
-	for mins, n := range sendMins {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", n, numCalls, mins))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	for mins, n := range recvMins {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-
-	for mins, n := range sendNotZeroMins {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	for mins, n := range recvNotZeroMins {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-
-	for maxs, n := range sendMaxs {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-	}
-	for maxs, n := range recvMaxs {
-		_, err = defaultFd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs))
+		log.Fatalf("unable to write communicator sizes to file: %s", err)
 	}
 
 	_, err = patternsFd.WriteString("# Patterns\n")
@@ -362,33 +481,19 @@ func main() {
 	}
 	num := 0
 	for _, cp := range globalPatterns.cp {
-		_, err = patternsFd.WriteString(fmt.Sprintf("## Pattern #%d (%d alltoallv calls)\n", num, cp.count))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
-		_, err = patternsFd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cp.calls)))
-		if err != nil {
-			log.Fatalf("unable to write data: %s", err)
-		}
+		writePatternsToFile(patternsFd, num, cp)
+		num++
+	}
 
-		for sendTo, n := range cp.send {
-			_, err = patternsFd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
-			if err != nil {
-				log.Fatalf("unable to write data: %s", err)
-			}
-		}
-		for recvFrom, n := range cp.recv {
-			_, err = patternsFd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
-			if err != nil {
-				log.Fatalf("unable to write data: %s", err)
-			}
-		}
-		_, err = patternsFd.WriteString("\n")
-
+	_, err = patternsFd.WriteString("# Patterns summary")
+	num = 0
+	for _, cp := range patterns1ToN {
+		writePatternsToFile(patternsSummaryFd, num, cp)
 		num++
 	}
 
 	fmt.Println("Results are saved in:")
 	fmt.Printf("-> %s\n", defaultOutputFile)
 	fmt.Printf("-> %s\n", patternsOutputFile)
+	fmt.Printf("Patterns summary: %s\n", patternsSummaryOutputFile)
 }

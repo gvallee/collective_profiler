@@ -192,17 +192,18 @@ func saveLine(file *os.File, callNum string, line string) error {
 	return err
 }
 
-func GetStatsFilePath(basedir string, jobid int, pid int) string {
-	return filepath.Join(basedir, fmt.Sprintf("stats-job%d-pid%d.md", jobid, pid))
+func GetStatsFilePath(basedir string, jobid int, rank int) string {
+	return filepath.Join(basedir, fmt.Sprintf("stats-job%d-rank%d.md", jobid, rank))
 }
 
-func GetCallData(dir string, jobid int, pid int, callNum int, msgSizeThreshold int) (CallInfo, error) {
+// GetCallData extract all the data related to a specific call.
+func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold int) (CallInfo, error) {
 	var info CallInfo
 	info.ID = callNum
 
 	// Load the counts from raw data
 	log.Printf("Extracting send/receive counts for call #%d\n", callNum)
-	sendCountsFile, recvCountsFile := GetCountsFiles(jobid, pid)
+	sendCountsFile, recvCountsFile := GetCountsFiles(jobid, rank)
 	sendCountsFile = filepath.Join(dir, sendCountsFile)
 	recvCountsFile = filepath.Join(dir, recvCountsFile)
 
@@ -237,7 +238,7 @@ func GetCallData(dir string, jobid int, pid int, callNum int, msgSizeThreshold i
 	// todo: if the files do not exist, we should get the data from scratch
 
 	log.Printf("Extracting timings for call #%d\n", callNum)
-	info.Timings, err = getCallTimings(dir, jobid, pid, callNum)
+	info.Timings, err = getCallTimings(dir, jobid, rank, callNum)
 	if err != nil {
 		return info, err
 	}
@@ -246,7 +247,7 @@ func GetCallData(dir string, jobid int, pid int, callNum int, msgSizeThreshold i
 	// Load patterns from result file.
 	// todo: if the file does not exists, we should get the data from scratch
 	log.Printf("Extracting patterns for call #%d\n", callNum)
-	info.PatternStr, err = getCallPatterns(dir, jobid, pid, callNum)
+	info.PatternStr, err = getCallPatterns(dir, jobid, rank, callNum)
 	if err != nil {
 		return info, err
 	}

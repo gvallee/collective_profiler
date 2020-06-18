@@ -531,8 +531,9 @@ func findRecvCountersFiles(basedir string, jobid int, pid int) ([]string, error)
 	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, recvCountersFilePrefix)
 }
 
-func GetCountsFiles(jobid int, pid int) (string, string) {
-	suffix := "job" + strconv.Itoa(jobid) + ".pid" + strconv.Itoa(pid) + ".txt"
+// GetCountsFiles returns the full path to the count files for a given rank of a given job
+func GetCountsFiles(jobid int, rank int) (string, string) {
+	suffix := "job" + strconv.Itoa(jobid) + ".rank" + strconv.Itoa(rank) + ".txt"
 	return sendCountersFilePrefix + suffix, recvCountersFilePrefix + suffix
 }
 

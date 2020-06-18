@@ -102,12 +102,12 @@ func ExtractTimings(inputFile string, lateArrivalFilename string, a2aFilename st
 	return extractTimingData(reader, laf, a2af)
 }
 
-func getAlltoallvTimingsFilePath(dir string, jobid int, pid int) string {
-	return filepath.Join(dir, fmt.Sprintf("alltoallv_timings.job%d.pid%d.txt", jobid, pid))
+func getAlltoallvTimingsFilePath(dir string, jobid int, rank int) string {
+	return filepath.Join(dir, fmt.Sprintf("alltoallv_timings.job%d.rank%d.dat", jobid, rank))
 }
 
-func getLateArrivalTimingsFilePath(dir string, jobid int, pid int) string {
-	return filepath.Join(dir, fmt.Sprintf("late_arrival_timings.job%d.pid%d.txt", jobid, pid))
+func getLateArrivalTimingsFilePath(dir string, jobid int, rank int) string {
+	return filepath.Join(dir, fmt.Sprintf("late_arrival_timings.job%d.rank%d.dat", jobid, rank))
 }
 
 func getCallDataFromTimingsFile(path string, numCall int) (TimingsStats, error) {
@@ -181,12 +181,12 @@ func getCallDataFromTimingsFile(path string, numCall int) (TimingsStats, error) 
 	return t, nil
 }
 
-func getCallTimings(dir string, jobid int, pid int, numCall int) (CallTimings, error) {
+func getCallTimings(dir string, jobid int, rank int, numCall int) (CallTimings, error) {
 	var t CallTimings
 	var err error
 
-	a2aTimingsFile := getAlltoallvTimingsFilePath(dir, jobid, pid)
-	lateArrivalTimingsFile := getLateArrivalTimingsFilePath(dir, jobid, pid)
+	a2aTimingsFile := getAlltoallvTimingsFilePath(dir, jobid, rank)
+	lateArrivalTimingsFile := getLateArrivalTimingsFilePath(dir, jobid, rank)
 
 	log.Printf("-> Getting execution timings from %s\n", a2aTimingsFile)
 	t.ExecutionTimings, err = getCallDataFromTimingsFile(a2aTimingsFile, numCall)
