@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/go_util/pkg/util"
@@ -23,12 +24,19 @@ func main() {
 	rank := flag.Int("rank", 0, "Rank for which we want to extract counters")
 	call := flag.Int("call", 0, "Number of the alltoallv call for which we want to extract counters")
 	dir := flag.String("dir", "", "Where the data files are stored")
-	pid := flag.Int("pid", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
+	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
 
-	logFile := util.OpenLogFile("alltoallv", "getcounters")
+	cmdName := filepath.Base(os.Args[0])
+	if *help {
+		fmt.Printf("%s extracts the send and receive counts from a profile's dataset.", cmdName)
+		fmt.Println("\nUsage:")
+		flag.PrintDefaults()
+	}
+
+	logFile := util.OpenLogFile("alltoallv", cmdName)
 	defer logFile.Close()
 	if *verbose {
 		nultiWriters := io.MultiWriter(os.Stdout, logFile)
@@ -37,7 +45,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	sendCounters, recvCounters, err := datafilereader.FindCallRankCounters(*dir, *jobid, *pid, *rank, *call)
+	sendCounters, recvCounters, err := datafilereader.FindCallRankCounters(*dir, *jobid, *rank, *call)
 	if err != nil {
 		log.Fatalf("unable to find counters: %s", err)
 	}

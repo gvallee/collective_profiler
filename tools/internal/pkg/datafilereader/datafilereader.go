@@ -28,8 +28,13 @@ const (
 	lateArrivalTimingDelimiter = "# Late arrival timings"
 	executionTimeDelimiter     = "# Execution times of Alltoallv function"
 
-	sendCountersFilePrefix = "send-counters."
-	recvCountersFilePrefix = "recv-counters."
+	// SendCountersFilePrefix is the prefix used for all send counts files
+	SendCountersFilePrefix = "send-counters."
+	// RecvCountersFilePrefix is the prefix used for all receive counts files
+	RecvCountersFilePrefix = "recv-counters."
+
+	// ProfileSummaryFilePrefix is the prefix used for all generated profile summary files
+	ProfileSummaryFilePrefix = "profile_alltoallv_rank"
 
 	// DefaultMsgSizeThreshold is the default threshold to differentiate message and large messages.
 	DefaultMsgSizeThreshold = 200

@@ -29,6 +29,37 @@ type Bin struct {
 	Size int
 }
 
+type CallPattern struct {
+	Send  map[int]int
+	Recv  map[int]int
+	Count int
+	Calls []int
+}
+
+type GlobalPatterns struct {
+	AllPatterns []*CallPattern
+	OneToN      []*CallPattern
+}
+
+type CountStats struct {
+	NumSendSmallMsgs        int
+	NumSendLargeMsgs        int
+	SizeThreshold           int
+	NumSendSmallNotZeroMsgs int
+	CommSizes               map[int]int
+	DatatypesSend           map[int]int
+	DatatypesRecv           map[int]int
+	CallSendSparsity        map[int]int
+	CallRecvSparsity        map[int]int
+	SendMins                map[int]int
+	RecvMins                map[int]int
+	SendMaxs                map[int]int
+	RecvMaxs                map[int]int
+	SendNotZeroMins         map[int]int
+	RecvNotZeroMins         map[int]int
+	Patterns                GlobalPatterns
+}
+
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
 		if calls[i] == callNum {
@@ -162,7 +193,7 @@ func Validate(jobid int, pid int, dir string) error {
 
 	// For each file, load the counters with our framework and compare with the data we got directly from the app
 	for _, f := range files {
-		pid, rank, call, err := getInfoFromFilename(f)
+		_, rank, call, err := getInfoFromFilename(f)
 		if err != nil {
 			return err
 		}
@@ -174,7 +205,7 @@ func Validate(jobid int, pid int, dir string) error {
 			return err
 		}
 
-		sendCounters2, recvCounters2, err := datafilereader.FindCallRankCounters(dir, jobid, pid, rank, call)
+		sendCounters2, recvCounters2, err := datafilereader.FindCallRankCounters(dir, jobid, rank, call)
 		if err != nil {
 			fmt.Printf("unable to get counters: %s", err)
 			return err
@@ -325,4 +356,158 @@ func GetBins(countFilePath string, listBins []int) ([]Bin, error) {
 	}
 
 	return bins, nil
+}
+
+func newCountStats() CountStats {
+	cs := CountStats{
+		CommSizes:               make(map[int]int),
+		DatatypesSend:           make(map[int]int),
+		DatatypesRecv:           make(map[int]int),
+		SendMins:                make(map[int]int),
+		RecvMins:                make(map[int]int),
+		SendMaxs:                make(map[int]int),
+		RecvMaxs:                make(map[int]int),
+		RecvNotZeroMins:         make(map[int]int),
+		SendNotZeroMins:         make(map[int]int),
+		CallSendSparsity:        make(map[int]int),
+		CallRecvSparsity:        make(map[int]int),
+		NumSendSmallMsgs:        0,
+		NumSendSmallNotZeroMsgs: 0,
+		NumSendLargeMsgs:        0,
+	}
+	return cs
+}
+
+func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[int]int, recvPatterns map[int]int) error {
+	for idx, x := range globalPatterns.AllPatterns {
+		if datafilereader.CompareCallPatterns(x.Send, sendPatterns) && datafilereader.CompareCallPatterns(x.Recv, recvPatterns) {
+			// Increment count for pattern
+			log.Printf("-> Alltoallv call #%d - Adding alltoallv to pattern %d...\n", callNum, idx)
+			x.Count++
+			x.Calls = append(x.Calls, callNum)
+
+			// todo: We may want to track 1 -> N more independently but right now, we handle pointers
+			// so the details are only about the main list.
+			/*
+				if sentTo > n*100 {
+					// This is also a 1->n pattern and we need to update the list of such patterns
+					for _, candidatePattern := range globalPatterns.oneToN {
+						if datafilereader.CompareCallPatterns(candidatePattern.send, sendPatterns) && datafilereader.CompareCallPatterns(candidatePattern.recv, recvPatterns) {
+							candidatePattern.count ++
+						}
+					}
+				}
+			*/
+			return nil
+		}
+	}
+
+	// If we get here, it means that we did not find a similar pattern
+	log.Printf("-> Alltoallv call %d - Adding new pattern...\n", callNum)
+	new_cp := new(CallPattern)
+	new_cp.Send = sendPatterns
+	new_cp.Recv = recvPatterns
+	new_cp.Count = 1
+	new_cp.Calls = append(new_cp.Calls, callNum)
+	globalPatterns.AllPatterns = append(globalPatterns.AllPatterns, new_cp)
+
+	// Detect 1 -> n patterns using the send counts only
+	for sendTo, n := range sendPatterns {
+		if sendTo > n*100 {
+			globalPatterns.OneToN = append(globalPatterns.OneToN, new_cp)
+		}
+	}
+
+	return nil
+}
+
+func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (CountStats, error) {
+	cs := newCountStats()
+
+	for i := 0; i < numCalls; i++ {
+		log.Printf("Analyzing call #%d\n", i)
+		callInfo, err := datafilereader.LookupCall(sendCountsFile, recvCountsFile, i, sizeThreshold)
+		if err != nil {
+			return cs, err
+		}
+
+		cs.NumSendSmallMsgs += callInfo.SendSmallMsgs
+		cs.NumSendSmallNotZeroMsgs += callInfo.SendSmallNotZeroMsgs
+		cs.NumSendLargeMsgs += callInfo.SendLargeMsgs
+
+		if _, ok := cs.DatatypesSend[callInfo.SendDatatypeSize]; ok {
+			cs.DatatypesSend[callInfo.SendDatatypeSize]++
+		} else {
+			cs.DatatypesSend[callInfo.SendDatatypeSize] = 1
+		}
+
+		if _, ok := cs.DatatypesRecv[callInfo.RecvDatatypeSize]; ok {
+			cs.DatatypesRecv[callInfo.RecvDatatypeSize]++
+		} else {
+			cs.DatatypesRecv[callInfo.RecvDatatypeSize] = 1
+		}
+
+		if _, ok := cs.CommSizes[callInfo.CommSize]; ok {
+			cs.CommSizes[callInfo.CommSize]++
+		} else {
+			cs.CommSizes[callInfo.CommSize] = 1
+		}
+
+		if _, ok := cs.SendMins[callInfo.SendMin]; ok {
+			cs.SendMins[callInfo.SendMin]++
+		} else {
+			cs.SendMins[callInfo.SendMin] = 1
+		}
+
+		if _, ok := cs.RecvMins[callInfo.RecvMin]; ok {
+			cs.RecvMins[callInfo.RecvMin]++
+		} else {
+			cs.RecvMins[callInfo.RecvMin] = 1
+		}
+
+		if _, ok := cs.SendMaxs[callInfo.SendMax]; ok {
+			cs.SendMaxs[callInfo.SendMax]++
+		} else {
+			cs.SendMaxs[callInfo.SendMax] = 1
+		}
+
+		if _, ok := cs.RecvMaxs[callInfo.RecvMax]; ok {
+			cs.RecvMaxs[callInfo.RecvMax]++
+		} else {
+			cs.RecvMaxs[callInfo.RecvMax] = 1
+		}
+
+		if _, ok := cs.SendNotZeroMins[callInfo.SendNotZeroMin]; ok {
+			cs.SendMins[callInfo.SendNotZeroMin]++
+		} else {
+			cs.SendMins[callInfo.SendNotZeroMin] = 1
+		}
+
+		if _, ok := cs.RecvNotZeroMins[callInfo.RecvNotZeroMin]; ok {
+			cs.RecvMins[callInfo.RecvNotZeroMin]++
+		} else {
+			cs.RecvMins[callInfo.RecvNotZeroMin] = 1
+		}
+
+		if _, ok := cs.CallSendSparsity[callInfo.TotalSendZeroCounts]; ok {
+			cs.CallSendSparsity[callInfo.TotalSendZeroCounts]++
+		} else {
+			cs.CallSendSparsity[callInfo.TotalSendZeroCounts] = 1
+		}
+
+		if _, ok := cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts]; ok {
+			cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts]++
+		} else {
+			cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts] = 1
+		}
+
+		//displayCallPatterns(callInfo)
+		// Analyze the send/receive pattern from the call
+		err = cs.Patterns.addPattern(i, callInfo.Patterns.SendPatterns, callInfo.Patterns.RecvPatterns)
+		if err != nil {
+			return cs, err
+		}
+	}
+
+	return cs, nil
 }

@@ -519,26 +519,26 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 	return counters, datatypeSize, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
 }
 
-func findSendCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
-	pidStr := strconv.Itoa(pid)
+func findSendCountersFiles(basedir string, jobid int, id int) ([]string, error) {
+	idStr := strconv.Itoa(id)
 	jobIDStr := strconv.Itoa(jobid)
-	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, sendCountersFilePrefix)
+	return findCountersFilesWithPrefix(basedir, jobIDStr, idStr, SendCountersFilePrefix)
 }
 
-func findRecvCountersFiles(basedir string, jobid int, pid int) ([]string, error) {
-	pidStr := strconv.Itoa(pid)
+func findRecvCountersFiles(basedir string, jobid int, id int) ([]string, error) {
+	idStr := strconv.Itoa(id)
 	jobIDStr := strconv.Itoa(jobid)
-	return findCountersFilesWithPrefix(basedir, jobIDStr, pidStr, recvCountersFilePrefix)
+	return findCountersFilesWithPrefix(basedir, jobIDStr, idStr, RecvCountersFilePrefix)
 }
 
 // GetCountsFiles returns the full path to the count files for a given rank of a given job
 func GetCountsFiles(jobid int, rank int) (string, string) {
 	suffix := "job" + strconv.Itoa(jobid) + ".rank" + strconv.Itoa(rank) + ".txt"
-	return sendCountersFilePrefix + suffix, recvCountersFilePrefix + suffix
+	return SendCountersFilePrefix + suffix, RecvCountersFilePrefix + suffix
 }
 
-func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
-	files, err := findSendCountersFiles(basedir, jobid, pid)
+func findCallRankSendCounters(basedir string, jobid int, rank int, callNum int) (string, error) {
+	files, err := findSendCountersFiles(basedir, jobid, rank)
 	if err != nil {
 		return "", err
 	}
@@ -550,8 +550,8 @@ func findCallRankSendCounters(basedir string, jobid int, pid int, rank int, call
 	return counters, nil
 }
 
-func findCallRankRecvCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, error) {
-	files, err := findRecvCountersFiles(basedir, jobid, pid)
+func findCallRankRecvCounters(basedir string, jobid int, rank int, callNum int) (string, error) {
+	files, err := findRecvCountersFiles(basedir, jobid, rank)
 	if err != nil {
 		return "", err
 	}
@@ -563,13 +563,13 @@ func findCallRankRecvCounters(basedir string, jobid int, pid int, rank int, call
 	return counters, nil
 }
 
-func FindCallRankCounters(basedir string, jobid int, pid int, rank int, callNum int) (string, string, error) {
-	sendCounters, err := findCallRankSendCounters(basedir, jobid, pid, rank, callNum)
+func FindCallRankCounters(basedir string, jobid int, rank int, callNum int) (string, string, error) {
+	sendCounters, err := findCallRankSendCounters(basedir, jobid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
 
-	recvCounters, err := findCallRankRecvCounters(basedir, jobid, pid, rank, callNum)
+	recvCounters, err := findCallRankRecvCounters(basedir, jobid, rank, callNum)
 	if err != nil {
 		return "", "", err
 	}
