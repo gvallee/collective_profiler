@@ -52,3 +52,5 @@ dkms.conf
 
 # The profiles the tool generates
 profile_alltoallv.*.md
+recv-counters*.txt
+send-counters*.txt
