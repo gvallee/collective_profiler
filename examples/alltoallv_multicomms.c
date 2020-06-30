@@ -123,6 +123,7 @@ int main(int argc, char **argv)
     alltoallv_info_t *world_alltoallv = setup_alltoallv(MPI_COMM_WORLD);
     alltoallv_info_t *subcomm_alltoallv = setup_alltoallv(sub_comm);
 
+    MPICHECK(do_alltoallv(subcomm_alltoallv));
     MPICHECK(do_alltoallv(world_alltoallv));
     MPICHECK(do_alltoallv(subcomm_alltoallv));
 
