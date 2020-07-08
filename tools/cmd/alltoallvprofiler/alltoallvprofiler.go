@@ -35,7 +35,15 @@ func getIDsFromFileNames(files []string, id string) ([]int, error) {
 				if err != nil {
 					return ids, err
 				}
-				ids = append(ids, id)
+				found := false
+				for _, i := range ids {
+					if i == id {
+						found = true
+					}
+				}
+				if !found {
+					ids = append(ids, id)
+				}
 				break
 			}
 		}
@@ -49,7 +57,7 @@ func getRanksFromFileNames(files []string) ([]int, error) {
 }
 
 func getJobIDsFromFileNames(files []string) ([]int, error) {
-	return getIDsFromFileNames(files, "jobid")
+	return getIDsFromFileNames(files, "job")
 }
 
 func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) error {
@@ -107,7 +115,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	}
 
 	if len(sendJobids) != 1 {
-		return fmt.Errorf("more than one job detected through send counts files; inconsistent data?")
+		return fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
 	}
 
 	recvJobids, err := getJobIDsFromFileNames(recvCountFiles)
