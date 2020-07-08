@@ -60,6 +60,30 @@ type CountStats struct {
 	Patterns                GlobalPatterns
 }
 
+// OutputFileInfo gathers all the data for the handling of output files while analysis counts
+type OutputFileInfo struct {
+	// defaultFd is the file descriptor for the creation of the default output file while analyzing counts
+	defaultFd *os.File
+
+	// patternsFd is the file descriptor for the creation of the output files to store patterns discovered during the analysis of the counts
+	patternsFd *os.File
+
+	// patternsSummaryFd is the file descriptor for the creation of the summary output file for the patterns discovered during the analysis of the counts
+	patternsSummaryFd *os.File
+
+	// defaultOutputFile is the path of the file associated to DefaultFd
+	defaultOutputFile string
+
+	// patternsOutputFile is the path of the file associated to PatternsFd
+	patternsOutputFile string
+
+	// patternsSummaryOutputFile is the path of the file associated to SummaryPatternsFd
+	patternsSummaryOutputFile string
+
+	// Cleanup is the function to call after being done with all the files
+	Cleanup func()
+}
+
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
 		if calls[i] == callNum {
@@ -510,4 +534,242 @@ func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int,
 	}
 
 	return cs, nil
+}
+
+func writePatternsToFile(fd *os.File, num int, cp *CallPattern) error {
+	_, err := fd.WriteString(fmt.Sprintf("## Pattern #%d (%d alltoallv calls)\n", num, cp.Count))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cp.Calls)))
+	if err != nil {
+		return err
+	}
+
+	for sendTo, n := range cp.Send {
+		_, err = fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
+		if err != nil {
+			return err
+		}
+	}
+	for recvFrom, n := range cp.Recv {
+		_, err = fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, datatypesRecv map[int]int) error {
+	_, err := fd.WriteString("# Datatypes\n\n")
+	if err != nil {
+		return err
+	}
+	for datatypeSize, n := range datatypesSend {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			return err
+		}
+	}
+	for datatypeSize, n := range datatypesRecv {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeCommunicatorSizesToFile(fd *os.File, numCalls int, commSizes map[int]int) error {
+	_, err := fd.WriteString("# Communicator size(s)\n\n")
+	if err != nil {
+		return err
+	}
+	for commSize, n := range commSizes {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs CountStats) error {
+	_, err := fd.WriteString("# Message sizes\n\n")
+	if err != nil {
+		return err
+	}
+	totalSendMsgs := cs.NumSendSmallMsgs + cs.NumSendLargeMsgs
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are large (threshold = %d)\n", cs.NumSendLargeMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are small (threshold = %d)\n", cs.NumSendSmallMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+	_, err = fd.WriteString(fmt.Sprintf("%d/%d of all messages are small, but not 0-size (threshold = %d)\n", cs.NumSendSmallNotZeroMsgs, totalSendMsgs, sizeThreshold))
+	if err != nil {
+		return err
+	}
+
+	_, err = fd.WriteString("\n# Sparsity\n\n")
+	if err != nil {
+		return err
+	}
+	for numZeros, nCalls := range cs.CallSendSparsity {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			return err
+		}
+	}
+	for numZeros, nCalls := range cs.CallRecvSparsity {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n# Min/max\n")
+	if err != nil {
+		return err
+	}
+	for mins, n := range cs.SendMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+	for mins, n := range cs.RecvMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+
+	for mins, n := range cs.SendNotZeroMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+	for mins, n := range cs.RecvNotZeroMins {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins))
+		if err != nil {
+			return err
+		}
+	}
+
+	for maxs, n := range cs.SendMaxs {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs))
+		if err != nil {
+			return err
+		}
+	}
+	for maxs, n := range cs.RecvMaxs {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func SaveCounterStats(info OutputFileInfo, cs CountStats, numCalls int, sizeThreshold int) error {
+	_, err := info.defaultFd.WriteString(fmt.Sprintf("Total number of alltoallv calls: %d\n\n", numCalls))
+	if err != nil {
+		return err
+	}
+
+	err = writeDatatypeToFile(info.defaultFd, numCalls, cs.DatatypesSend, cs.DatatypesRecv)
+	if err != nil {
+		return err
+	}
+
+	err = writeCommunicatorSizesToFile(info.defaultFd, numCalls, cs.CommSizes)
+	if err != nil {
+		return err
+	}
+
+	err = writeCountStatsToFile(info.defaultFd, numCalls, sizeThreshold, cs)
+	if err != nil {
+		return err
+	}
+
+	_, err = info.patternsFd.WriteString("# Patterns\n")
+	if err != nil {
+		return err
+	}
+	num := 0
+	for _, cp := range cs.Patterns.AllPatterns {
+		err = writePatternsToFile(info.patternsFd, num, cp)
+		if err != nil {
+			return err
+		}
+		num++
+	}
+
+	_, err = info.patternsFd.WriteString("# Patterns summary")
+	num = 0
+	for _, cp := range cs.Patterns.OneToN {
+		err = writePatternsToFile(info.patternsSummaryFd, num, cp)
+		if err != nil {
+			return err
+		}
+		num++
+	}
+
+	return nil
+}
+
+func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileInfo, error) {
+	var info OutputFileInfo
+	var err error
+
+	info.defaultOutputFile = datafilereader.GetStatsFilePath(basedir, jobid, rank)
+	info.patternsOutputFile = datafilereader.GetPatternFilePath(basedir, jobid, rank)
+	info.patternsSummaryOutputFile = datafilereader.GetPatternSummaryFilePath(basedir, jobid, rank)
+	info.defaultFd, err = os.OpenFile(info.defaultOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return info, fmt.Errorf("unable to create %s: %s", info.defaultOutputFile, err)
+	}
+
+	info.patternsFd, err = os.OpenFile(info.patternsOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return info, fmt.Errorf("unable to create %s: %s", info.patternsOutputFile, err)
+	}
+
+	info.patternsSummaryFd, err = os.OpenFile(info.patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return info, fmt.Errorf("unable to create %s: %s", info.patternsSummaryOutputFile, err)
+	}
+
+	info.Cleanup = func() {
+		info.defaultFd.Close()
+		info.patternsFd.Close()
+		info.patternsSummaryFd.Close()
+	}
+
+	fmt.Println("Results are saved in:")
+	fmt.Printf("-> %s\n", info.defaultOutputFile)
+	fmt.Printf("-> %s\n", info.patternsOutputFile)
+	fmt.Printf("Patterns summary: %s\n", info.patternsSummaryOutputFile)
+
+	return info, nil
 }

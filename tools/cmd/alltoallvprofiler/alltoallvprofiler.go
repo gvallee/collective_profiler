@@ -52,6 +52,35 @@ func getJobIDsFromFileNames(files []string) ([]int, error) {
 	return getIDsFromFileNames(files, "jobid")
 }
 
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) error {
+	sendCountFile, recvCountFile := datafilereader.GetCountsFiles(jobid, rank)
+	sendCountFile = filepath.Join(basedir, sendCountFile)
+	recvCountFile = filepath.Join(basedir, recvCountFile)
+
+	numCalls, err := datafilereader.GetNumCalls(sendCountFile)
+	if err != nil {
+		return fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
+	}
+
+	cs, err := profiler.ParseCountFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
+	if err != nil {
+		return fmt.Errorf("unable to parse count file %s", sendCountFile)
+	}
+
+	outputFilesInfo, err := profiler.GetCountProfilerFileDesc(basedir, jobid, rank)
+	if err != nil {
+		return fmt.Errorf("unable to open output files: %s", err)
+	}
+	defer outputFilesInfo.Cleanup()
+
+	err = profiler.SaveCounterStats(outputFilesInfo, cs, numCalls, sizeThreshold)
+	if err != nil {
+		return fmt.Errorf("unable to save counters' stats: %s", err)
+	}
+
+	return nil
+}
+
 func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int) error {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
@@ -97,18 +126,9 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	jobid := sendJobids[0]
 
 	for _, rank := range sendRanks {
-		sendCountFile, recvCountFile := datafilereader.GetCountsFiles(jobid, rank)
-		sendCountFile = filepath.Join(basedir, sendCountFile)
-		recvCountFile = filepath.Join(basedir, recvCountFile)
-
-		numCalls, err := datafilereader.GetNumCalls(sendCountFile)
+		err = analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)
 		if err != nil {
-			log.Fatalf("unable to get the number of alltoallv calls: %s", err)
-		}
-
-		_, err = profiler.ParseCountFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
-		if err != nil {
-			log.Fatalf("unable to parse count file %s", sendCountFile)
+			return err
 		}
 	}
 
@@ -126,6 +146,8 @@ func main() {
 	cmdName := filepath.Base(os.Args[0])
 	if *help {
 		fmt.Printf("%s analyzes all the data gathered while running an application with our shared library", cmdName)
+		fmt.Println("\nUsage:")
+		flag.PrintDefaults()
 	}
 
 	logFile := util.OpenLogFile("alltoallv", cmdName)
