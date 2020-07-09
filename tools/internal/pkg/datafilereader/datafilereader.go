@@ -36,6 +36,9 @@ const (
 	// ProfileSummaryFilePrefix is the prefix used for all generated profile summary files
 	ProfileSummaryFilePrefix = "profile_alltoallv_rank"
 
+	// TimingsFilePrefix is the prefix used for all timings files
+	TimingsFilePrefix = "timings."
+
 	// DefaultMsgSizeThreshold is the default threshold to differentiate message and large messages.
 	DefaultMsgSizeThreshold = 200
 )

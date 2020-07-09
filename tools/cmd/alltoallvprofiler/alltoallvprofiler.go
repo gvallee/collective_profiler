@@ -143,11 +143,78 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	return nil
 }
 
+func handleCountsFile(dir string, sizeThreshold int) error {
+	// Figure out all the send/recv counts files
+	f, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	var profileFiles []string
+	var sendCountsFiles []string
+	var recvCountsFiles []string
+	for _, file := range f {
+		if strings.HasPrefix(file.Name(), datafilereader.ProfileSummaryFilePrefix) {
+			profileFiles = append(profileFiles, filepath.Join(dir, file.Name()))
+		}
+
+		if strings.HasPrefix(file.Name(), datafilereader.SendCountersFilePrefix) {
+			sendCountsFiles = append(sendCountsFiles, filepath.Join(dir, file.Name()))
+		}
+
+		if strings.HasPrefix(file.Name(), datafilereader.RecvCountersFilePrefix) {
+			recvCountsFiles = append(recvCountsFiles, filepath.Join(dir, file.Name()))
+		}
+	}
+
+	// Analyze all the files we found
+	err = analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func analyzeTimingsFiles(dir string, files []string) error {
+	for _, file := range files {
+		// The output directory is where the data is, this tool keeps all the data together
+		err := profiler.ParseTimingsFile(file, dir)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func handleTimingFiles(dir string) error {
+	// Figure out all the send/recv counts files
+	f, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	var timingsFiles []string
+	for _, file := range f {
+		if strings.HasPrefix(file.Name(), datafilereader.TimingsFilePrefix) {
+			timingsFiles = append(timingsFiles, filepath.Join(dir, file.Name()))
+		}
+	}
+
+	// Analyze all the files we found
+	err = analyzeTimingsFiles(dir, timingsFiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	dir := flag.String("dir", "", "Where all the data is")
 	help := flag.Bool("h", false, "Help message")
-	sizeThredshold := flag.Int("size-thredshold", 200, "Size to differentiate small and big messages")
+	sizeThreshold := flag.Int("size-threshold", 200, "Size to differentiate small and big messages")
 
 	flag.Parse()
 
@@ -167,32 +234,15 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	// Figure out all the send/recv counts
-	f, err := ioutil.ReadDir(*dir)
+	err := handleCountsFile(*dir, *sizeThreshold)
 	if err != nil {
-		fmt.Printf("[ERROR] Unable to read %s: %s", *dir, err)
+		fmt.Printf("ERROR: unable to analyze counts: %s", err)
 		os.Exit(1)
 	}
 
-	var profileFiles []string
-	var sendCountsFiles []string
-	var recvCountsFiles []string
-	for _, file := range f {
-		if strings.HasPrefix(file.Name(), datafilereader.ProfileSummaryFilePrefix) {
-			profileFiles = append(profileFiles, filepath.Join(*dir, file.Name()))
-		}
-
-		if strings.HasPrefix(file.Name(), datafilereader.SendCountersFilePrefix) {
-			sendCountsFiles = append(sendCountsFiles, filepath.Join(*dir, file.Name()))
-		}
-
-		if strings.HasPrefix(file.Name(), datafilereader.RecvCountersFilePrefix) {
-			recvCountsFiles = append(recvCountsFiles, filepath.Join(*dir, file.Name()))
-		}
-	}
-
-	err = analyzeCountFiles(*dir, sendCountsFiles, recvCountsFiles, *sizeThredshold)
+	err = handleTimingFiles(*dir)
 	if err != nil {
-		log.Fatalf("unable to analyze send count files: %s", err)
+		fmt.Printf("ERROR: unable to analyze timings: %s", err)
+		os.Exit(1)
 	}
 }

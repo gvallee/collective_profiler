@@ -14,9 +14,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -43,13 +42,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	lateArrivalFilename := strings.ReplaceAll(filepath.Base(*file), "timings", "late_arrival_timings")
-	lateArrivalFilename = strings.ReplaceAll(lateArrivalFilename, ".md", ".dat")
-	a2aFilename := strings.ReplaceAll(filepath.Base(*file), "timings", "alltoallv_timings")
-	a2aFilename = strings.ReplaceAll(a2aFilename, ".md", ".dat")
-
-	err := datafilereader.ExtractTimings(*file, lateArrivalFilename, a2aFilename)
+	err := profiler.ParseTimingsFile(*file, "")
 	if err != nil {
-		log.Fatalf("unable to extract data: %s", err)
+		log.Fatalf("unable to parse timing file %s: %s", *file, err)
 	}
 }
