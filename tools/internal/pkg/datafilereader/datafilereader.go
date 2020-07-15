@@ -39,6 +39,12 @@ const (
 	// TimingsFilePrefix is the prefix used for all timings files
 	TimingsFilePrefix = "timings."
 
+	// PatternsSummaryFilePrefix is the prefix of all the pattern summary files
+	PatternsSummaryFilePrefix = "patterns-summary-"
+
+	// MulticommHighlightFilePrefix is the prefix of the file used to store the highlights when data has multi-communicators patterns
+	MulticommHighlightFilePrefix = "multicomm-highlights"
+
 	// DefaultMsgSizeThreshold is the default threshold to differentiate message and large messages.
 	DefaultMsgSizeThreshold = 200
 )

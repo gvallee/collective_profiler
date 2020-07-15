@@ -95,7 +95,7 @@ func GetPatternFilePath(basedir string, jobid int, rank int) string {
 
 // GetPatternSummaryFilePath returns the full path to the pattern summary file associated to a rank within a job
 func GetPatternSummaryFilePath(basedir string, jobid int, rank int) string {
-	return filepath.Join(basedir, fmt.Sprintf("patterns-summary-job%d-rank%d.md", jobid, rank))
+	return filepath.Join(basedir, fmt.Sprintf("%sjob%d-rank%d.md", PatternsSummaryFilePrefix, jobid, rank))
 }
 
 func getCallPatterns(dir string, jobid int, rank int, callNum int) (string, error) {

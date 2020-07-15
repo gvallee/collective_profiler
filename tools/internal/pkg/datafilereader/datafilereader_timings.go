@@ -87,13 +87,13 @@ func ExtractTimings(inputFile string, lateArrivalFilename string, a2aFilename st
 	defer inputf.Close()
 	reader := bufio.NewReader(inputf)
 
-	laf, err := os.OpenFile(lateArrivalFilename, os.O_WRONLY|os.O_CREATE, 0755)
+	laf, err := os.OpenFile(lateArrivalFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}
 	defer laf.Close()
 
-	a2af, err := os.OpenFile(a2aFilename, os.O_WRONLY|os.O_CREATE, 0755)
+	a2af, err := os.OpenFile(a2aFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}

@@ -60,94 +60,97 @@ func getJobIDsFromFileNames(files []string) ([]int, error) {
 	return getIDsFromFileNames(files, "job")
 }
 
-func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) error {
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) (profiler.CountStats, error) {
+	var cs profiler.CountStats
+
 	sendCountFile, recvCountFile := datafilereader.GetCountsFiles(jobid, rank)
 	sendCountFile = filepath.Join(basedir, sendCountFile)
 	recvCountFile = filepath.Join(basedir, recvCountFile)
 
 	numCalls, err := datafilereader.GetNumCalls(sendCountFile)
 	if err != nil {
-		return fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
+		return cs, fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
 	}
 
-	cs, err := profiler.ParseCountFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
+	cs, err = profiler.ParseCountFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
 	if err != nil {
-		return fmt.Errorf("unable to parse count file %s", sendCountFile)
+		return cs, fmt.Errorf("unable to parse count file %s", sendCountFile)
 	}
 
 	outputFilesInfo, err := profiler.GetCountProfilerFileDesc(basedir, jobid, rank)
 	if err != nil {
-		return fmt.Errorf("unable to open output files: %s", err)
+		return cs, fmt.Errorf("unable to open output files: %s", err)
 	}
 	defer outputFilesInfo.Cleanup()
 
 	err = profiler.SaveCounterStats(outputFilesInfo, cs, numCalls, sizeThreshold)
 	if err != nil {
-		return fmt.Errorf("unable to save counters' stats: %s", err)
+		return cs, fmt.Errorf("unable to save counters' stats: %s", err)
 	}
 
-	return nil
+	return cs, nil
 }
 
-func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int) error {
+func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int) (map[int]profiler.CountStats, error) {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
 	// used to run the alltoallv operations
 	sendRanks, err := getRanksFromFileNames(sendCountFiles)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sort.Ints(sendRanks)
 
 	recvRanks, err := getRanksFromFileNames(recvCountFiles)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sort.Ints(recvRanks)
 
 	if !reflect.DeepEqual(sendRanks, recvRanks) {
-		return fmt.Errorf("list of ranks logging send and receive counts differ, data likely to be corrupted")
+		return nil, fmt.Errorf("list of ranks logging send and receive counts differ, data likely to be corrupted")
 	}
 
 	sendJobids, err := getJobIDsFromFileNames(sendCountFiles)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(sendJobids) != 1 {
-		return fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
+		return nil, fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
 	}
 
 	recvJobids, err := getJobIDsFromFileNames(recvCountFiles)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(recvJobids) != 1 {
-		return fmt.Errorf("more than one job detected through recv counts files; inconsistent data?")
+		return nil, fmt.Errorf("more than one job detected through recv counts files; inconsistent data?")
 	}
 
 	if sendJobids[0] != recvJobids[0] {
-		return fmt.Errorf("results seem to be from different jobs, we strongly encourage users to get their counts data though a single run")
+		return nil, fmt.Errorf("results seem to be from different jobs, we strongly encourage users to get their counts data though a single run")
 	}
 
 	jobid := sendJobids[0]
-
+	allStats := make(map[int]profiler.CountStats)
 	for _, rank := range sendRanks {
-		err = analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)
+		cs, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		allStats[rank] = cs
 	}
 
-	return nil
+	return allStats, nil
 }
 
-func handleCountsFile(dir string, sizeThreshold int) error {
+func handleCountsFiles(dir string, sizeThreshold int) (map[int]profiler.CountStats, error) {
 	// Figure out all the send/recv counts files
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var profileFiles []string
@@ -168,12 +171,12 @@ func handleCountsFile(dir string, sizeThreshold int) error {
 	}
 
 	// Analyze all the files we found
-	err = analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold)
+	stats, err := analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return stats, nil
 }
 
 func analyzeTimingsFiles(dir string, files []string) error {
@@ -234,7 +237,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	err := handleCountsFile(*dir, *sizeThreshold)
+	stats, err := handleCountsFiles(*dir, *sizeThreshold)
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze counts: %s", err)
 		os.Exit(1)
@@ -243,6 +246,12 @@ func main() {
 	err = handleTimingFiles(*dir)
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze timings: %s", err)
+		os.Exit(1)
+	}
+
+	err = profiler.AnalyzeSubCommsResults(*dir, stats)
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s", err)
 		os.Exit(1)
 	}
 }

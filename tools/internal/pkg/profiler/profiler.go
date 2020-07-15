@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,28 +37,42 @@ type CallPattern struct {
 	Calls []int
 }
 
+// GlobalPatterns holds the data all the patterns the infrastructure was able to detect
 type GlobalPatterns struct {
+	// AllPatterns is the data for all the patterns that have been detected
 	AllPatterns []*CallPattern
-	OneToN      []*CallPattern
+
+	// OneToN is the data of all the patterns that fits with a 1 -> N scheme
+	OneToN []*CallPattern
+
+	// NToN is the data of all the patterns where N ranks exchange data between all of them
+	NToN []*CallPattern
+
+	// NoToOne is the data of all the patterns that fits with a N -> 1 scheme
+	NToOne []*CallPattern
 }
 
+// CountStats gathers all the data related to send and receive counts for one or more alltoallv call(s)
 type CountStats struct {
 	NumSendSmallMsgs        int
 	NumSendLargeMsgs        int
 	SizeThreshold           int
 	NumSendSmallNotZeroMsgs int
-	CommSizes               map[int]int
-	DatatypesSend           map[int]int
-	DatatypesRecv           map[int]int
-	CallSendSparsity        map[int]int
-	CallRecvSparsity        map[int]int
-	SendMins                map[int]int
-	RecvMins                map[int]int
-	SendMaxs                map[int]int
-	RecvMaxs                map[int]int
-	SendNotZeroMins         map[int]int
-	RecvNotZeroMins         map[int]int
-	Patterns                GlobalPatterns
+
+	// TotalNumCalls is the number of alltoallv calls covered by the statistics
+	TotalNumCalls    int
+	CommSizes        map[int]int
+	DatatypesSend    map[int]int
+	DatatypesRecv    map[int]int
+	CallSendSparsity map[int]int
+	CallRecvSparsity map[int]int
+	SendMins         map[int]int
+	RecvMins         map[int]int
+	SendMaxs         map[int]int
+	RecvMaxs         map[int]int
+	SendNotZeroMins  map[int]int
+	RecvNotZeroMins  map[int]int
+	Patterns         GlobalPatterns
 }
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
@@ -398,6 +413,7 @@ func newCountStats() CountStats {
 		NumSendSmallMsgs:        0,
 		NumSendSmallNotZeroMsgs: 0,
 		NumSendLargeMsgs:        0,
+		TotalNumCalls:           0,
 	}
 	return cs
 }
@@ -410,18 +426,6 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 			x.Count++
 			x.Calls = append(x.Calls, callNum)
 
-			// todo: We may want to track 1 -> N more independently but right now, we handle pointers
-			// so the details are only about the main list.
-			/*
-				if sentTo > n*100 {
-					// This is also a 1->n pattern and we need to update the list of such patterns
-					for _, candidatePattern := range globalPatterns.oneToN {
-						if datafilereader.CompareCallPatterns(candidatePattern.send, sendPatterns) && datafilereader.CompareCallPatterns(candidatePattern.recv, recvPatterns) {
-							candidatePattern.count ++
-						}
-					}
-				}
-			*/
 			return nil
 		}
 	}
@@ -435,10 +439,26 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 	new_cp.Calls = append(new_cp.Calls, callNum)
 	globalPatterns.AllPatterns = append(globalPatterns.AllPatterns, new_cp)
 
-	// Detect 1 -> n patterns using the send counts only
+	// Detect specific patterns using the send counts only, e.g., 1->n, n->1 and n->n
+	// Note: we do not need to check the receive side because if n ranks are sending to n other ranks,
+	// we know that n ranks are receiving from n other ranks with equivalent counts. Send/receive symmetry.
 	for sendTo, n := range sendPatterns {
+		// Detect 1->n patterns
 		if sendTo > n*100 {
 			globalPatterns.OneToN = append(globalPatterns.OneToN, new_cp)
+			continue
+		}
+
+		// Detect n->n patterns
+		if sendTo == n {
+			globalPatterns.NToN = append(globalPatterns.NToN, new_cp)
+			continue
+		}
+
+		// Detect n->1 patterns
+		if sendTo*100 < n {
+			globalPatterns.NToOne = append(globalPatterns.NToOne, new_cp)
+			continue
 		}
 	}
 
@@ -447,6 +467,7 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 
 func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (CountStats, error) {
 	cs := newCountStats()
+	cs.TotalNumCalls = numCalls
 
 	for i := 0; i < numCalls; i++ {
 		log.Printf("Analyzing call #%d\n", i)
@@ -536,8 +557,24 @@ func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int,
 	return cs, nil
 }
 
-func writePatternsToFile(fd *os.File, num int, cp *CallPattern) error {
-	_, err := fd.WriteString(fmt.Sprintf("## Pattern #%d (%d alltoallv calls)\n", num, cp.Count))
+func writeDataPatternToFile(fd *os.File, cp *CallPattern) error {
+	for sendTo, n := range cp.Send {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
+		if err != nil {
+			return err
+		}
+	}
+	for recvFrom, n := range cp.Recv {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writePatternsToFile(fd *os.File, num int, totalNumCalls int, cp *CallPattern) error {
+	_, err := fd.WriteString(fmt.Sprintf("## Pattern #%d (%d/%d alltoallv calls)\n\n", num, cp.Count, totalNumCalls))
 	if err != nil {
 		return err
 	}
@@ -546,18 +583,11 @@ func writePatternsToFile(fd *os.File, num int, cp *CallPattern) error {
 		return err
 	}
 
-	for sendTo, n := range cp.Send {
-		_, err = fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
-		if err != nil {
-			return err
-		}
+	err = writeDataPatternToFile(fd, cp)
+	if err != nil {
+		return err
 	}
-	for recvFrom, n := range cp.Recv {
-		_, err = fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
-		if err != nil {
-			return err
-		}
-	}
+
 	_, err = fd.WriteString("\n")
 	if err != nil {
 		return err
@@ -691,6 +721,22 @@ func writeCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs Coun
 	return nil
 }
 
+func noPatternsSummary(cs CountStats) bool {
+	if len(cs.Patterns.OneToN) != 0 {
+		return false
+	}
+
+	if len(cs.Patterns.NToOne) != 0 {
+		return false
+	}
+
+	if len(cs.Patterns.NToN) != 0 {
+		return false
+	}
+
+	return true
+}
+
 func SaveCounterStats(info OutputFileInfo, cs CountStats, numCalls int, sizeThreshold int) error {
 	_, err := info.defaultFd.WriteString(fmt.Sprintf("Total number of alltoallv calls: %d\n\n", numCalls))
 	if err != nil {
@@ -718,21 +764,61 @@ func SaveCounterStats(info OutputFileInfo, cs CountStats, numCalls int, sizeThre
 	}
 	num := 0
 	for _, cp := range cs.Patterns.AllPatterns {
-		err = writePatternsToFile(info.patternsFd, num, cp)
+		err = writePatternsToFile(info.patternsFd, num, numCalls, cp)
 		if err != nil {
 			return err
 		}
 		num++
 	}
 
-	_, err = info.patternsFd.WriteString("# Patterns summary")
-	num = 0
-	for _, cp := range cs.Patterns.OneToN {
-		err = writePatternsToFile(info.patternsSummaryFd, num, cp)
+	if !noPatternsSummary(cs) {
+		if len(cs.Patterns.OneToN) != 0 {
+			_, err := info.patternsSummaryFd.WriteString("# 1 to N patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range cs.Patterns.OneToN {
+				err = writePatternsToFile(info.patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+				num++
+			}
+		}
+
+		if len(cs.Patterns.NToOne) != 0 {
+			_, err := info.patternsSummaryFd.WriteString("\n# N to 1 patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range cs.Patterns.NToOne {
+				err = writePatternsToFile(info.patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if len(cs.Patterns.NToN) != 0 {
+			_, err := info.patternsSummaryFd.WriteString("\n# N to n patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range cs.Patterns.NToN {
+				err = writePatternsToFile(info.patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		_, err = info.patternsSummaryFd.WriteString("Nothing special detected; no summary")
 		if err != nil {
 			return err
 		}
-		num++
 	}
 
 	return nil
@@ -745,17 +831,17 @@ func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileIn
 	info.defaultOutputFile = datafilereader.GetStatsFilePath(basedir, jobid, rank)
 	info.patternsOutputFile = datafilereader.GetPatternFilePath(basedir, jobid, rank)
 	info.patternsSummaryOutputFile = datafilereader.GetPatternSummaryFilePath(basedir, jobid, rank)
-	info.defaultFd, err = os.OpenFile(info.defaultOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	info.defaultFd, err = os.OpenFile(info.defaultOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return info, fmt.Errorf("unable to create %s: %s", info.defaultOutputFile, err)
 	}
 
-	info.patternsFd, err = os.OpenFile(info.patternsOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	info.patternsFd, err = os.OpenFile(info.patternsOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return info, fmt.Errorf("unable to create %s: %s", info.patternsOutputFile, err)
 	}
 
-	info.patternsSummaryFd, err = os.OpenFile(info.patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE, 0755)
+	info.patternsSummaryFd, err = os.OpenFile(info.patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return info, fmt.Errorf("unable to create %s: %s", info.patternsSummaryOutputFile, err)
 	}
@@ -787,6 +873,200 @@ func ParseTimingsFile(filePath string, outputDir string) error {
 	err := datafilereader.ExtractTimings(filePath, lateArrivalFilename, a2aFilename)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+/*
+func hashFile(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, f)
+	if err != nil {
+		return ""
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+*/
+
+// patternIsInList checks whether a given pattern is in a list of patterns. If so, it returns the
+// number of alltoallv calls that have the pattern, otherwise it returns 0
+func patternIsInList(numPeers int, numRanks int, ctx string, patterns []*CallPattern) int {
+	for _, p := range patterns {
+		if ctx == "SEND" {
+			for numP, numR := range p.Send {
+				if numP == numP && numRanks == numR {
+					return p.Count
+				}
+			}
+		} else {
+			for numP, numR := range p.Recv {
+				if numP == numP && numRanks == numR {
+					return p.Count
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func sameListOfPatterns(patterns1, patterns2 []*CallPattern) bool {
+	// reflect.DeepEqual cannot be used here
+
+	// Compare send counts
+	for _, p1 := range patterns1 {
+		for numPeers, numRanks := range p1.Send {
+			count := patternIsInList(numPeers, numRanks, "SEND", patterns2)
+			if count == 0 {
+				return false
+			}
+			if p1.Count != count {
+				log.Printf("Send counts differ: %d vs. %d", p1.Count, count)
+			}
+		}
+	}
+
+	// Compare recv counts
+	for _, p1 := range patterns1 {
+		for numPeers, numRanks := range p1.Recv {
+			count := patternIsInList(numPeers, numRanks, "RECV", patterns2)
+			if count == 0 {
+				return false
+			}
+			if p1.Count != count {
+				log.Printf("Recv counts differ: %d vs. %d", p1.Count, count)
+			}
+		}
+	}
+
+	return true
+}
+
+func samePatterns(patterns1, patterns2 GlobalPatterns) bool {
+	return sameListOfPatterns(patterns1.AllPatterns, patterns2.AllPatterns)
+}
+
+func displayPatterns(pattern []*CallPattern) {
+	for _, p := range pattern {
+		for numPeers, numRanks := range p.Send {
+			fmt.Printf("%d ranks are sending to %d other ranks\n", numRanks, numPeers)
+		}
+		for numPeers, numRanks := range p.Recv {
+			fmt.Printf("%d ranks are receiving from %d other ranks\n", numRanks, numPeers)
+		}
+	}
+}
+
+func writeSubcommPatterns(fd *os.File, ranks []int, stats map[int]CountStats, patterns []*CallPattern) error {
+	_, err := fd.WriteString("## N to n patterns\n\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = fd.WriteString("### Sub-communicator(s) information\n\n")
+	if err != nil {
+		return err
+	}
+	for _, r := range ranks {
+		// Print metadata for the subcomm
+		_, err := fd.WriteString(fmt.Sprintf("-> Subcommunicator led by rank %d:\n", r))
+		if err != nil {
+			return err
+		}
+		num := 0
+		for _, p := range patterns {
+			_, err := fd.WriteString(fmt.Sprintf("\tpattern #%d: %d/%d alltoallv calls\n", num, p.Count, stats[r].TotalNumCalls))
+			if err != nil {
+				return err
+			}
+			num++
+		}
+	}
+
+	// Print the pattern
+	_, err = fd.WriteString("\n### Pattern(s) description\n\n")
+	if err != nil {
+		return err
+	}
+	for _, p := range patterns {
+		err := writeDataPatternToFile(fd, p)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AnalyzeSubCommsResults go through the results and analyzes results specific
+// to sub-communicators cases
+func AnalyzeSubCommsResults(dir string, stats map[int]CountStats) error {
+	numPatterns := -1
+	numNtoNPatterns := -1
+	num1toNPatterns := -1
+	numNto1Patterns := -1
+	var referencePatterns GlobalPatterns
+
+	// At the moment, we do a very basic analysis: are the patterns the same on all sub-communicators?
+	for _, rankStats := range stats {
+		if numPatterns == -1 {
+			numPatterns = len(rankStats.Patterns.AllPatterns)
+			numNto1Patterns = len(rankStats.Patterns.NToOne)
+			numNtoNPatterns = len(rankStats.Patterns.NToN)
+			num1toNPatterns = len(rankStats.Patterns.OneToN)
+			referencePatterns = rankStats.Patterns
+			continue
+		}
+
+		if numPatterns != len(rankStats.Patterns.AllPatterns) ||
+			numNto1Patterns != len(rankStats.Patterns.NToOne) ||
+			numNtoNPatterns != len(rankStats.Patterns.NToN) ||
+			num1toNPatterns != len(rankStats.Patterns.OneToN) {
+			return nil
+		}
+
+		if !samePatterns(referencePatterns, rankStats.Patterns) {
+			/*
+				fmt.Println("Patterns differ:")
+				displayPatterns(referencePatterns.AllPatterns)
+				fmt.Printf("\n")
+				displayPatterns(rankStats.Patterns.AllPatterns)
+			*/
+			return nil
+		}
+	}
+
+	// If we get there it means all ranks, i.e., sub-communicators have the same amount of patterns
+	log.Println("All patterns on all sub-communicators are similar")
+	multicommHighlightFile := filepath.Join(dir, datafilereader.MulticommHighlightFilePrefix+".md")
+	fd, err := os.OpenFile(multicommHighlightFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	_, err = fd.WriteString("Alltoallv on sub-communicators detected.\n\n# Patterns summary\n\n")
+	if err != nil {
+		return err
+	}
+
+	var ranks []int
+	for r := range stats {
+		ranks = append(ranks, r)
+	}
+	sort.Ints(ranks)
+
+	if len(stats[ranks[0]].Patterns.NToN) > 0 {
+		err := writeSubcommPatterns(fd, ranks, stats, stats[ranks[0]].Patterns.NToN)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
