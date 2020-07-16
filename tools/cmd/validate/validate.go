@@ -14,7 +14,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -35,7 +35,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	err := profiler.Validate(*jobid, *id, *dir)
+	err := counts.Validate(*jobid, *id, *dir)
 	if err != nil {
 		fmt.Printf("Validation of the profiler failed: %s", err)
 		os.Exit(1)

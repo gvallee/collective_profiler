@@ -18,13 +18,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (profiler.CountStats, error) {
-	var cs profiler.CountStats
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (counts.Stats, error) {
+	var cs counts.Stats
 
 	sendCountFile, recvCountFile := datafilereader.GetCountsFiles(jobid, rank)
 	sendCountFile = filepath.Join(basedir, sendCountFile)
@@ -35,28 +37,28 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 		return cs, fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
 	}
 
-	cs, err = profiler.ParseCountFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
+	cs, err = counts.ParseFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
 	if err != nil {
 		return cs, fmt.Errorf("unable to parse count file %s", sendCountFile)
 	}
 
 	cs.BinThresholds = listBins
-	cs.Bins, err = profiler.GetBinsFromCountFile(sendCountFile, listBins)
+	cs.Bins, err = counts.GetBinsFromFile(sendCountFile, listBins)
 	if err != nil {
 		return cs, err
 	}
-	err = profiler.SaveBins(basedir, jobid, rank, cs.Bins)
+	err = counts.SaveBins(basedir, jobid, rank, cs.Bins)
 	if err != nil {
 		return cs, err
 	}
 
-	outputFilesInfo, err := profiler.GetCountProfilerFileDesc(basedir, jobid, rank)
+	outputFilesInfo, err := counts.GetCountProfilerFileDesc(basedir, jobid, rank)
 	if err != nil {
 		return cs, fmt.Errorf("unable to open output files: %s", err)
 	}
 	defer outputFilesInfo.Cleanup()
 
-	err = profiler.SaveCounterStats(outputFilesInfo, cs, numCalls, sizeThreshold)
+	err = counts.SaveStats(outputFilesInfo, cs, numCalls, sizeThreshold)
 	if err != nil {
 		return cs, fmt.Errorf("unable to save counters' stats: %s", err)
 	}
@@ -64,7 +66,7 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 	return cs, nil
 }
 
-func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (map[int]profiler.CountStats, error) {
+func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (map[int]counts.Stats, error) {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
 	// used to run the alltoallv operations
@@ -107,7 +109,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	}
 
 	jobid := sendJobids[0]
-	allStats := make(map[int]profiler.CountStats)
+	allStats := make(map[int]counts.Stats)
 	for _, rank := range sendRanks {
 		cs, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
 		if err != nil {
@@ -119,7 +121,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	return allStats, nil
 }
 
-func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]profiler.CountStats, error) {
+func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]counts.Stats, error) {
 	// Figure out all the send/recv counts files
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -155,7 +157,7 @@ func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]p
 func analyzeTimingsFiles(dir string, files []string) error {
 	for _, file := range files {
 		// The output directory is where the data is, this tool keeps all the data together
-		err := profiler.ParseTimingsFile(file, dir)
+		err := timings.ParseFile(file, dir)
 		if err != nil {
 			return err
 		}
@@ -211,7 +213,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	listBins := profiler.GetBinsFromInputDescr(*binThresholds)
+	listBins := counts.GetBinsFromInputDescr(*binThresholds)
 
 	stats, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
 	if err != nil {

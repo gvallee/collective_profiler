@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 
@@ -61,7 +61,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	outputFileInfo, err := profiler.GetCountProfilerFileDesc(*outputDir, *jobid, *rank)
+	outputFileInfo, err := counts.GetCountProfilerFileDesc(*outputDir, *jobid, *rank)
 	if err != nil {
 		log.Fatalf("unable to open output files: %s", err)
 	}
@@ -83,12 +83,12 @@ func main() {
 		log.Fatalf("unable to get the number of alltoallv calls: %s", err)
 	}
 
-	cs, err := profiler.ParseCountFiles(sendCountsFile, recvCountsFile, numCalls, *sizeThreshold)
+	cs, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, *sizeThreshold)
 	if err != nil {
 		log.Fatalf("unable to parse count file %s", sendCountsFile)
 	}
 
-	err = profiler.SaveCounterStats(outputFileInfo, cs, numCalls, *sizeThreshold)
+	err = counts.SaveStats(outputFileInfo, cs, numCalls, *sizeThreshold)
 	if err != nil {
 		log.Fatalf("unable to save counters' stats: %s", err)
 	}

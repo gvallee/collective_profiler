@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -42,7 +42,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	err := profiler.ParseTimingsFile(*file, "")
+	err := timings.ParseFile(*file, "")
 	if err != nil {
 		log.Fatalf("unable to parse timing file %s: %s", *file, err)
 	}
