@@ -1,9 +1,9 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: alltoallvprofiler sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+all: profiler sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
 
-alltoallvprofiler:
-	cd cmd/alltoallvprofiler; go build alltoallvprofiler.go
+profiler:
+	cd cmd/profiler; go build profiler.go
 
 getbins:
 	cd cmd/getbins; go build getbins.go
@@ -47,4 +47,4 @@ clean:
 	@rm -f cmd/getcalldata/getcalldata
 	@rm -f cmd/getbins/getbins
 	@rm -f cmd/validate/validate
-	@rm -f cmd/alltoallvprofiler/alltoallvprofiler
+	@rm -f cmd/profiler/profiler
