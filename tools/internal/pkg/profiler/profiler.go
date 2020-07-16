@@ -50,6 +50,9 @@ type GlobalPatterns struct {
 
 	// NoToOne is the data of all the patterns that fits with a N -> 1 scheme
 	NToOne []*CallPattern
+
+	// Empty is the data of all the patterns that do not exchange any data (all counts are equal to 0)
+	Empty []*CallPattern
 }
 
 // CountStats gathers all the data related to send and receive counts for one or more alltoallv call(s)
@@ -552,6 +555,14 @@ func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int,
 		if err != nil {
 			return cs, err
 		}
+
+		// We need to track calls that act like a barrier (no data exchanged)
+		if callInfo.TotalSendNonZeroCounts == 0 && callInfo.TotalRecvNonZeroCounts == 0 {
+			emptyPattern := new(CallPattern)
+			emptyPattern.Count = 1
+			emptyPattern.Calls = []int{i}
+			cs.Patterns.Empty = append(cs.Patterns.Empty, emptyPattern)
+		}
 	}
 
 	return cs, nil
@@ -964,13 +975,25 @@ func displayPatterns(pattern []*CallPattern) {
 	}
 }
 
-func writeSubcommPatterns(fd *os.File, ranks []int, stats map[int]CountStats, patterns []*CallPattern) error {
+func writeSubcommPatterns(fd *os.File, ranks []int, stats map[int]CountStats) error {
 	_, err := fd.WriteString("## N to n patterns\n\n")
 	if err != nil {
 		return err
 	}
 
-	_, err = fd.WriteString("### Sub-communicator(s) information\n\n")
+	// Print the pattern, which is the same for all ranks if we reach this function
+	_, err = fd.WriteString("\n### Pattern(s) description\n\n")
+	if err != nil {
+		return err
+	}
+	for _, p := range stats[ranks[0]].Patterns.NToN {
+		err := writeDataPatternToFile(fd, p)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n\n### Sub-communicator(s) information\n\n")
 	if err != nil {
 		return err
 	}
@@ -981,7 +1004,7 @@ func writeSubcommPatterns(fd *os.File, ranks []int, stats map[int]CountStats, pa
 			return err
 		}
 		num := 0
-		for _, p := range patterns {
+		for _, p := range stats[r].Patterns.NToN {
 			_, err := fd.WriteString(fmt.Sprintf("\tpattern #%d: %d/%d alltoallv calls\n", num, p.Count, stats[r].TotalNumCalls))
 			if err != nil {
 				return err
@@ -990,17 +1013,6 @@ func writeSubcommPatterns(fd *os.File, ranks []int, stats map[int]CountStats, pa
 		}
 	}
 
-	// Print the pattern
-	_, err = fd.WriteString("\n### Pattern(s) description\n\n")
-	if err != nil {
-		return err
-	}
-	for _, p := range patterns {
-		err := writeDataPatternToFile(fd, p)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -1063,11 +1075,64 @@ func AnalyzeSubCommsResults(dir string, stats map[int]CountStats) error {
 	sort.Ints(ranks)
 
 	if len(stats[ranks[0]].Patterns.NToN) > 0 {
-		err := writeSubcommPatterns(fd, ranks, stats, stats[ranks[0]].Patterns.NToN)
+		err := writeSubcommPatterns(fd, ranks, stats)
 		if err != nil {
 			return err
 		}
 	}
 
+	_, err = fd.WriteString("\n## All 0 counts pattern; no data exchanged\n\n")
+	if err != nil {
+		return err
+	}
+	for _, rank := range ranks {
+		if len(stats[rank].Patterns.Empty) > 0 {
+			fmt.Printf("CHECKME: %d alltoallv calls were empty\n", len(stats[rank].Patterns.Empty))
+			_, err = fd.WriteString(fmt.Sprintf("-> Sub-communicator lead by rank %d: %d/%d alltoallv calls\n", rank, len(stats[rank].Patterns.Empty), stats[rank].TotalNumCalls))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
+}
+
+func SaveBins(dir string, bins []Bin) error {
+	for _, b := range bins {
+		outputFile := fmt.Sprintf("bin_%d-%d.txt", b.Min, b.Max)
+		if b.Max == -1 {
+			outputFile = fmt.Sprintf("bin_%d+.txt", b.Min)
+		}
+		if dir != "" {
+			filepath.Join(dir, outputFile)
+		}
+
+		f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			return fmt.Errorf("unable to create file %s: %s", outputFile, err)
+		}
+
+		_, err = f.WriteString(fmt.Sprintf("%d\n", b.Size))
+		if err != nil {
+			return fmt.Errorf("unable to write bin to file: %s", err)
+		}
+	}
+	return nil
+}
+
+// GetBinsFromInputDescr parses the string describing a series of threshold to use
+// for the organization of data into bins and returns a slice of int with each
+// element being a threshold
+func GetBinsFromInputDescr(binStr string) []int {
+	listBinsStr := strings.Split(binStr, ",")
+	var listBins []int
+	for _, s := range listBinsStr {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			log.Fatalf("unable to get array of thresholds for bins: %s", err)
+		}
+		listBins = append(listBins, n)
+	}
+	return listBins
 }

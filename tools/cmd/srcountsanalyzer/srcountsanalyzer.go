@@ -22,12 +22,6 @@ import (
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func displayPattern(p map[int]int, ctx string) {
-	for numPeers, numRanks := range p {
-		fmt.Printf("%d ranks are %s non-zero data to %d other ranks\n", numRanks, ctx, numPeers)
-	}
-}
-
 func displayCallPatterns(info datafilereader.CallInfo) {
 	for numPeers, numRanks := range info.Patterns.SendPatterns {
 		fmt.Printf("%d ranks are sending non-zero data to %d other ranks\n", numRanks, numPeers)

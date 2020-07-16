@@ -30,6 +30,8 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 	stats.ZerosPerRankPatterns = make(map[int]int)
 	stats.Sum = 0
 	stats.MsgSizeThreshold = msgSizeThreshold
+	stats.TotalZeroCounts = 0
+	stats.TotalNonZeroCounts = 0
 
 	zeros := 0
 	nonZeros := 0
@@ -69,6 +71,7 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 				stats.TotalZeroCounts += numberOfRanks
 			} else {
 				nonZeros++
+				stats.TotalNonZeroCounts += numberOfRanks
 			}
 
 			if msgSizeThreshold != -1 && count*datatypeSize <= msgSizeThreshold {
@@ -105,6 +108,7 @@ func parseCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Count
 				stats.Patterns[nonZeros] = numberOfRanks
 			}
 		}
+
 		if zeros > 0 {
 			if _, ok := stats.ZerosPerRankPatterns[zeros]; ok {
 				stats.ZerosPerRankPatterns[zeros] += numberOfRanks
@@ -305,6 +309,7 @@ func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
 	info.SendSmallMsgs = sendStats.SmallMsgs
 	info.SendSmallNotZeroMsgs = sendStats.SmallNotZeroMsgs
 	info.TotalSendZeroCounts = sendStats.TotalZeroCounts
+	info.TotalSendNonZeroCounts = sendStats.TotalNonZeroCounts
 	info.SendSum = sendStats.Sum
 
 	recvStats, err := parseCounts(info.RecvCounts, msgSizeThreshold, info.RecvDatatypeSize)
@@ -322,7 +327,14 @@ func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
 	info.RecvSmallNotZeroMsgs = recvStats.SmallNotZeroMsgs
 	info.RecvLargeMsgs = recvStats.LargeMsgs
 	info.TotalRecvZeroCounts = recvStats.TotalZeroCounts
+	info.TotalRecvNonZeroCounts = recvStats.TotalNonZeroCounts
 	info.RecvSum = sendStats.Sum
+
+	// We now have all the stats for both the send and receive counts, we can therefore detect empty alltoallv which acts as barrier
+	fmt.Printf("CHECKME - total zero counts: %d; comm size: %d [counts: %s]\n", sendStats.TotalZeroCounts, info.CommSize, strings.Join(info.SendCounts, "|"))
+	if sendStats.TotalNonZeroCounts == 0 && recvStats.TotalNonZeroCounts == 0 {
+		log.Printf("This is pretty much a barrier (no data exchanged)")
+	}
 
 	return nil
 }

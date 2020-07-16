@@ -138,8 +138,14 @@ type CallInfo struct {
 	// TotalSendZeroCounts is the total number of send count equal to zero
 	TotalSendZeroCounts int
 
+	// TotalSendNonZeroCounts is the total number of send count not equal to zero
+	TotalSendNonZeroCounts int
+
 	// TotalRecvZeroCounts is the total number of receive count equal to zero
 	TotalRecvZeroCounts int
+
+	// TotalRecvNonZeroCounts is the total number of receive count not equal to zero
+	TotalRecvNonZeroCounts int
 }
 
 // CountsStats gathers all the stats from counts (send or receive) for a given alltoallv call
@@ -167,6 +173,9 @@ type CountsStats struct {
 
 	// TotalZeroCounts is the total number of zero counts from counters
 	TotalZeroCounts int
+
+	// TotalNonZeroCounts is the total number of non-zero counts from counters
+	TotalNonZeroCounts int
 
 	// ZerosPerRankPatterns gathers the number of 0-counts on a per-rank basis ('X ranks have Y 0-counts')
 	ZerosPerRankPatterns map[int]int

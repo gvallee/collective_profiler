@@ -164,7 +164,7 @@ func main() {
 		callsInfo = append(callsInfo, callInfo)
 
 		callFilePath := filepath.Join(*dir, fmt.Sprintf("call%d-job%d-rank%d.md", callNum, *jobid, *rank))
-		newFile, err := os.OpenFile(callFilePath, os.O_WRONLY|os.O_CREATE, 0755)
+		newFile, err := os.OpenFile(callFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			log.Fatalf("unable to create %s: %s", callFilePath, err)
 		}
@@ -281,7 +281,7 @@ func main() {
 	}
 
 	summaryFilePath := filepath.Join(*dir, fmt.Sprintf("calls-%s.md", *calls))
-	summaryFile, err := os.OpenFile(summaryFilePath, os.O_WRONLY|os.O_CREATE, 0755)
+	summaryFile, err := os.OpenFile(summaryFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		log.Fatalf("unable to open file %s: %s", summaryFilePath, err)
 	}
