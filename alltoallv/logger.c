@@ -47,6 +47,8 @@ static char *get_full_filename(int ctxt, char *id, int world_rank)
     if (getenv("SLURM_JOB_ID"))
     {
         jobid = getenv("SLURM_JOB_ID");
+    } else {
+        jobid = "0";
     }
 
     if (ctxt == MAIN_CTX)
