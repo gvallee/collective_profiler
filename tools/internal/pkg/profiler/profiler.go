@@ -62,6 +62,11 @@ type CountStats struct {
 	SizeThreshold           int
 	NumSendSmallNotZeroMsgs int
 
+	// BinThresholds is the list of thresholds used to create bins
+	BinThresholds []int
+	// Bins is the list of bins of counts
+	Bins []Bin
+
 	// TotalNumCalls is the number of alltoallv calls covered by the statistics
 	TotalNumCalls    int
 	CommSizes        map[int]int
@@ -337,19 +342,11 @@ func createBins(listBins []int) []Bin {
 	return bins
 }
 
-func GetBins(countFilePath string, listBins []int) ([]Bin, error) {
-	log.Printf("Creating bins out of values from %s\n", countFilePath)
-
+// getBins parses a count file using a provided reader and classify all counts
+// into bins based on the threshold specified through a slice of integers.
+func getBins(reader *bufio.Reader, listBins []int) ([]Bin, error) {
 	bins := createBins(listBins)
 	log.Printf("Successfully initialized %d bins\n", len(bins))
-
-	f, err := os.Open(countFilePath)
-	if err != nil {
-		return bins, err
-	}
-	defer f.Close()
-
-	reader := bufio.NewReader(f)
 
 	for {
 		_, numCalls, _, _, _, datatypeSize, readerr := datafilereader.GetHeader(reader)
@@ -396,8 +393,22 @@ func GetBins(countFilePath string, listBins []int) ([]Bin, error) {
 			}
 		}
 	}
-
 	return bins, nil
+}
+
+// GetBinsFromCountFile opens a count file and classify all counts into bins
+// based on a list of threshold sizes
+func GetBinsFromCountFile(countFilePath string, listBins []int) ([]Bin, error) {
+	log.Printf("Creating bins out of values from %s\n", countFilePath)
+
+	f, err := os.Open(countFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+	return getBins(reader, listBins)
 }
 
 func newCountStats() CountStats {
@@ -468,6 +479,7 @@ func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[i
 	return nil
 }
 
+// ParseCountFiles parses both send and receive counts files
 func ParseCountFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (CountStats, error) {
 	cs := newCountStats()
 	cs.TotalNumCalls = numCalls
@@ -1074,6 +1086,8 @@ func AnalyzeSubCommsResults(dir string, stats map[int]CountStats) error {
 	}
 	sort.Ints(ranks)
 
+	// todo: add code for 1->n and n->1 patterns
+
 	if len(stats[ranks[0]].Patterns.NToN) > 0 {
 		err := writeSubcommPatterns(fd, ranks, stats)
 		if err != nil {
@@ -1087,10 +1101,36 @@ func AnalyzeSubCommsResults(dir string, stats map[int]CountStats) error {
 	}
 	for _, rank := range ranks {
 		if len(stats[rank].Patterns.Empty) > 0 {
-			fmt.Printf("CHECKME: %d alltoallv calls were empty\n", len(stats[rank].Patterns.Empty))
-			_, err = fd.WriteString(fmt.Sprintf("-> Sub-communicator lead by rank %d: %d/%d alltoallv calls\n", rank, len(stats[rank].Patterns.Empty), stats[rank].TotalNumCalls))
+			_, err = fd.WriteString(fmt.Sprintf("-> Sub-communicator led by rank %d: %d/%d alltoallv calls\n", rank, len(stats[rank].Patterns.Empty), stats[rank].TotalNumCalls))
 			if err != nil {
 				return err
+			}
+		}
+	}
+
+	// For now we save the bins' data separately because we do not have a good way at the moment
+	// to mix bins and patterns (bins are specific to a count file, not a call; we could change that
+	// but it would take time).
+	_, err = fd.WriteString("\n# Counts analysis\n\n")
+	if err != nil {
+		return err
+	}
+	for _, rank := range ranks {
+		_, err := fd.WriteString(fmt.Sprintf("-> Sub-communicator led by rank %d:\n", rank))
+		if err != nil {
+			return err
+		}
+		for _, b := range stats[rank].Bins {
+			if b.Max != -1 {
+				_, err := fd.WriteString(fmt.Sprintf("\t%d of the messages are of size between %d and %d bytes\n", b.Size, b.Min, b.Max-1))
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err := fd.WriteString(fmt.Sprintf("\t%d of messages are larger or equal of %d bytes\n", b.Size, b.Min))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -1098,16 +1138,23 @@ func AnalyzeSubCommsResults(dir string, stats map[int]CountStats) error {
 	return nil
 }
 
-func SaveBins(dir string, bins []Bin) error {
-	for _, b := range bins {
-		outputFile := fmt.Sprintf("bin_%d-%d.txt", b.Min, b.Max)
-		if b.Max == -1 {
-			outputFile = fmt.Sprintf("bin_%d+.txt", b.Min)
-		}
-		if dir != "" {
-			filepath.Join(dir, outputFile)
-		}
+func getBinOutputFile(dir string, jobid, rank int, b Bin) string {
+	outputFile := fmt.Sprintf("bin.job%d.rank%d_%d-%d.txt", jobid, rank, b.Min, b.Max)
+	if b.Max == -1 {
+		outputFile = fmt.Sprintf("bin.job%d.rank%d_%d+.txt", jobid, rank, b.Min)
+	}
+	if dir != "" {
+		outputFile = filepath.Join(dir, outputFile)
+	}
 
+	return outputFile
+}
+
+// SaveBins writes the data of all the bins into output file. The output files
+// are created in a target output directory.
+func SaveBins(dir string, jobid, rank int, bins []Bin) error {
+	for _, b := range bins {
+		outputFile := getBinOutputFile(dir, jobid, rank, b)
 		f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			return fmt.Errorf("unable to create file %s: %s", outputFile, err)

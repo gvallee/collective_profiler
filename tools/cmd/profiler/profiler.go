@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
@@ -24,43 +23,7 @@ import (
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func getIDsFromFileNames(files []string, id string) ([]int, error) {
-	var ids []int
-	for _, file := range files {
-		tokens := strings.Split(filepath.Base(file), ".")
-		for _, t := range tokens {
-			if strings.Contains(t, id) {
-				t = strings.ReplaceAll(t, id, "")
-				id, err := strconv.Atoi(t)
-				if err != nil {
-					return ids, err
-				}
-				found := false
-				for _, i := range ids {
-					if i == id {
-						found = true
-					}
-				}
-				if !found {
-					ids = append(ids, id)
-				}
-				break
-			}
-		}
-	}
-
-	return ids, nil
-}
-
-func getRanksFromFileNames(files []string) ([]int, error) {
-	return getIDsFromFileNames(files, "rank")
-}
-
-func getJobIDsFromFileNames(files []string) ([]int, error) {
-	return getIDsFromFileNames(files, "job")
-}
-
-func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) (profiler.CountStats, error) {
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (profiler.CountStats, error) {
 	var cs profiler.CountStats
 
 	sendCountFile, recvCountFile := datafilereader.GetCountsFiles(jobid, rank)
@@ -77,6 +40,16 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 		return cs, fmt.Errorf("unable to parse count file %s", sendCountFile)
 	}
 
+	cs.BinThresholds = listBins
+	cs.Bins, err = profiler.GetBinsFromCountFile(sendCountFile, listBins)
+	if err != nil {
+		return cs, err
+	}
+	err = profiler.SaveBins(basedir, jobid, rank, cs.Bins)
+	if err != nil {
+		return cs, err
+	}
+
 	outputFilesInfo, err := profiler.GetCountProfilerFileDesc(basedir, jobid, rank)
 	if err != nil {
 		return cs, fmt.Errorf("unable to open output files: %s", err)
@@ -91,18 +64,18 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 	return cs, nil
 }
 
-func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int) (map[int]profiler.CountStats, error) {
+func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (map[int]profiler.CountStats, error) {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
 	// used to run the alltoallv operations
-	sendRanks, err := getRanksFromFileNames(sendCountFiles)
-	if err != nil {
+	sendRanks, err := datafilereader.GetRanksFromFileNames(sendCountFiles)
+	if err != nil || len(sendRanks) == 0 {
 		return nil, err
 	}
 	sort.Ints(sendRanks)
 
-	recvRanks, err := getRanksFromFileNames(recvCountFiles)
-	if err != nil {
+	recvRanks, err := datafilereader.GetRanksFromFileNames(recvCountFiles)
+	if err != nil || len(recvRanks) == 0 {
 		return nil, err
 	}
 	sort.Ints(recvRanks)
@@ -111,7 +84,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		return nil, fmt.Errorf("list of ranks logging send and receive counts differ, data likely to be corrupted")
 	}
 
-	sendJobids, err := getJobIDsFromFileNames(sendCountFiles)
+	sendJobids, err := datafilereader.GetJobIDsFromFileNames(sendCountFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +93,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		return nil, fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
 	}
 
-	recvJobids, err := getJobIDsFromFileNames(recvCountFiles)
+	recvJobids, err := datafilereader.GetJobIDsFromFileNames(recvCountFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +109,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	jobid := sendJobids[0]
 	allStats := make(map[int]profiler.CountStats)
 	for _, rank := range sendRanks {
-		cs, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)
+		cs, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +119,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	return allStats, nil
 }
 
-func handleCountsFiles(dir string, sizeThreshold int) (map[int]profiler.CountStats, error) {
+func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]profiler.CountStats, error) {
 	// Figure out all the send/recv counts files
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -171,7 +144,7 @@ func handleCountsFiles(dir string, sizeThreshold int) (map[int]profiler.CountSta
 	}
 
 	// Analyze all the files we found
-	stats, err := analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold)
+	stats, err := analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold, listBins)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +191,7 @@ func main() {
 	dir := flag.String("dir", "", "Where all the data is")
 	help := flag.Bool("h", false, "Help message")
 	sizeThreshold := flag.Int("size-threshold", 200, "Size to differentiate small and big messages")
+	binThresholds := flag.String("bins", "200,1024,2048,4096", "Comma-separated list of thresholds to use for the creation of bins")
 
 	flag.Parse()
 
@@ -237,7 +211,9 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	stats, err := handleCountsFiles(*dir, *sizeThreshold)
+	listBins := profiler.GetBinsFromInputDescr(*binThresholds)
+
+	stats, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze counts: %s", err)
 		os.Exit(1)

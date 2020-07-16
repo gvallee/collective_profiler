@@ -330,12 +330,6 @@ func (info *CallInfo) getCallStatsFromCounts(msgSizeThreshold int) error {
 	info.TotalRecvNonZeroCounts = recvStats.TotalNonZeroCounts
 	info.RecvSum = sendStats.Sum
 
-	// We now have all the stats for both the send and receive counts, we can therefore detect empty alltoallv which acts as barrier
-	fmt.Printf("CHECKME - total zero counts: %d; comm size: %d [counts: %s]\n", sendStats.TotalZeroCounts, info.CommSize, strings.Join(info.SendCounts, "|"))
-	if sendStats.TotalNonZeroCounts == 0 && recvStats.TotalNonZeroCounts == 0 {
-		log.Printf("This is pretty much a barrier (no data exchanged)")
-	}
-
 	return nil
 }
 

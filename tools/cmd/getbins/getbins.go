@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
@@ -44,16 +46,28 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
+	jobids, err := datafilereader.GetJobIDsFromFileNames([]string{*file})
+	if err != nil || len(jobids) != 1 {
+		fmt.Println("[ERROR] unable to get job ID from filename")
+		os.Exit(1)
+	}
+
+	ranks, err := datafilereader.GetRanksFromFileNames([]string{*file})
+	if err != nil || len(ranks) != 1 {
+		fmt.Println("[ERROR] unable to get rank from filename")
+		os.Exit(1)
+	}
+
 	listBins := profiler.GetBinsFromInputDescr(*binThresholds)
 	log.Printf("Ready to create %d bins\n", len(listBins))
 
-	bins, err := profiler.GetBins(*file, listBins)
+	bins, err := profiler.GetBinsFromCountFile(*file, listBins)
 	if err != nil {
 		fmt.Printf("[ERROR] Unable to get bins: %s", err)
 		os.Exit(1)
 	}
 
-	err = profiler.SaveBins(*dir, bins)
+	err = profiler.SaveBins(*dir, jobids[0], ranks[0], bins)
 	if err != nil {
 		fmt.Printf("[ERROR] Unable to save data in %s: %s\n", *dir, err)
 		os.Exit(1)
