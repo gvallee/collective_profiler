@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 )
 
@@ -271,7 +270,7 @@ func GetCall(dir string, jobid int, rank int, callNum int) (string, error) {
 
 func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns map[int]int) error {
 	for idx, x := range d.AllPatterns {
-		if datafilereader.CompareCallPatterns(x.Send, sendPatterns) && datafilereader.CompareCallPatterns(x.Recv, recvPatterns) {
+		if CompareCallPatterns(x.Send, sendPatterns) && CompareCallPatterns(x.Recv, recvPatterns) {
 			// Increment count for pattern
 			log.Printf("-> Alltoallv call #%d - Adding alltoallv to pattern %d...\n", callNum, idx)
 			x.Count++
