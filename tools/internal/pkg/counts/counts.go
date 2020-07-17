@@ -16,9 +16,22 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+)
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/analyzer"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+const (
+	Header = "# Raw counters"
+
+	marker                     = "Count: "
+	numberOfRanksMarker        = "Number of ranks: "
+	datatypeSizeMarker         = "Datatype size: "
+	alltoallvCallNumbersMarker = "Alltoallv calls "
+	beginningDataMarker        = "BEGINNING DATA"
+	endDataMarker              = "END DATA"
+
+	// SendCountersFilePrefix is the prefix used for all send counts files
+	SendCountersFilePrefix = "send-counters."
+	// RecvCountersFilePrefix is the prefix used for all receive counts files
+	RecvCountersFilePrefix = "recv-counters."
 )
 
 type Bin struct {
@@ -27,47 +40,130 @@ type Bin struct {
 	Size int
 }
 
-type CallPattern struct {
-	Send  map[int]int
-	Recv  map[int]int
-	Count int
-	Calls []int
+// CallData gathers all the data related to one and only one alltoallv call
+type CallData struct {
+	// ID is the call number (zero-indexed)
+	ID int
+
+	// CommSize is the communicator size used for the call
+	CommSize int
+
+	// MsgSizeThreshold is the size value that differentiate small and large messages.
+	MsgSizeThreshold int
+
+	// SendData is all the data from the send counts
+	SendData Data
+
+	// RecvData is all the data from the receive counts
+	RecvData Data
 }
 
-// GlobalPatterns holds the data all the patterns the infrastructure was able to detect
-type GlobalPatterns struct {
-	// AllPatterns is the data for all the patterns that have been detected
-	AllPatterns []*CallPattern
+type Stats struct {
+	// DatatypeSize is the size of the datatype
+	DatatypeSize int
 
-	// OneToN is the data of all the patterns that fits with a 1 -> N scheme
-	OneToN []*CallPattern
+	// MsgSizeThreshold is the message size used to differentiate small messages from larrge messages while parsing the counts
+	MsgSizeThreshold int
 
-	// NToN is the data of all the patterns where N ranks exchange data between all of them
-	NToN []*CallPattern
+	// TotalNumCalls is the number of alltoallv calls covered by the statistics
+	TotalNumCalls int
 
-	// NoToOne is the data of all the patterns that fits with a N -> 1 scheme
-	NToOne []*CallPattern
+	// Sum is the total count for all ranks data is sent to or received from
+	Sum int
 
-	// Empty is the data of all the patterns that do not exchange any data (all counts are equal to 0)
-	Empty []*CallPattern
+	// MinWithoutZero from the entire counts not including zero
+	MinWithoutZero int
+
+	// Min from the entire counts, including zero
+	Min int
+
+	// NotZeroMin is the minimum but not equal to zero count
+	NotZeroMin int
+
+	// Max from the entire counts
+	Max int
+
+	// SmallMsgs is the number of small message from counts, including 0-size count
+	SmallMsgs int
+
+	// SmallNotZerroMsgs is the number of small message from counts, not including 0-size counts
+	SmallNotZeroMsgs int
+
+	// LargeMsgs is the number of large messages from counts
+	LargeMsgs int
+
+	// TotalZeroCounts is the total number of zero counts from counters
+	TotalZeroCounts int
+
+	// TotalNonZeroCounts is the total number of non-zero counts from counters
+	TotalNonZeroCounts int
+
+	// ZerosPerRankPatterns gathers the number of 0-counts on a per-rank basis ('X ranks have Y 0-counts')
+	ZerosPerRankPatterns map[int]int
+
+	// NoZerosPerRankPatterns gathers the number of non-0-counts on a per-rank bases ('X ranks have Y non-0-counts)
+	NoZerosPerRankPatterns map[int]int
+
+	// Patterns gathers the number of peers involved in actual communication, i.e., non-zeroa ('X ranks are sendinng to Y ranks')
+	Patterns map[int]int
+}
+
+// Data gathers all the data from a count file (send or receive) for a given alltoallv call.
+// This is used to store data when parsing a given count file.
+type Data struct {
+	// File is the path to the associated counts files
+	File string
+
+	// Counts is the string representing all the send counts
+	Counts []string
+
+	Statistics Stats
+
+	// MsgSizeThreshold is the message size used to differentiate small messages from larrge messages while parsing the counts
+	MsgSizeThreshold int
 }
 
 // Stats gathers all the data related to send and receive counts for one or more alltoallv call(s)
-type Stats struct {
+// This is used when combining data from send and receive counts for specific alltoallv calls.
+type SendRecvStats struct {
 	NumSendSmallMsgs        int
 	NumSendLargeMsgs        int
 	SizeThreshold           int
 	NumSendSmallNotZeroMsgs int
 
+	// SendSums is the sum of all the send counts. It can be used to calculate how much data is sent during the alltoallv call.
+	SendSums map[int]int
+
+	// RecvSums is the sum of all the receive counts. It can be used to calculate how much data is received during the alltoallv call.
+	RecvSums map[int]int
+
 	// BinThresholds is the list of thresholds used to create bins
 	BinThresholds []int
+
 	// Bins is the list of bins of counts
 	Bins []Bin
 
 	// TotalNumCalls is the number of alltoallv calls covered by the statistics
-	TotalNumCalls    int
-	CommSizes        map[int]int
-	DatatypesSend    map[int]int
+	TotalNumCalls int
+
+	// TotalSendZeroCounts is the total number of send count equal to zero
+	TotalSendZeroCounts int
+
+	// TotalSendNonZeroCounts is the total number of send count not equal to zero
+	TotalSendNonZeroCounts int
+
+	// TotalRecvZeroCounts is the total number of receive count equal to zero
+	TotalRecvZeroCounts int
+
+	// TotalRecvNonZeroCounts is the total number of receive count not equal to zero
+	TotalRecvNonZeroCounts int
+
+	CommSizes map[int]int
+
+	// DatatypesSend stores statistics related to MPI datatypes that are used to send data. The key is the size of the datatype, the value hte number of time the datatype is used
+	DatatypesSend map[int]int
+
+	// DatatypesRecv stores statistics related to MPI datatypes that are used to receive data. The key is the size of the datatype, the value hte number of time the datatype is used
 	DatatypesRecv    map[int]int
 	CallSendSparsity map[int]int
 	CallRecvSparsity map[int]int
@@ -77,31 +173,13 @@ type Stats struct {
 	RecvMaxs         map[int]int
 	SendNotZeroMins  map[int]int
 	RecvNotZeroMins  map[int]int
-	Patterns         GlobalPatterns
-}
 
-// OutputFileInfo gathers all the data for the handling of output files while analysis counts
-type OutputFileInfo struct {
-	// defaultFd is the file descriptor for the creation of the default output file while analyzing counts
-	defaultFd *os.File
-
-	// patternsFd is the file descriptor for the creation of the output files to store patterns discovered during the analysis of the counts
-	patternsFd *os.File
-
-	// patternsSummaryFd is the file descriptor for the creation of the summary output file for the patterns discovered during the analysis of the counts
-	patternsSummaryFd *os.File
-
-	// defaultOutputFile is the path of the file associated to DefaultFd
-	defaultOutputFile string
-
-	// patternsOutputFile is the path of the file associated to PatternsFd
-	patternsOutputFile string
-
-	// patternsSummaryOutputFile is the path of the file associated to SummaryPatternsFd
-	patternsSummaryOutputFile string
-
-	// Cleanup is the function to call after being done with all the files
-	Cleanup func()
+	SendZeroCounts    map[int]int // Number of zeros in send counts (on a per-rank basis)
+	RecvZeroCounts    map[int]int
+	SendNotZeroCounts map[int]int
+	RecvNotZeroCounts map[int]int
+	SendPatterns      map[int]int
+	RecvPatterns      map[int]int
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
@@ -154,20 +232,6 @@ func getValidationFiles(basedir string, id string) ([]string, error) {
 	}
 
 	return files, nil
-}
-
-func Handle(input string) error {
-	a := analyzer.CreateAnalyzer()
-	a.InputFile = input
-
-	err := a.Parse()
-	if err != nil {
-		return err
-	}
-
-	a.Finalize()
-
-	return nil
 }
 
 func getCountersFromValidationFile(path string) (string, string, error) {
@@ -240,7 +304,7 @@ func Validate(jobid int, pid int, dir string) error {
 			return err
 		}
 
-		sendCounters2, recvCounters2, err := datafilereader.FindCallRankCounters(dir, jobid, rank, call)
+		sendCounters2, recvCounters2, err := FindCallRankCounters(dir, jobid, rank, call)
 		if err != nil {
 			fmt.Printf("unable to get counters: %s", err)
 			return err
@@ -260,207 +324,160 @@ func Validate(jobid int, pid int, dir string) error {
 	return nil
 }
 
-func newStats() Stats {
-	cs := Stats{
+// NewStats returns a fully initialized Stats structure
+func NewSendRecvStats(sizeThreshold int) SendRecvStats {
+	cs := SendRecvStats{
+		NumSendSmallMsgs:        0,
+		NumSendLargeMsgs:        0,
+		SizeThreshold:           sizeThreshold,
+		NumSendSmallNotZeroMsgs: 0,
+		SendSums:                make(map[int]int),
+		RecvSums:                make(map[int]int),
+		TotalNumCalls:           0,
+		TotalSendZeroCounts:     0,
+		TotalSendNonZeroCounts:  0,
+		TotalRecvZeroCounts:     0,
+		TotalRecvNonZeroCounts:  0,
 		CommSizes:               make(map[int]int),
 		DatatypesSend:           make(map[int]int),
 		DatatypesRecv:           make(map[int]int),
+		CallSendSparsity:        make(map[int]int),
+		CallRecvSparsity:        make(map[int]int),
 		SendMins:                make(map[int]int),
 		RecvMins:                make(map[int]int),
 		SendMaxs:                make(map[int]int),
 		RecvMaxs:                make(map[int]int),
-		RecvNotZeroMins:         make(map[int]int),
 		SendNotZeroMins:         make(map[int]int),
-		CallSendSparsity:        make(map[int]int),
-		CallRecvSparsity:        make(map[int]int),
-		NumSendSmallMsgs:        0,
-		NumSendSmallNotZeroMsgs: 0,
-		NumSendLargeMsgs:        0,
-		TotalNumCalls:           0,
+		RecvNotZeroMins:         make(map[int]int),
+		RecvZeroCounts:          make(map[int]int),
+		SendNotZeroCounts:       make(map[int]int),
+		RecvNotZeroCounts:       make(map[int]int),
+		SendPatterns:            make(map[int]int),
+		RecvPatterns:            make(map[int]int),
 	}
 	return cs
 }
 
-func (globalPatterns *GlobalPatterns) addPattern(callNum int, sendPatterns map[int]int, recvPatterns map[int]int) error {
-	for idx, x := range globalPatterns.AllPatterns {
-		if datafilereader.CompareCallPatterns(x.Send, sendPatterns) && datafilereader.CompareCallPatterns(x.Recv, recvPatterns) {
-			// Increment count for pattern
-			log.Printf("-> Alltoallv call #%d - Adding alltoallv to pattern %d...\n", callNum, idx)
-			x.Count++
-			x.Calls = append(x.Calls, callNum)
+func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, error) {
+	var data CallData
 
-			return nil
-		}
+	fSendCounts, err := os.Open(sendCountsFile)
+	if err != nil {
+		return data, fmt.Errorf("unable to open %s: %s", sendCountsFile, err)
+	}
+	defer fSendCounts.Close()
+	fRecvCounts, err := os.Open(recvCountsFile)
+	if err != nil {
+		return data, fmt.Errorf("unable to open %s: %s", recvCountsFile, err)
+	}
+	defer fRecvCounts.Close()
+
+	sendCountsReader := bufio.NewReader(fSendCounts)
+	recvCountsReader := bufio.NewReader(fRecvCounts)
+
+	// find the call's data from the send counts file first
+	sendNumRanks := 0
+	sendNumRanks, data.SendData.Statistics.DatatypeSize, data.SendData.Counts, err = LookupCallFromFile(sendCountsReader, numCall)
+	if err != nil {
+		return data, err
 	}
 
-	// If we get here, it means that we did not find a similar pattern
-	log.Printf("-> Alltoallv call %d - Adding new pattern...\n", callNum)
-	new_cp := new(CallPattern)
-	new_cp.Send = sendPatterns
-	new_cp.Recv = recvPatterns
-	new_cp.Count = 1
-	new_cp.Calls = append(new_cp.Calls, callNum)
-	globalPatterns.AllPatterns = append(globalPatterns.AllPatterns, new_cp)
-
-	// Detect specific patterns using the send counts only, e.g., 1->n, n->1 and n->n
-	// Note: we do not need to check the receive side because if n ranks are sending to n other ranks,
-	// we know that n ranks are receiving from n other ranks with equivalent counts. Send/receive symmetry.
-	for sendTo, n := range sendPatterns {
-		// Detect 1->n patterns
-		if sendTo > n*100 {
-			globalPatterns.OneToN = append(globalPatterns.OneToN, new_cp)
-			continue
-		}
-
-		// Detect n->n patterns
-		if sendTo == n {
-			globalPatterns.NToN = append(globalPatterns.NToN, new_cp)
-			continue
-		}
-
-		// Detect n->1 patterns
-		if sendTo*100 < n {
-			globalPatterns.NToOne = append(globalPatterns.NToOne, new_cp)
-			continue
-		}
+	// find the call's data from the recv counts file then
+	recvNumRanks := 0
+	recvNumRanks, data.RecvData.Statistics.DatatypeSize, data.RecvData.Counts, err = LookupCallFromFile(recvCountsReader, numCall)
+	if err != nil {
+		return data, err
 	}
 
-	return nil
+	if sendNumRanks != recvNumRanks {
+		return data, fmt.Errorf("differ number of ranks from send and recv counts files")
+	}
+
+	return data, nil
 }
 
 // ParseFiles parses both send and receive counts files
-func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (Stats, error) {
-	cs := newStats()
+func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (SendRecvStats, error) {
+	cs := NewSendRecvStats(sizeThreshold)
 	cs.TotalNumCalls = numCalls
 
 	for i := 0; i < numCalls; i++ {
 		log.Printf("Analyzing call #%d\n", i)
-		callInfo, err := datafilereader.LookupCall(sendCountsFile, recvCountsFile, i, sizeThreshold)
+		callData, err := LookupCall(sendCountsFile, recvCountsFile, i)
 		if err != nil {
 			return cs, err
 		}
 
-		cs.NumSendSmallMsgs += callInfo.SendSmallMsgs
-		cs.NumSendSmallNotZeroMsgs += callInfo.SendSmallNotZeroMsgs
-		cs.NumSendLargeMsgs += callInfo.SendLargeMsgs
+		cs.NumSendSmallMsgs += callData.SendData.Statistics.SmallMsgs
+		cs.NumSendSmallNotZeroMsgs += callData.SendData.Statistics.SmallNotZeroMsgs
+		cs.NumSendLargeMsgs += callData.SendData.Statistics.LargeMsgs
 
-		if _, ok := cs.DatatypesSend[callInfo.SendDatatypeSize]; ok {
-			cs.DatatypesSend[callInfo.SendDatatypeSize]++
+		if _, ok := cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize]; ok {
+			cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize]++
 		} else {
-			cs.DatatypesSend[callInfo.SendDatatypeSize] = 1
+			cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize] = 1
 		}
 
-		if _, ok := cs.DatatypesRecv[callInfo.RecvDatatypeSize]; ok {
-			cs.DatatypesRecv[callInfo.RecvDatatypeSize]++
+		if _, ok := cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize]; ok {
+			cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize]++
 		} else {
-			cs.DatatypesRecv[callInfo.RecvDatatypeSize] = 1
+			cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize] = 1
 		}
 
-		if _, ok := cs.CommSizes[callInfo.CommSize]; ok {
-			cs.CommSizes[callInfo.CommSize]++
+		if _, ok := cs.CommSizes[callData.CommSize]; ok {
+			cs.CommSizes[callData.CommSize]++
 		} else {
-			cs.CommSizes[callInfo.CommSize] = 1
+			cs.CommSizes[callData.CommSize] = 1
 		}
 
-		if _, ok := cs.SendMins[callInfo.SendMin]; ok {
-			cs.SendMins[callInfo.SendMin]++
+		if _, ok := cs.SendMins[callData.SendData.Statistics.Min]; ok {
+			cs.SendMins[callData.SendData.Statistics.Min]++
 		} else {
-			cs.SendMins[callInfo.SendMin] = 1
+			cs.SendMins[callData.SendData.Statistics.Min] = 1
 		}
 
-		if _, ok := cs.RecvMins[callInfo.RecvMin]; ok {
-			cs.RecvMins[callInfo.RecvMin]++
+		if _, ok := cs.RecvMins[callData.RecvData.Statistics.Min]; ok {
+			cs.RecvMins[callData.RecvData.Statistics.Min]++
 		} else {
-			cs.RecvMins[callInfo.RecvMin] = 1
+			cs.RecvMins[callData.RecvData.Statistics.Min] = 1
 		}
 
-		if _, ok := cs.SendMaxs[callInfo.SendMax]; ok {
-			cs.SendMaxs[callInfo.SendMax]++
+		if _, ok := cs.SendMaxs[callData.SendData.Statistics.Max]; ok {
+			cs.SendMaxs[callData.SendData.Statistics.Max]++
 		} else {
-			cs.SendMaxs[callInfo.SendMax] = 1
+			cs.SendMaxs[callData.SendData.Statistics.Max] = 1
 		}
 
-		if _, ok := cs.RecvMaxs[callInfo.RecvMax]; ok {
-			cs.RecvMaxs[callInfo.RecvMax]++
+		if _, ok := cs.RecvMaxs[callData.RecvData.Statistics.Max]; ok {
+			cs.RecvMaxs[callData.RecvData.Statistics.Max]++
 		} else {
-			cs.RecvMaxs[callInfo.RecvMax] = 1
+			cs.RecvMaxs[callData.RecvData.Statistics.Max] = 1
 		}
 
-		if _, ok := cs.SendNotZeroMins[callInfo.SendNotZeroMin]; ok {
-			cs.SendMins[callInfo.SendNotZeroMin]++
+		if _, ok := cs.SendNotZeroMins[callData.SendData.Statistics.NotZeroMin]; ok {
+			cs.SendMins[callData.SendData.Statistics.NotZeroMin]++
 		} else {
-			cs.SendMins[callInfo.SendNotZeroMin] = 1
+			cs.SendMins[callData.SendData.Statistics.NotZeroMin] = 1
 		}
 
-		if _, ok := cs.RecvNotZeroMins[callInfo.RecvNotZeroMin]; ok {
-			cs.RecvMins[callInfo.RecvNotZeroMin]++
+		if _, ok := cs.RecvNotZeroMins[callData.RecvData.Statistics.NotZeroMin]; ok {
+			cs.RecvMins[callData.RecvData.Statistics.NotZeroMin]++
 		} else {
-			cs.RecvMins[callInfo.RecvNotZeroMin] = 1
+			cs.RecvMins[callData.RecvData.Statistics.NotZeroMin] = 1
 		}
 
-		if _, ok := cs.CallSendSparsity[callInfo.TotalSendZeroCounts]; ok {
-			cs.CallSendSparsity[callInfo.TotalSendZeroCounts]++
+		if _, ok := cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts]; ok {
+			cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts]++
 		} else {
-			cs.CallSendSparsity[callInfo.TotalSendZeroCounts] = 1
+			cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts] = 1
 		}
 
-		if _, ok := cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts]; ok {
-			cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts]++
+		if _, ok := cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts]; ok {
+			cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts]++
 		} else {
-			cs.CallRecvSparsity[callInfo.TotalRecvZeroCounts] = 1
-		}
-
-		//displayCallPatterns(callInfo)
-		// Analyze the send/receive pattern from the call
-		err = cs.Patterns.addPattern(i, callInfo.Patterns.SendPatterns, callInfo.Patterns.RecvPatterns)
-		if err != nil {
-			return cs, err
-		}
-
-		// We need to track calls that act like a barrier (no data exchanged)
-		if callInfo.TotalSendNonZeroCounts == 0 && callInfo.TotalRecvNonZeroCounts == 0 {
-			emptyPattern := new(CallPattern)
-			emptyPattern.Count = 1
-			emptyPattern.Calls = []int{i}
-			cs.Patterns.Empty = append(cs.Patterns.Empty, emptyPattern)
+			cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts] = 1
 		}
 	}
 
 	return cs, nil
-}
-
-func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileInfo, error) {
-	var info OutputFileInfo
-	var err error
-
-	info.defaultOutputFile = datafilereader.GetStatsFilePath(basedir, jobid, rank)
-	info.patternsOutputFile = datafilereader.GetPatternFilePath(basedir, jobid, rank)
-	info.patternsSummaryOutputFile = datafilereader.GetPatternSummaryFilePath(basedir, jobid, rank)
-	info.defaultFd, err = os.OpenFile(info.defaultOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return info, fmt.Errorf("unable to create %s: %s", info.defaultOutputFile, err)
-	}
-
-	info.patternsFd, err = os.OpenFile(info.patternsOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return info, fmt.Errorf("unable to create %s: %s", info.patternsOutputFile, err)
-	}
-
-	info.patternsSummaryFd, err = os.OpenFile(info.patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return info, fmt.Errorf("unable to create %s: %s", info.patternsSummaryOutputFile, err)
-	}
-
-	info.Cleanup = func() {
-		info.defaultFd.Close()
-		info.patternsFd.Close()
-		info.patternsSummaryFd.Close()
-	}
-
-	fmt.Println("Results are saved in:")
-	fmt.Printf("-> %s\n", info.defaultOutputFile)
-	fmt.Printf("-> %s\n", info.patternsOutputFile)
-	fmt.Printf("Patterns summary: %s\n", info.patternsSummaryOutputFile)
-
-	return info, nil
 }

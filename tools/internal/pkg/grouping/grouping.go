@@ -35,7 +35,7 @@ type Group struct {
 	CachedSum int
 }
 
-type GroupingEngine struct {
+type Engine struct {
 	Groups []*Group
 }
 
@@ -75,7 +75,7 @@ func getDistanceFromGroup(val int, gp *Group) (int, error) {
  * group and the min of another group, we calculate the distance to each and
  * select the closest group
  */
-func (e *GroupingEngine) lookupGroup(val int) (*Group, error) {
+func (e *Engine) lookupGroup(val int) (*Group, error) {
 	index := 0
 	if len(e.Groups) == 0 {
 		return nil, nil
@@ -183,7 +183,7 @@ func createGroup(rank int, val int, values []int) (*Group, error) {
 	return newGroup, nil
 }
 
-func (e *GroupingEngine) addGroup(gp *Group) error {
+func (e *Engine) addGroup(gp *Group) error {
 	index := 0
 	if len(e.Groups) == 0 {
 		e.Groups = append(e.Groups, gp)
@@ -352,7 +352,7 @@ func (gp *Group) groupIsBalanced(values []int) bool {
 	return affinityIsOkay(mean, median)
 }
 
-func (e *GroupingEngine) unlinkGroup(gp *Group) error {
+func (e *Engine) unlinkGroup(gp *Group) error {
 	index := 0
 	for _, g := range e.Groups {
 		if g == gp {
@@ -379,7 +379,7 @@ func groupToString(values []int) string {
 	return str
 }
 
-func (e *GroupingEngine) insertGroup(gp *Group, index int) error {
+func (e *Engine) insertGroup(gp *Group, index int) error {
 	log.Printf("Inserting group at index: %d", index)
 	var newGroupList []*Group
 	if index == 0 {
@@ -392,7 +392,7 @@ func (e *GroupingEngine) insertGroup(gp *Group, index int) error {
 	return nil
 }
 
-func (e *GroupingEngine) splitGroup(gp *Group, indexSplit int, values []int) (*Group, error) {
+func (e *Engine) splitGroup(gp *Group, indexSplit int, values []int) (*Group, error) {
 	// Create the new group
 	ng, err := createGroup(gp.Elts[indexSplit], values[gp.Elts[indexSplit]], values)
 	if err != nil {
@@ -452,7 +452,7 @@ func (e *GroupingEngine) splitGroup(gp *Group, indexSplit int, values []int) (*G
 	return ng, nil
 }
 
-func (e *GroupingEngine) balanceGroupWithNewElement(gp *Group, id int, val int, values []int) error {
+func (e *Engine) balanceGroupWithNewElement(gp *Group, id int, val int, values []int) error {
 	sum := float64(gp.CachedSum + val)
 	mean := float64(sum / float64(len(gp.Elts)+1))
 	log.Printf("Mean of %d with %d elements is %f", gp.CachedSum+val, len(gp.Elts)+1, mean)
@@ -513,7 +513,7 @@ func (e *GroupingEngine) balanceGroupWithNewElement(gp *Group, id int, val int, 
 	return nil
 }
 
-func (e *GroupingEngine) AddDatapoint(id int, values []int) error {
+func (e *Engine) AddDatapoint(id int, values []int) error {
 	val := getValue(id, values)
 
 	// We scan the groups to see which group is the most likely to be suitable
@@ -542,18 +542,18 @@ func (e *GroupingEngine) AddDatapoint(id int, values []int) error {
 	return nil
 }
 
-func groupingInit() *GroupingEngine {
-	newEngine := new(GroupingEngine)
+func Init() *Engine {
+	newEngine := new(Engine)
 	return newEngine
 }
 
 /*
-func (e *GroupingEngine) Fini() error {
+func (e *Engine) Fini() error {
 	// Anything to do?
 	return nil
 }
 */
 
-func (e *GroupingEngine) GetGroups() ([]*Group, error) {
+func (e *Engine) GetGroups() ([]*Group, error) {
 	return e.Groups, nil
 }

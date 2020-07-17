@@ -16,14 +16,14 @@ import (
 	"path/filepath"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
-
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func displayCallPatterns(info datafilereader.CallInfo) {
-	for numPeers, numRanks := range info.Patterns.SendPatterns {
+func displayCallPatterns(p patterns.CallData) {
+	for numPeers, numRanks := range p.Send {
 		fmt.Printf("%d ranks are sending non-zero data to %d other ranks\n", numRanks, numPeers)
 	}
 }
@@ -61,13 +61,13 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	outputFileInfo, err := counts.GetCountProfilerFileDesc(*outputDir, *jobid, *rank)
+	outputFileInfo, err := profiler.GetCountProfilerFileDesc(*outputDir, *jobid, *rank)
 	if err != nil {
 		log.Fatalf("unable to open output files: %s", err)
 	}
 	defer outputFileInfo.Cleanup()
 
-	sendCountsFile, recvCountsFile := datafilereader.GetCountsFiles(*jobid, *rank)
+	sendCountsFile, recvCountsFile := counts.GetFiles(*jobid, *rank)
 	sendCountsFile = filepath.Join(*dir, sendCountsFile)
 	recvCountsFile = filepath.Join(*dir, recvCountsFile)
 
@@ -78,17 +78,17 @@ func main() {
 	log.Printf("Send counts file: %s\n", sendCountsFile)
 	log.Printf("Recv counts file: %s\n", recvCountsFile)
 
-	numCalls, err := datafilereader.GetNumCalls(sendCountsFile)
+	numCalls, err := counts.GetNumCalls(sendCountsFile)
 	if err != nil {
 		log.Fatalf("unable to get the number of alltoallv calls: %s", err)
 	}
 
-	cs, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, *sizeThreshold)
+	cs, p, err := patterns.ParseFiles(sendCountsFile, recvCountsFile, numCalls, *sizeThreshold)
 	if err != nil {
 		log.Fatalf("unable to parse count file %s", sendCountsFile)
 	}
 
-	err = counts.SaveStats(outputFileInfo, cs, numCalls, *sizeThreshold)
+	err = profiler.SaveStats(outputFileInfo, cs, p, numCalls, *sizeThreshold)
 	if err != nil {
 		log.Fatalf("unable to save counters' stats: %s", err)
 	}

@@ -12,14 +12,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
-
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
-	_, err := f.WriteString(fmt.Sprintf("Communicator size: %d\n", callInfo.CommSize))
+func saveCountsSummary(f *os.File, callInfo profiler.CallInfo) error {
+	_, err := f.WriteString(fmt.Sprintf("Communicator size: %d\n", callInfo.CountsData.CommSize))
 	if err != nil {
 		return err
 	}
@@ -28,31 +28,31 @@ func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Send data type size: %d\n", callInfo.SendDatatypeSize))
+	_, err = f.WriteString(fmt.Sprintf("Send data type size: %d\n", callInfo.CountsData.SendData.Statistics.DatatypeSize))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Total amount of data sent: %d\n", callInfo.SendSum*callInfo.SendDatatypeSize))
+	_, err = f.WriteString(fmt.Sprintf("Total amount of data sent: %d\n", callInfo.CountsData.SendData.Statistics.Sum*callInfo.CountsData.SendData.Statistics.DatatypeSize))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Max send count: %d\n", callInfo.SendMax))
+	_, err = f.WriteString(fmt.Sprintf("Max send count: %d\n", callInfo.CountsData.SendData.Statistics.Max))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Min send count: %d\n", callInfo.SendMin))
+	_, err = f.WriteString(fmt.Sprintf("Min send count: %d\n", callInfo.CountsData.SendData.Statistics.Min))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Min non-zero send count: %d\n", callInfo.SendNotZeroMin))
+	_, err = f.WriteString(fmt.Sprintf("Min non-zero send count: %d\n", callInfo.CountsData.SendData.Statistics.NotZeroMin))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.SendSmallNotZeroMsgs))
+	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.CountsData.SendData.Statistics.SmallNotZeroMsgs))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.SendLargeMsgs))
+	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.CountsData.SendData.Statistics.LargeMsgs))
 	if err != nil {
 		return err
 	}
@@ -60,31 +60,31 @@ func saveCountsSummary(f *os.File, callInfo datafilereader.CallInfo) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Recv data type size: %d\n", callInfo.RecvDatatypeSize))
+	_, err = f.WriteString(fmt.Sprintf("Recv data type size: %d\n", callInfo.CountsData.RecvData.Statistics.DatatypeSize))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Total amount of data received: %d\n", callInfo.RecvSum*callInfo.RecvDatatypeSize))
+	_, err = f.WriteString(fmt.Sprintf("Total amount of data received: %d\n", callInfo.CountsData.RecvData.Statistics.Sum*callInfo.CountsData.RecvData.Statistics.DatatypeSize))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Max recv count: %d\n", callInfo.RecvMax))
+	_, err = f.WriteString(fmt.Sprintf("Max recv count: %d\n", callInfo.CountsData.RecvData.Statistics.Max))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Min recv count: %d\n", callInfo.RecvMin))
+	_, err = f.WriteString(fmt.Sprintf("Min recv count: %d\n", callInfo.CountsData.RecvData.Statistics.Min))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Min non-zero recv count: %d\n", callInfo.RecvNotZeroMin))
+	_, err = f.WriteString(fmt.Sprintf("Min non-zero recv count: %d\n", callInfo.CountsData.RecvData.Statistics.NotZeroMin))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.RecvSmallNotZeroMsgs))
+	_, err = f.WriteString(fmt.Sprintf("Number of small non-zero messages: %d\n", callInfo.CountsData.RecvData.Statistics.SmallNotZeroMsgs))
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.RecvLargeMsgs))
+	_, err = f.WriteString(fmt.Sprintf("Number of large messages: %d\n", callInfo.CountsData.RecvData.Statistics.LargeMsgs))
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func main() {
 	dir := flag.String("dir", "", "Where the data files are stored")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	rank := flag.Int("rank", 0, "Rank for which we want to analyse the counters. When using multiple communicators for alltoallv operations, results for multiple ranks are reported.")
-	msgSizeThreshold := flag.Int("msg-size-threshold", datafilereader.DefaultMsgSizeThreshold, "Message size threshold to differentiate small messages from large messages.")
+	msgSizeThreshold := flag.Int("msg-size-threshold", format.DefaultMsgSizeThreshold, "Message size threshold to differentiate small messages from large messages.")
 	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
@@ -155,9 +155,9 @@ func main() {
 		fmt.Printf("\n")
 	}
 
-	var callsInfo []datafilereader.CallInfo
+	var callsInfo []profiler.CallInfo
 	for _, callNum := range listCalls {
-		callInfo, err := datafilereader.GetCallData(*dir, *jobid, *rank, callNum, *msgSizeThreshold)
+		callInfo, err := profiler.GetCallData(*dir, *jobid, *rank, callNum, *msgSizeThreshold)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}
@@ -231,8 +231,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
-		if len(callInfo.SendCounts) != 0 {
-			_, err = newFile.WriteString(strings.Join(callInfo.SendCounts, "\n"))
+		if len(callInfo.CountsData.SendData.Counts) != 0 {
+			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.SendData.Counts, "\n"))
 		} else {
 			_, err = newFile.WriteString("No data\n")
 		}
@@ -243,10 +243,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
-		if len(callInfo.RecvCounts) == 0 {
+		if len(callInfo.CountsData.RecvData.Counts) == 0 {
 			_, err = newFile.WriteString("No data\n")
 		} else {
-			_, err = newFile.WriteString(strings.Join(callInfo.RecvCounts, "\n"))
+			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.RecvData.Counts, "\n"))
 		}
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
@@ -321,17 +321,17 @@ func main() {
 	}
 
 	// Find unique min/max counts
-	var uniqueMinMaxCallsInfo []datafilereader.CallInfo
+	var uniqueMinMaxCallsInfo []profiler.CallInfo
 	callIDs := make([][]int, len(callsInfo))
 	num = 0
 	for _, info := range callsInfo {
 		dataExists := false
 		for _, uniqueMinMaxInfo := range uniqueMinMaxCallsInfo {
-			if info.CommSize == uniqueMinMaxInfo.CommSize &&
-				info.RecvDatatypeSize == uniqueMinMaxInfo.RecvDatatypeSize &&
-				info.SendDatatypeSize == uniqueMinMaxInfo.SendDatatypeSize &&
-				reflect.DeepEqual(info.RecvCounts, uniqueMinMaxInfo.RecvCounts) &&
-				reflect.DeepEqual(info.SendCounts, uniqueMinMaxInfo.SendCounts) {
+			if info.CountsData.CommSize == uniqueMinMaxInfo.CountsData.CommSize &&
+				info.RecvStats.DatatypeSize == uniqueMinMaxInfo.RecvStats.DatatypeSize &&
+				info.SendStats.DatatypeSize == uniqueMinMaxInfo.SendStats.DatatypeSize &&
+				reflect.DeepEqual(info.CountsData.RecvData.Counts, uniqueMinMaxInfo.CountsData.RecvData.Counts) &&
+				reflect.DeepEqual(info.CountsData.SendData.Counts, uniqueMinMaxInfo.CountsData.SendData.Counts) {
 				dataExists = true
 				callIDs[num] = append(callIDs[num], info.ID)
 				break

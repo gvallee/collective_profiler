@@ -13,7 +13,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -36,7 +36,7 @@ func main() {
 		log.Fatalf("undefined input file or output directory")
 	}
 
-	err := counts.Handle(*file)
+	err := profiler.Handle(*file)
 	if err != nil {
 		log.Fatalf("[ERROR] Impossible to analyze send counters: %s", err)
 	}

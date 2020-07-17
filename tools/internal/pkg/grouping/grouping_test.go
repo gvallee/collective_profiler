@@ -37,7 +37,7 @@ func TestSplitting(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		e := groupingInit()
+		e := Init()
 		for j := 0; j < len(tt.elts); j++ {
 			err := e.AddDatapoint(j, tt.elts)
 			if err != nil {
@@ -122,7 +122,7 @@ func TestGrouping(t *testing.T) {
 
 	num := 1
 	for _, tt := range tests {
-		e := groupingInit()
+		e := Init()
 		t.Logf("Running test %d", num)
 		for j := 0; j < len(tt.points); j++ {
 			t.Logf("-> Adding %d\n", tt.points[j])

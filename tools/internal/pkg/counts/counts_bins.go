@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 )
 
@@ -79,7 +78,7 @@ func getBins(reader *bufio.Reader, listBins []int) ([]Bin, error) {
 	log.Printf("Successfully initialized %d bins\n", len(bins))
 
 	for {
-		_, numCalls, _, _, _, datatypeSize, readerr := datafilereader.GetHeader(reader)
+		_, numCalls, _, _, _, datatypeSize, readerr := GetHeader(reader)
 		if readerr == io.EOF {
 			break
 		}
@@ -87,7 +86,7 @@ func getBins(reader *bufio.Reader, listBins []int) ([]Bin, error) {
 			return bins, readerr
 		}
 
-		counters, err := datafilereader.GetCounters(reader)
+		counters, err := GetCounters(reader)
 		if err != nil {
 			return bins, err
 		}

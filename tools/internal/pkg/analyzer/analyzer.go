@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 )
 
 type analyzer struct {
@@ -221,7 +221,7 @@ func (a *analyzer) Parse() error {
 	reader := bufio.NewReader(file)
 	for {
 		log.Println("Getting header...")
-		_, numCalls, _, callIDsStr, _, _, readerErr := datafilereader.GetHeader(reader)
+		_, numCalls, _, callIDsStr, _, _, readerErr := counts.GetHeader(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr
