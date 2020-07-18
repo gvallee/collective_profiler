@@ -1,4 +1,4 @@
-all: liballtoallv.so liballtoallv_counts.so liballtoallv_timings.so liballtoallv_backtrace.so grouping_test compress_array_test patterns_detection_test
+all: liballtoallv.so liballtoallv_location.so liballtoallv_counts.so liballtoallv_timings.so liballtoallv_backtrace.so grouping_test compress_array_test patterns_detection_test
 
 logger.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -c logger.c
@@ -11,6 +11,9 @@ logger_timings.o: logger.c logger.h alltoallv_profiler.h
 
 logger_backtrace.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -DENABLE_BACKTRACE=1 -c logger.c -o logger_backtrace.o
+
+logger_location.o: logger.c logger.h alltoallv_profiler.h
+	$(CC) -fPIC -DENABLE_LOCATION_TRACKING=1 -c logger.c -o logger_location.o
 
 pattern.o: pattern.c pattern.h
 	$(CC) -fPIC -c pattern.c
@@ -35,6 +38,9 @@ liballtoallv_timings.so: logger_timings.o grouping.o pattern.o mpi_alltoallv.c a
 
 liballtoallv_backtrace.so: logger_backtrace.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC -DENABLE_BACKTRACE=1 logger_backtrace.o grouping.o mpi_alltoallv.c -o liballtoallv_backtrace.so
+
+liballtoallv_location.so: logger_location.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
+	mpicc -g -shared -fPIC -DENABLE_LOCATION_TRACKING=1 logger_location.o grouping.o mpi_alltoallv.c -o liballtoallv_location.so
 
 liballtoallv.so: logger.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC logger.o grouping.o mpi_alltoallv.c -o liballtoallv.so

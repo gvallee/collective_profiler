@@ -677,11 +677,46 @@ static void save_counters_for_validation(int myrank, int avCalls, int size, cons
 	free(filename);
 }
 
+static char *get_pe_id(int comm_rank)
+{
+	// The ID of any PE is composed as follow: <pid>.<COMMWORLD_RANK>.<COMM_RANK>.<HOSTNAME>
+	// The maximum size of 128 bytes so if the ID ends up being larger than that, we truncate
+	// the *beginning* of the hostname in order to fit within 128 bytes.
+	char *id = NULL;
+	int size;
+	char hostname[128];
+	gethostname(hostname, 128);
+
+	_asprintf(id, size, "%d.%d.%d", getpid(), world_rank, comm_rank);
+	assert(size > 0 && size < 128);
+	if (size+strlen(hostname) < 128) {
+		char *str = NULL;
+		_asprintf(str, size, "%s.%s", id, hostname);
+		assert(size > 0 && size < 128);
+		str = realloc(str, 128);
+		assert(str);
+		return str;
+	} else {
+		int idx;
+		int digits_len = idx = strlen(id);
+		int avail_len = 128 - digits_len;
+		int j;
+		int start_idx = strlen(hostname) - avail_len;
+		assert (start_idx > 0); // otherwise it would mean the hostname fits
+		id = realloc(id, 128);
+		assert(id);
+		for (j = start_idx + 1 ; j < strlen(hostname); j++) {
+			id[idx] = hostname[j];
+			idx++;
+		}
+		return id;
+	}
+}
+
 int _mpi_init(int *argc, char ***argv)
 {
 	int ret;
 	char buf[200];
-	//gethostname(myhostname, HOSTNAME_LEN);
 
 	char *num_call_envvar = getenv(NUM_CALL_START_PROFILING_ENVVAR);
 	if (num_call_envvar != NULL)
@@ -936,6 +971,36 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
+static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, int n_call)
+{
+	char *filename = NULL;
+	int i;
+	int rc;
+
+	if (getenv(OUTPUT_DIR_ENVVAR)) {
+		_asprintf(filename, rc, "%s/locations_rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+	} else {
+		_asprintf(filename, rc, "locations_rank%d_call%d.md", world_rank, n_call);
+	}
+	assert (rc > 0);
+
+	FILE *f = fopen(filename, "w");
+	for (i = 0; i < comm_size; i++) {
+		fprintf(f, "COMMWORLD rank: %d - COMM rank: %d - PID: %d - Hostname: ", world_comm_ranks[i], i, pids[i]);
+		int j;
+		for (j = 0; j < 256; j++) {
+			if (hostnames[i*256+j] == '\0') {
+				break;
+			}
+			fprintf(f, "%c", hostnames[i*256+j]);
+		}
+		fprintf(f, "\n");
+	}
+	fclose(f);
+	free(pids);
+	free(filename);
+}
+
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
 				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
 				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
@@ -984,12 +1049,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			avCallStart = avCalls;
 		}
 
-#if 0
-	if (my_comm_rank == 0)
-	{
-		hostnames = (char *)malloc(size * HOSTNAME_LEN * sizeof(char));
-	}
-#endif
+#if ENABLE_LOCATION_TRACKING
+/*
+	char *my_id = get_pe_id(my_comm_rank);
+	char *all_ids = malloc(128*comm_size*sizeof(char));
+	assert(all_ids);
+*/
+#endif // ENABLE_LOCATION_TRACKING
 
 #if ENABLE_TIMING
 		double t_barrier_start = MPI_Wtime();
@@ -1007,10 +1073,31 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		// Gather a bunch of counters
 		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
 		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
-#endif // ENABLE_TIMING \
+#endif // ENABLE_TIMING 
+
+#if ENABLE_LOCATION_TRACKING
+		int my_pid = getpid();
+		int* pids = (int*)malloc(comm_size*sizeof(int));
+		assert(pids);
+		int *world_comm_ranks = (int*)malloc(comm_size*sizeof(int));
+		assert(world_comm_ranks);
+		char hostname[256];
+		gethostname(hostname, 256);
+		char *hostnames = (char*)malloc(256*comm_size*sizeof(char));
+		assert(hostnames);
+
+		MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
+		MPI_Gather(&world_rank, 1, MPI_INT, world_comm_ranks, 1, MPI_INT, 0, comm);
+		MPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
+		if (my_comm_rank == 0) {
+			save_rank_ids(pids, world_comm_ranks, hostnames, comm_size, avCalls);
+		}
+#endif // ENABLE_LOCATION_TRACKING
+
 	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
 		if (my_comm_rank == 0)

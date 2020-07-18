@@ -52,6 +52,11 @@
 #define ENABLE_TIMING (0)
 #endif // ENABLE_TIMING
 
+// Switch to enable/disable tracking of the ranks' location
+#ifndef ENABLE_LOCATION_TRACKING
+#define ENABLE_LOCATION_TRACKING (0)
+#endif // ENABLE_LOCATION_TRACKING
+
 // A few switches that are less commonly used by users and that cannot be set a compiling time from the compiler command
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
 #define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
