@@ -32,67 +32,54 @@ static char *ctx_to_string(int ctx)
     return context;
 }
 
+static int get_job_id()
+{
+    char *jobid = NULL;
+    if (getenv("SLURM_JOB_ID"))
+    {
+        jobid = getenv("SLURM_JOB_ID");
+    } else {
+        if (getenv("LSB_JOBID")) {
+            jobid = getenv("LSB_JOBID");
+        } else {
+            jobid = "0";
+        }
+    }
+
+    return atoi(jobid);
+}
+
 static char *get_full_filename(int ctxt, char *id, int world_rank)
 {
     char *filename = NULL;
     char *dir = NULL;
-    char *jobid = NULL;
     int size;
+
+    int jobid = get_job_id();
 
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
         dir = getenv(OUTPUT_DIR_ENVVAR);
     }
 
-    if (getenv("SLURM_JOB_ID"))
-    {
-        jobid = getenv("SLURM_JOB_ID");
-    } else {
-        jobid = "0";
-    }
-
     if (ctxt == MAIN_CTX)
     {
         if (id == NULL)
         {
-            if (jobid != NULL)
-            {
-                _asprintf(filename, size, "profile_alltoallv_job%s.rank%d.md", jobid, world_rank);
-                assert(size > 0);
-            }
-            else
-            {
-                _asprintf(filename, size, "profile_alltoallv_rank%d.md", world_rank);
-                assert(size > 0);
-            }
+            _asprintf(filename, size, "profile_alltoallv_job%d.rank%d.md", jobid, world_rank);
+            assert(size > 0);
         }
         else
         {
-            if (jobid != NULL)
-            {
-                _asprintf(filename, size, "%s.job%s.rank%d.md", id, jobid, world_rank);
-                assert(size > 0);
-            }
-            else
-            {
-                _asprintf(filename, size, "%s.rank%d.md", id, world_rank);
-                assert(size > 0);
-            }
+            _asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
+            assert(size > 0);
         }
     }
     else
     {
         char *context = ctx_to_string(ctxt);
-        if (jobid != NULL)
-        {
-            _asprintf(filename, size, "%s-%s.job%s.rank%d.txt", context, id, jobid, world_rank);
-            assert(size > 0);
-        }
-        else
-        {
-            _asprintf(filename, size, "%s-%s.rank%d.txt", context, id, world_rank);
-            assert(size > 0);
-        }
+        _asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
+        assert(size > 0);
     }
 
     if (dir != NULL)
