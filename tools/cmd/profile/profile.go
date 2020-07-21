@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
@@ -233,6 +234,12 @@ func main() {
 	err = profiler.AnalyzeSubCommsResults(*dir, stats, allPatterns)
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s", err)
+		os.Exit(1)
+	}
+
+	err = maps.Create(maps.Heat, *dir)
+	if err != nil {
+		fmt.Printf("ERROR: unable to create heat map: %s", err)
 		os.Exit(1)
 	}
 }
