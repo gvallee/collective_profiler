@@ -485,7 +485,10 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, size
 	for i := 0; i < numCalls; i++ {
 		callCountsData, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, sizeThreshold)
 		if err != nil {
-			return callCountsData, patterns, err
+			if err != io.EOF {
+				return callCountsData, patterns, err
+			}
+			return callsCountsData, patterns, nil
 		}
 
 		//displayCallPatterns(callInfo)

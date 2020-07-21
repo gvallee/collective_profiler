@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 
 const (
@@ -358,17 +360,18 @@ func NewSendRecvStats(sizeThreshold int) SendRecvStats {
 	return cs
 }
 
-func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, error) {
+func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, *errors.ProfilerError) {
 	var data CallData
+	var profilerErr *errors.ProfilerError
 
 	fSendCounts, err := os.Open(sendCountsFile)
 	if err != nil {
-		return data, fmt.Errorf("unable to open %s: %s", sendCountsFile, err)
+		return data, errors.New(errors.ErrFatal, fmt.Errorf("unable to open %s: %s", sendCountsFile, err))
 	}
 	defer fSendCounts.Close()
 	fRecvCounts, err := os.Open(recvCountsFile)
 	if err != nil {
-		return data, fmt.Errorf("unable to open %s: %s", recvCountsFile, err)
+		return data, errors.New(errors.ErrFatal, fmt.Errorf("unable to open %s: %s", recvCountsFile, err))
 	}
 	defer fRecvCounts.Close()
 
@@ -377,23 +380,23 @@ func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, e
 
 	// find the call's data from the send counts file first
 	sendNumRanks := 0
-	sendNumRanks, data.SendData.Statistics.DatatypeSize, data.SendData.Counts, err = LookupCallFromFile(sendCountsReader, numCall)
-	if err != nil {
-		return data, err
+	sendNumRanks, data.SendData.Statistics.DatatypeSize, data.SendData.Counts, profilerErr = LookupCallFromFile(sendCountsReader, numCall)
+	if !profilerErr.Is(errors.ErrNone) {
+		return data, profilerErr
 	}
 
 	// find the call's data from the recv counts file then
 	recvNumRanks := 0
-	recvNumRanks, data.RecvData.Statistics.DatatypeSize, data.RecvData.Counts, err = LookupCallFromFile(recvCountsReader, numCall)
+	recvNumRanks, data.RecvData.Statistics.DatatypeSize, data.RecvData.Counts, profilerErr = LookupCallFromFile(recvCountsReader, numCall)
 	if err != nil {
-		return data, err
+		return data, profilerErr
 	}
 
 	if sendNumRanks != recvNumRanks {
-		return data, fmt.Errorf("differ number of ranks from send and recv counts files")
+		return data, errors.New(errors.ErrFatal, fmt.Errorf("differ number of ranks from send and recv counts files"))
 	}
 
-	return data, nil
+	return data, errors.New(errors.ErrNone, nil)
 }
 
 // ParseFiles parses both send and receive counts files
@@ -403,9 +406,14 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, size
 
 	for i := 0; i < numCalls; i++ {
 		log.Printf("Analyzing call #%d\n", i)
-		callData, err := LookupCall(sendCountsFile, recvCountsFile, i)
-		if err != nil {
-			return cs, err
+		callData, profilerErr := LookupCall(sendCountsFile, recvCountsFile, i)
+		if profilerErr.Is(errors.ErrNotFound) {
+			log.Printf("Call %d could not be find in files, it may have happened on a different communicator", i)
+			continue
+		}
+
+		if !profilerErr.Is(errors.ErrNone) {
+			return cs, profilerErr.GetInternal()
 		}
 
 		cs.NumSendSmallMsgs += callData.SendData.Statistics.SmallMsgs

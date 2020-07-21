@@ -22,6 +22,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 )
@@ -78,11 +79,11 @@ type CallInfo struct {
 
 func LookupCall(sendCountsFile string, recvCountsFile string, numCall int, msgSizeThreshold int) (CallInfo, error) {
 	var info CallInfo
-	var err error
+	var profilerErr *errors.ProfilerError
 
-	info.CountsData, err = counts.LookupCall(sendCountsFile, recvCountsFile, numCall)
-	if err != nil {
-		return info, err
+	info.CountsData, profilerErr = counts.LookupCall(sendCountsFile, recvCountsFile, numCall)
+	if !profilerErr.Is(errors.ErrNone) {
+		return info, profilerErr.GetInternal()
 	}
 	//info.CommSize = info.CountsStats.CommSize
 
@@ -293,13 +294,14 @@ func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold 
 	defer recvCountsFd.Close()
 	recvCountsFileReader := bufio.NewReader(recvCountsFd)
 
-	info.CountsData.CommSize, info.CountsData.SendData.Statistics.DatatypeSize, info.CountsData.SendData.Counts, err = counts.LookupCallFromFile(sendCountsFileReader, callNum)
-	if err != nil {
-		return info, nil
+	var profilerErr *errors.ProfilerError
+	info.CountsData.CommSize, info.CountsData.SendData.Statistics.DatatypeSize, info.CountsData.SendData.Counts, profilerErr = counts.LookupCallFromFile(sendCountsFileReader, callNum)
+	if !profilerErr.Is(errors.ErrNone) {
+		return info, profilerErr.GetInternal()
 	}
-	_, info.CountsData.RecvData.Statistics.DatatypeSize, info.CountsData.RecvData.Counts, err = counts.LookupCallFromFile(recvCountsFileReader, callNum)
-	if err != nil {
-		return info, nil
+	_, info.CountsData.RecvData.Statistics.DatatypeSize, info.CountsData.RecvData.Counts, profilerErr = counts.LookupCallFromFile(recvCountsFileReader, callNum)
+	if !profilerErr.Is(errors.ErrNone) {
+		return info, profilerErr.GetInternal()
 	}
 
 	info.SendStats, err = counts.AnalyzeCounts(info.CountsData.SendData.Counts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)

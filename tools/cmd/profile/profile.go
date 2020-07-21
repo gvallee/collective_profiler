@@ -46,7 +46,7 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 	// since it is necessary to figure out patterns.
 	cs, p, err = patterns.ParseFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
 	if err != nil {
-		return cs, p, fmt.Errorf("unable to parse count file %s", sendCountFile)
+		return cs, p, fmt.Errorf("unable to parse count file %s: %s", sendCountFile, err)
 	}
 
 	cs.BinThresholds = listBins
@@ -221,25 +221,25 @@ func main() {
 
 	stats, allPatterns, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
 	if err != nil {
-		fmt.Printf("ERROR: unable to analyze counts: %s", err)
+		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
 		os.Exit(1)
 	}
 
 	err = handleTimingFiles(*dir)
 	if err != nil {
-		fmt.Printf("ERROR: unable to analyze timings: %s", err)
+		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
 		os.Exit(1)
 	}
 
 	err = profiler.AnalyzeSubCommsResults(*dir, stats, allPatterns)
 	if err != nil {
-		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s", err)
+		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s\n", err)
 		os.Exit(1)
 	}
 
 	err = maps.Create(maps.Heat, *dir)
 	if err != nil {
-		fmt.Printf("ERROR: unable to create heat map: %s", err)
+		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
 		os.Exit(1)
 	}
 }

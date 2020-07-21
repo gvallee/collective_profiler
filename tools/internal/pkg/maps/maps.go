@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 
 const (
@@ -185,9 +186,9 @@ func createHeatMap(dir string) error {
 		}
 		defer f.Close()
 		reader := bufio.NewReader(f)
-		_, datatypeSize, callCounts, err := counts.LookupCallFromFile(reader, callID)
-		if err != nil {
-			return err
+		_, datatypeSize, callCounts, profilerErr := counts.LookupCallFromFile(reader, callID)
+		if !profilerErr.Is(errors.ErrNone) {
+			return profilerErr.GetInternal()
 		}
 
 		ranksMap := getRankMapFromLocations(l)

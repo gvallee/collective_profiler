@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 
 // AnalyzeCounts analyses the count from a count file
@@ -295,7 +296,7 @@ func GetCounters(reader *bufio.Reader) ([]string, error) {
 }
 
 // LookupCallFromFile extract counts of a specific call from a count file.
-func LookupCallFromFile(reader *bufio.Reader, numCall int) (int, int, []string, error) {
+func LookupCallFromFile(reader *bufio.Reader, numCall int) (int, int, []string, *errors.ProfilerError) {
 	var counts []string
 	var err error
 	var callIDs []int
@@ -305,22 +306,33 @@ func LookupCallFromFile(reader *bufio.Reader, numCall int) (int, int, []string, 
 
 	for {
 		_, _, callIDs, _, numRanks, datatypeSize, err = GetHeader(reader)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			return numRanks, datatypeSize, counts, fmt.Errorf("unable to read header: %s", err)
+			return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, fmt.Errorf("unable to read header: %s", err))
 		}
 		for _, i := range callIDs {
 			if i == numCall {
 				counts, err = GetCounters(reader)
-				return numRanks, datatypeSize, counts, nil
+				if err == nil {
+					return numRanks, datatypeSize, counts, errors.New(errors.ErrNone, nil)
+				}
+				return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, err)
 			}
 		}
 
 		// We do not need these counts but we still read them to find the next header
 		_, err := GetCounters(reader)
 		if err != nil {
-			return numRanks, datatypeSize, counts, fmt.Errorf("unable to parse file: %s", err)
+			return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, fmt.Errorf("unable to parse file: %s", err))
 		}
 	}
+
+	// We did not find the callID and it might be expected: the call ID is absolute,
+	// i.e., reflect all the Alltoallv calls the rank encounters as a lead (rank 0
+	// on the communicator) or participants.
+	return -1, -1, counts, errors.New(errors.ErrNotFound, nil)
 }
 
 func findCountersFilesWithPrefix(basedir string, jobid string, pid string, prefix string) ([]string, error) {
