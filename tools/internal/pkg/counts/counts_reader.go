@@ -479,8 +479,9 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 		if readerErr != nil && readerErr != io.EOF {
 			return nil, readerErr
 		}
+		cd.SendData.Counts = counts
 
-		cd.SendData.Statistics, err = AnalyzeCounts(counts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
+		cd.SendData.Statistics, err = AnalyzeCounts(cd.SendData.Counts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
@@ -526,6 +527,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 			}
 			cb := callData[callID]
 			cb.RecvData.Statistics = stats
+			cb.RecvData.Counts = counts
 			callData[callID] = cb
 		}
 

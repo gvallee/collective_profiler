@@ -79,7 +79,6 @@ func Create(listBins []int) []Data {
 }
 
 func GetFromCounts(counts []string, bins []Data, numCalls int, datatypeSize int) ([]Data, error) {
-
 	for _, c := range counts {
 		tokens := strings.Split(c, ": ")
 		ranks := tokens[0]

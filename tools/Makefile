@@ -38,9 +38,10 @@ recvprofiler:
 extracttimings:
 	cd cmd/extracttimings; go build extracttimings.go
 
-check:
+test:
 	cd internal/pkg/grouping; go test -v
 	cd internal/pkg/patterns; go test -v
+	cd internal/pkg/bins; go test -v
 
 clean:
 	@rm -f cmd/countersextractor/validate
