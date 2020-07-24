@@ -11,24 +11,6 @@ import (
 	"os"
 )
 
-// SaveBins writes the data of all the bins into output file. The output files
-// are created in a target output directory.
-func SaveBins(dir string, jobid, rank int, bins []Bin) error {
-	for _, b := range bins {
-		outputFile := getBinOutputFile(dir, jobid, rank, b)
-		f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			return fmt.Errorf("unable to create file %s: %s", outputFile, err)
-		}
-
-		_, err = f.WriteString(fmt.Sprintf("%d\n", b.Size))
-		if err != nil {
-			return fmt.Errorf("unable to write bin to file: %s", err)
-		}
-	}
-	return nil
-}
-
 func WriteDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, datatypesRecv map[int]int) error {
 	_, err := fd.WriteString("# Datatypes\n\n")
 	if err != nil {

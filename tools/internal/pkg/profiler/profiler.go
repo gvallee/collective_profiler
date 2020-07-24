@@ -251,6 +251,7 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 		if err != nil {
 			return err
 		}
+		/* FIXME!!!!!!!!!
 		for _, b := range stats[rank].Bins {
 			if b.Max != -1 {
 				_, err := fd.WriteString(fmt.Sprintf("\t%d of the messages are of size between %d and %d bytes\n", b.Size, b.Min, b.Max-1))
@@ -264,6 +265,7 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 				}
 			}
 		}
+		*/
 	}
 
 	return nil
@@ -321,7 +323,24 @@ func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold 
 	if err != nil {
 		return info, err
 	}
-	//info.AlltoallvTimings, info.LateArrivalTiming
+	gps, err := info.Timings.LateArrivalsTimings.Grouping.GetGroups()
+	if err != nil {
+		return info, err
+	}
+	if len(gps) > 1 {
+		fmt.Printf("[WARN] %d groups of late arrival times have been found\n", len(gps))
+	} else {
+		fmt.Printf("[INFO] No outliers in late arrival times\n")
+	}
+	gps, err = info.Timings.ExecutionTimings.Grouping.GetGroups()
+	if err != nil {
+		return info, err
+	}
+	if len(gps) > 1 {
+		fmt.Printf("[WARN] %d groups of execution time have been found\n", len(gps))
+	} else {
+		fmt.Printf("[INFO] No outliers in execution times\n")
+	}
 
 	// Load patterns from result file.
 	// todo: if the file does not exists, we should get the data from scratch
@@ -376,67 +395,9 @@ func SaveStats(info OutputFileInfo, cs counts.SendRecvStats, patternsData patter
 		return err
 	}
 
-	_, err = info.patternsFd.WriteString("# Patterns\n")
+	err = patterns.WriteData(info.patternsFd, info.patternsSummaryFd, patternsData, numCalls)
 	if err != nil {
 		return err
-	}
-	num := 0
-	for _, cp := range patternsData.AllPatterns {
-		err = patterns.WriteToFile(info.patternsFd, num, numCalls, cp)
-		if err != nil {
-			return err
-		}
-		num++
-	}
-
-	if !patterns.NoSummary(patternsData) {
-		if len(patternsData.OneToN) != 0 {
-			_, err := info.patternsSummaryFd.WriteString("# 1 to N patterns\n\n")
-			if err != nil {
-				return err
-			}
-			num = 0
-			for _, cp := range patternsData.OneToN {
-				err = patterns.WriteToFile(info.patternsSummaryFd, num, numCalls, cp)
-				if err != nil {
-					return err
-				}
-				num++
-			}
-		}
-
-		if len(patternsData.NToOne) != 0 {
-			_, err := info.patternsSummaryFd.WriteString("\n# N to 1 patterns\n\n")
-			if err != nil {
-				return err
-			}
-			num = 0
-			for _, cp := range patternsData.NToOne {
-				err = patterns.WriteToFile(info.patternsSummaryFd, num, numCalls, cp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		if len(patternsData.NToN) != 0 {
-			_, err := info.patternsSummaryFd.WriteString("\n# N to n patterns\n\n")
-			if err != nil {
-				return err
-			}
-			num = 0
-			for _, cp := range patternsData.NToN {
-				err = patterns.WriteToFile(info.patternsSummaryFd, num, numCalls, cp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		_, err = info.patternsSummaryFd.WriteString("Nothing special detected; no summary")
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -470,10 +431,10 @@ func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileIn
 		info.patternsSummaryFd.Close()
 	}
 
-	fmt.Println("Results are saved in:")
-	fmt.Printf("-> %s\n", info.defaultOutputFile)
-	fmt.Printf("-> %s\n", info.patternsOutputFile)
-	fmt.Printf("Patterns summary: %s\n", info.patternsSummaryOutputFile)
+	log.Println("Results are saved in:")
+	log.Printf("-> %s\n", info.defaultOutputFile)
+	log.Printf("-> %s\n", info.patternsOutputFile)
+	log.Printf("Patterns summary: %s\n", info.patternsSummaryOutputFile)
 
 	return info, nil
 }

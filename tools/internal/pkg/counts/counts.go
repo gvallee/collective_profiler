@@ -36,12 +36,6 @@ const (
 	RecvCountersFilePrefix = "recv-counters."
 )
 
-type Bin struct {
-	Min  int
-	Max  int
-	Size int
-}
-
 // CallData gathers all the data related to one and only one alltoallv call
 type CallData struct {
 	// ID is the call number (zero-indexed)
@@ -106,7 +100,7 @@ type Stats struct {
 	// NoZerosPerRankPatterns gathers the number of non-0-counts on a per-rank bases ('X ranks have Y non-0-counts)
 	NoZerosPerRankPatterns map[int]int
 
-	// Patterns gathers the number of peers involved in actual communication, i.e., non-zeroa ('X ranks are sendinng to Y ranks')
+	// Patterns gathers the number of peers involved in actual communication, i.e., non-zero ('<value> ranks are sending to <key> ranks')
 	Patterns map[int]int
 }
 
@@ -119,7 +113,16 @@ type Data struct {
 	// Counts is the string representing all the send counts
 	Counts []string
 
+	// Statistics is all the statistics we could gather while parsing the count file
 	Statistics Stats
+
+	// BinThresholds is the list of thresholds used to create bins
+	BinThresholds []int
+
+	/* Cannot be here, bins are above counts package
+	// Bins is the list of bins of counts
+	Bins []bins.Data
+	*/
 
 	// MsgSizeThreshold is the message size used to differentiate small messages from larrge messages while parsing the counts
 	MsgSizeThreshold int
@@ -133,17 +136,13 @@ type SendRecvStats struct {
 	SizeThreshold           int
 	NumSendSmallNotZeroMsgs int
 
-	// SendSums is the sum of all the send counts. It can be used to calculate how much data is sent during the alltoallv call.
-	SendSums map[int]int
+	/*
+		// SendSums is the sum of all the send counts. It can be used to calculate how much data is sent during the alltoallv call.
+		SendSums map[int]int
 
-	// RecvSums is the sum of all the receive counts. It can be used to calculate how much data is received during the alltoallv call.
-	RecvSums map[int]int
-
-	// BinThresholds is the list of thresholds used to create bins
-	BinThresholds []int
-
-	// Bins is the list of bins of counts
-	Bins []Bin
+		// RecvSums is the sum of all the receive counts. It can be used to calculate how much data is received during the alltoallv call.
+		RecvSums map[int]int
+	*/
 
 	// TotalNumCalls is the number of alltoallv calls covered by the statistics
 	TotalNumCalls int
@@ -160,28 +159,52 @@ type SendRecvStats struct {
 	// TotalRecvNonZeroCounts is the total number of receive count not equal to zero
 	TotalRecvNonZeroCounts int
 
+	// CommSizes is the distribution of communicator size across all alltoallv calls. The key is the size of the communicator; the value is the number of alltoallv calls having that size
 	CommSizes map[int]int
 
 	// DatatypesSend stores statistics related to MPI datatypes that are used to send data. The key is the size of the datatype, the value hte number of time the datatype is used
 	DatatypesSend map[int]int
 
 	// DatatypesRecv stores statistics related to MPI datatypes that are used to receive data. The key is the size of the datatype, the value hte number of time the datatype is used
-	DatatypesRecv    map[int]int
-	CallSendSparsity map[int]int
-	CallRecvSparsity map[int]int
-	SendMins         map[int]int
-	RecvMins         map[int]int
-	SendMaxs         map[int]int
-	RecvMaxs         map[int]int
-	SendNotZeroMins  map[int]int
-	RecvNotZeroMins  map[int]int
+	DatatypesRecv map[int]int
 
-	SendZeroCounts    map[int]int // Number of zeros in send counts (on a per-rank basis)
-	RecvZeroCounts    map[int]int
+	// CallSendSparisty is the distribution of zero send counts across alltoallv calls. The key is the number of zero counts and the value is the number of calls that has so many zero send counts
+	CallSendSparsity map[int]int
+
+	// CallRecvSparisty is the distribution of zero receive counts across alltoallv calls. The key is the number of zero counts and the value is the number of calls that has so many zero receive counts
+	CallRecvSparsity map[int]int
+
+	// SendMins is the send min distribution across alltoallv calls. The key is the value of the min for a given alltoallv call, the value the number of calls having that min
+	SendMins map[int]int
+
+	// RecvMins is the receive min distribution across alltoallv calls. The key is the value of the min for a given alltoallv call, the value the number of calls having that min
+	RecvMins map[int]int
+
+	// SendMaxs is the send max distribution across alltoallv calls. The key is the value of the max for a given alltoallv call, the value the number of calls having that max
+	SendMaxs map[int]int
+
+	// RecvMaxs is the recv max distribution across alltoallv calls. The key is the value of the max for a given alltoallv call, the value the number of calls having that max
+	RecvMaxs map[int]int
+
+	SendNotZeroMins map[int]int
+	RecvNotZeroMins map[int]int
+
+	// SendNotZeroCounts is the distribution of non-zero counts across alltoallv calls. Counter-part of CallSendSparsity
 	SendNotZeroCounts map[int]int
+
+	// RecvNotZeroCounts is the distribution of non-zero counts across alltoallv calls. Counter-part of CallRecvSparsity
 	RecvNotZeroCounts map[int]int
-	SendPatterns      map[int]int
-	RecvPatterns      map[int]int
+
+	// SendSums is the distribution of the amount of data sent during alltoallv calls. The key is the total amount of data sent during a call; the value is the number of calls sending that amount of data
+	SendSums map[int]int
+
+	// RecvSums is the distribution of the amount of data received during alltoallv calls. The key is the total amount of data received during a call; the value is the number of calls receiving that amount of data
+	RecvSums map[int]int
+
+	/*
+		SendPatterns      map[int]int
+		RecvPatterns      map[int]int
+	*/
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
@@ -333,13 +356,13 @@ func NewSendRecvStats(sizeThreshold int) SendRecvStats {
 		NumSendLargeMsgs:        0,
 		SizeThreshold:           sizeThreshold,
 		NumSendSmallNotZeroMsgs: 0,
-		SendSums:                make(map[int]int),
-		RecvSums:                make(map[int]int),
 		TotalNumCalls:           0,
 		TotalSendZeroCounts:     0,
 		TotalSendNonZeroCounts:  0,
 		TotalRecvZeroCounts:     0,
 		TotalRecvNonZeroCounts:  0,
+		SendSums:                make(map[int]int),
+		RecvSums:                make(map[int]int),
 		CommSizes:               make(map[int]int),
 		DatatypesSend:           make(map[int]int),
 		DatatypesRecv:           make(map[int]int),
@@ -351,11 +374,13 @@ func NewSendRecvStats(sizeThreshold int) SendRecvStats {
 		RecvMaxs:                make(map[int]int),
 		SendNotZeroMins:         make(map[int]int),
 		RecvNotZeroMins:         make(map[int]int),
-		RecvZeroCounts:          make(map[int]int),
 		SendNotZeroCounts:       make(map[int]int),
 		RecvNotZeroCounts:       make(map[int]int),
-		SendPatterns:            make(map[int]int),
-		RecvPatterns:            make(map[int]int),
+		/*
+			todo: rethink send and receive patterns
+				SendPatterns:            make(map[int]int),
+				RecvPatterns:            make(map[int]int),
+		*/
 	}
 	return cs
 }
@@ -485,6 +510,127 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, size
 		} else {
 			cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts] = 1
 		}
+	}
+
+	return cs, nil
+}
+
+func GatherStatsFromCallData(cd map[int]*CallData, sizeThreshold int) (SendRecvStats, error) {
+	cs := NewSendRecvStats(sizeThreshold)
+
+	for _, d := range cd {
+		if cs.SizeThreshold == 0 {
+			cs.SizeThreshold = d.MsgSizeThreshold
+		} else {
+			if cs.SizeThreshold != d.MsgSizeThreshold {
+				return cs, fmt.Errorf("inconsistent data, different message size thresholds: %d vs. %d", cs.SizeThreshold, d.MsgSizeThreshold)
+			}
+		}
+
+		cs.TotalNumCalls += d.SendData.Statistics.TotalNumCalls
+
+		cs.NumSendSmallMsgs += d.SendData.Statistics.SmallMsgs
+		cs.NumSendLargeMsgs += d.SendData.Statistics.LargeMsgs
+		cs.NumSendSmallNotZeroMsgs += d.SendData.Statistics.SmallNotZeroMsgs
+		cs.TotalSendZeroCounts += d.SendData.Statistics.TotalZeroCounts
+		cs.TotalSendNonZeroCounts += d.SendData.Statistics.TotalNonZeroCounts
+
+		cs.TotalRecvNonZeroCounts += d.RecvData.Statistics.TotalNonZeroCounts
+		cs.TotalRecvZeroCounts += d.RecvData.Statistics.TotalZeroCounts
+
+		if _, ok := cs.SendMins[d.SendData.Statistics.Min]; ok {
+			cs.SendMins[d.SendData.Statistics.Min]++
+		} else {
+			cs.SendMins[d.SendData.Statistics.Min] = 1
+		}
+
+		if _, ok := cs.RecvMins[d.RecvData.Statistics.Min]; ok {
+			cs.RecvMins[d.RecvData.Statistics.Min]++
+		} else {
+			cs.RecvMins[d.RecvData.Statistics.Min] = 1
+		}
+
+		if _, ok := cs.SendMaxs[d.SendData.Statistics.Max]; ok {
+			cs.SendMaxs[d.SendData.Statistics.Max]++
+		} else {
+			cs.SendMaxs[d.SendData.Statistics.Max] = 1
+		}
+
+		if _, ok := cs.RecvMaxs[d.RecvData.Statistics.Max]; ok {
+			cs.RecvMaxs[d.RecvData.Statistics.Max]++
+		} else {
+			cs.RecvMaxs[d.RecvData.Statistics.Max] = 1
+		}
+
+		if _, ok := cs.DatatypesSend[d.SendData.Statistics.DatatypeSize]; ok {
+			cs.DatatypesSend[d.SendData.Statistics.DatatypeSize]++
+		} else {
+			cs.DatatypesSend[d.SendData.Statistics.DatatypeSize] = 1
+		}
+
+		if _, ok := cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize]; ok {
+			cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize]++
+		} else {
+			cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize] = 1
+		}
+
+		if _, ok := cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin]; ok {
+			cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin]++
+		} else {
+			cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin] = 1
+		}
+
+		if _, ok := cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin]; ok {
+			cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin]++
+		} else {
+			cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin] = 1
+		}
+
+		if _, ok := cs.CommSizes[d.CommSize]; ok {
+			cs.CommSizes[d.CommSize]++
+		} else {
+			cs.CommSizes[d.CommSize] = 1
+		}
+
+		if _, ok := cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts]; ok {
+			cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts]++
+		} else {
+			cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts] = 1
+		}
+
+		if _, ok := cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts]; ok {
+			cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts]++
+		} else {
+			cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts] = 1
+		}
+
+		if _, ok := cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts]; ok {
+			cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts]++
+		} else {
+			cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts] = 1
+		}
+
+		if _, ok := cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts]; ok {
+			cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts]++
+		} else {
+			cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts] = 1
+		}
+
+		if _, ok := cs.SendSums[d.SendData.Statistics.Sum]; ok {
+			cs.SendSums[d.SendData.Statistics.Sum]++
+		} else {
+			cs.SendSums[d.SendData.Statistics.Sum] = 1
+		}
+
+		if _, ok := cs.RecvSums[d.RecvData.Statistics.Sum]; ok {
+			cs.RecvSums[d.RecvData.Statistics.Sum]++
+		} else {
+			cs.RecvSums[d.RecvData.Statistics.Sum] = 1
+		}
+
+		// FIXME: what to do with SendPatterns?
+		// FIXME: what to do with RecvPatterns?
+
 	}
 
 	return cs, nil

@@ -18,6 +18,7 @@ import (
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 )
 
 const (
@@ -32,7 +33,7 @@ type CallData struct {
 	Calls []int
 }
 
-// GlobalPatterns holds the data all the patterns the infrastructure was able to detect
+// Data holds the data all the patterns the infrastructure was able to detect
 type Data struct {
 	// AllPatterns is the data for all the patterns that have been detected
 	AllPatterns []*CallData
@@ -292,21 +293,21 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 	// Detect specific patterns using the send counts only, e.g., 1->n, n->1 and n->n
 	// Note: we do not need to check the receive side because if n ranks are sending to n other ranks,
 	// we know that n ranks are receiving from n other ranks with equivalent counts. Send/receive symmetry.
-	for sendTo, n := range sendPatterns {
+	for nDest, nSrc := range sendPatterns {
 		// Detect 1->n patterns
-		if sendTo > n*100 {
+		if nDest > nSrc*100 {
 			d.OneToN = append(d.OneToN, new_cp)
 			continue
 		}
 
 		// Detect n->n patterns
-		if sendTo == n {
+		if nSrc == nDest {
 			d.NToN = append(d.NToN, new_cp)
 			continue
 		}
 
 		// Detect n->1 patterns
-		if sendTo*100 < n {
+		if nDest*100 < nSrc {
 			d.NToOne = append(d.NToOne, new_cp)
 			continue
 		}
@@ -316,14 +317,14 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 }
 
 func writeDataToFile(fd *os.File, cd *CallData) error {
-	for sendTo, n := range cd.Send {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", n, sendTo))
+	for nDest, nSrc := range cd.Send {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", nSrc, nDest))
 		if err != nil {
 			return err
 		}
 	}
-	for recvFrom, n := range cd.Recv {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", n, recvFrom))
+	for key, val := range cd.Recv {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", val, key))
 		if err != nil {
 			return err
 		}
@@ -477,38 +478,109 @@ func WriteSubcommNto1Patterns(fd *os.File, ranks []int, stats map[int]counts.Sen
 	return nil
 }
 
-func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, sizeThreshold int) (counts.SendRecvStats, Data, error) {
-
+func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank int, sizeThreshold int) (map[int]*counts.CallData, Data, error) {
 	var patterns Data
-	callsCountsData := counts.NewSendRecvStats(sizeThreshold)
 
+	callData, err := counts.LoadCallsData(sendCountsFile, recvCountsFile, rank, sizeThreshold)
+	if err != nil {
+		return nil, patterns, err
+	}
+
+	b := progress.NewBar(numCalls, "Analyzing alltoallv calls")
+	defer progress.EndBar(b)
 	for i := 0; i < numCalls; i++ {
-		callCountsData, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, sizeThreshold)
-		if err != nil {
-			if err != io.EOF {
-				return callCountsData, patterns, err
+		b.Increment(1)
+		/*
+			//callCountsData, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, sizeThreshold)
+			callCountsData, profilerErr = counts.LookupCall(sendCountsFile, recvCountsFile, i)
+			if !profilerErr.Is(errors.ErrNone) {
+				return data, patterns, profilerErr.GetInternal()
 			}
-			return callsCountsData, patterns, nil
-		}
+		*/
 
 		//displayCallPatterns(callInfo)
 		// Analyze the send/receive pattern from the call
-		err = patterns.addPattern(i, callCountsData.SendPatterns, callCountsData.RecvPatterns)
+		//err := patterns.addPattern(i, callCountsData.SendData.Statistics.Patterns, callCountsData.RecvData.Statistics.Patterns)
+		err := patterns.addPattern(i, callData[i].SendData.Statistics.Patterns, callData[i].RecvData.Statistics.Patterns)
 		if err != nil {
-			return callCountsData, patterns, err
+			return callData, patterns, err
 		}
 
 		// We need to track calls that act like a barrier (no data exchanged)
-		if callCountsData.TotalSendNonZeroCounts == 0 && callCountsData.TotalRecvNonZeroCounts == 0 {
+		if callData[i].SendData.Statistics.TotalNonZeroCounts == 0 && callData[i].RecvData.Statistics.TotalNonZeroCounts == 0 {
 			emptyPattern := new(CallData)
 			emptyPattern.Count = 1
 			emptyPattern.Calls = []int{i}
 			patterns.Empty = append(patterns.Empty, emptyPattern)
 		}
-
-		// todo: update callsCountsData with the data from callCountsData
-		callsCountsData.TotalNumCalls++
 	}
 
-	return callsCountsData, patterns, nil
+	return callData, patterns, nil
+}
+
+func WriteData(patternsFd *os.File, patternsSummaryFd *os.File, patternsData Data, numCalls int) error {
+	_, err := patternsFd.WriteString("# Patterns\n")
+	if err != nil {
+		return err
+	}
+	num := 0
+	for _, cp := range patternsData.AllPatterns {
+		err = WriteToFile(patternsFd, num, numCalls, cp)
+		if err != nil {
+			return err
+		}
+		num++
+	}
+
+	if !NoSummary(patternsData) {
+		if len(patternsData.OneToN) != 0 {
+			_, err := patternsSummaryFd.WriteString("# 1 to N patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range patternsData.OneToN {
+				err = WriteToFile(patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+				num++
+			}
+		}
+
+		if len(patternsData.NToOne) != 0 {
+			_, err := patternsSummaryFd.WriteString("\n# N to 1 patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range patternsData.NToOne {
+				err = WriteToFile(patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if len(patternsData.NToN) != 0 {
+			_, err := patternsSummaryFd.WriteString("\n# N to n patterns\n\n")
+			if err != nil {
+				return err
+			}
+			num = 0
+			for _, cp := range patternsData.NToN {
+				err = WriteToFile(patternsSummaryFd, num, numCalls, cp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		_, err = patternsSummaryFd.WriteString("Nothing special detected; no summary")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

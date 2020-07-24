@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
+
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
@@ -145,6 +147,21 @@ func saveHeatMap(heatmap map[int]int, filepath string) error {
 	return nil
 }
 
+func getCallInfo(countFile string, callID int) (int, []string, error) {
+	f, err := os.Open(countFile)
+	if err != nil {
+		return -1, nil, err
+	}
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	_, datatypeSize, callCounts, profilerErr := counts.LookupCallFromFile(reader, callID)
+	if !profilerErr.Is(errors.ErrNone) {
+		return -1, nil, profilerErr.GetInternal()
+	}
+
+	return datatypeSize, callCounts, nil
+}
+
 func createHeatMap(dir string) error {
 	// Find all the files that have location data
 	files, err := ioutil.ReadDir(dir)
@@ -164,7 +181,11 @@ func createHeatMap(dir string) error {
 	}
 
 	heatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
+	bar := progress.NewBar(len(locationFiles), "Rank location files")
+	defer progress.EndBar(bar)
 	for _, file := range locationFiles {
+		bar.Increment(1)
+		// This is not correct, commHeatMap will give the heat map for the last call that will be analyzed, it does not make sense.
 		commHeatMap := make(map[int]int)
 
 		callID, rankID, err := getCallidRankFromLocationFile(file)
@@ -180,15 +201,9 @@ func createHeatMap(dir string) error {
 		}
 
 		// Get call info
-		f, err := os.Open(countFile)
+		datatypeSize, callCounts, err := getCallInfo(countFile, callID)
 		if err != nil {
 			return err
-		}
-		defer f.Close()
-		reader := bufio.NewReader(f)
-		_, datatypeSize, callCounts, profilerErr := counts.LookupCallFromFile(reader, callID)
-		if !profilerErr.Is(errors.ErrNone) {
-			return profilerErr.GetInternal()
 		}
 
 		ranksMap := getRankMapFromLocations(l)

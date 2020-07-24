@@ -72,7 +72,8 @@ func main() {
 	recvCountsFile = filepath.Join(*dir, recvCountsFile)
 
 	if !util.PathExists(sendCountsFile) || !util.PathExists(recvCountsFile) {
-		log.Fatalf("unable to locate send or recv counts file(s) (%s, %s) in %s", sendCountsFile, recvCountsFile, *dir)
+		fmt.Printf("[ERROR] unable to locate send or recv counts file(s) (%s, %s) in %s", sendCountsFile, recvCountsFile, *dir)
+		os.Exit(1)
 	}
 
 	log.Printf("Send counts file: %s\n", sendCountsFile)
@@ -80,16 +81,25 @@ func main() {
 
 	numCalls, err := counts.GetNumCalls(sendCountsFile)
 	if err != nil {
-		log.Fatalf("unable to get the number of alltoallv calls: %s", err)
+		fmt.Printf("[ERROR] unable to get the number of alltoallv calls: %s", err)
+		os.Exit(1)
 	}
 
-	cs, p, err := patterns.ParseFiles(sendCountsFile, recvCountsFile, numCalls, *sizeThreshold)
+	cs, p, err := patterns.ParseFiles(sendCountsFile, recvCountsFile, numCalls, *rank, *sizeThreshold)
 	if err != nil {
-		log.Fatalf("unable to parse count file %s", sendCountsFile)
+		fmt.Printf("[ERROR] unable to parse count file %s", sendCountsFile)
+		os.Exit(1)
 	}
 
-	err = profiler.SaveStats(outputFileInfo, cs, p, numCalls, *sizeThreshold)
+	sendRecvStats, err := counts.GatherStatsFromCallData(cs, *sizeThreshold)
 	if err != nil {
-		log.Fatalf("unable to save counters' stats: %s", err)
+		fmt.Printf("[ERROR] unable to gather statistics from alltoallv calls' data")
+		os.Exit(1)
+	}
+
+	err = profiler.SaveStats(outputFileInfo, sendRecvStats, p, numCalls, *sizeThreshold)
+	if err != nil {
+		fmt.Printf("[ERROR] unable to save counters' stats: %s", err)
+		os.Exit(1)
 	}
 }

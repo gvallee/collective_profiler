@@ -29,10 +29,12 @@ const (
 )
 
 type Stats struct {
-	Timings string
-	Max     float64
-	Min     float64
-	Mean    float64
+	Timings  string
+	Data     []float64
+	Max      float64
+	Min      float64
+	Mean     float64
+	Grouping *grouping.Engine
 }
 
 type CallTimings struct {
@@ -148,7 +150,7 @@ func ParseFile(filePath string, outputDir string) error {
 	return nil
 }
 
-func GetCallDataFromFile(path string, numCall int) (Stats, error) {
+func getCallDataFromFile(path string, numCall int) (Stats, error) {
 	var t Stats
 	t.Max = 0.0
 	t.Min = -1.0
@@ -197,6 +199,7 @@ func GetCallDataFromFile(path string, numCall int) (Stats, error) {
 			if err != nil {
 				return t, err
 			}
+			t.Data = append(t.Data, timing)
 			sum += timing
 
 			if t.Min == -1.0 || t.Min > timing {
@@ -216,6 +219,11 @@ func GetCallDataFromFile(path string, numCall int) (Stats, error) {
 	}
 
 	t.Mean = sum / num
+	err = t.groupTimings()
+	if err != nil {
+		return t, err
+	}
+
 	return t, nil
 }
 
@@ -227,12 +235,12 @@ func GetCallData(dir string, jobid int, rank int, numCall int) (CallTimings, err
 	lateArrivalTimingsFile := getLateArrivalTimingsFilePath(dir, jobid, rank)
 
 	log.Printf("-> Getting execution timings from %s\n", a2aTimingsFile)
-	t.ExecutionTimings, err = GetCallDataFromFile(a2aTimingsFile, numCall)
+	t.ExecutionTimings, err = getCallDataFromFile(a2aTimingsFile, numCall)
 	if err != nil {
 		return t, err
 	}
 	log.Printf("-> Getting late arrival timings from %s\n", lateArrivalTimingsFile)
-	t.LateArrivalsTimings, err = GetCallDataFromFile(lateArrivalTimingsFile, numCall)
+	t.LateArrivalsTimings, err = getCallDataFromFile(lateArrivalTimingsFile, numCall)
 	if err != nil {
 		return t, err
 	}
@@ -240,20 +248,22 @@ func GetCallData(dir string, jobid int, rank int, numCall int) (CallTimings, err
 	return t, nil
 }
 
-func groupTimings(data []float64) (*grouping.Engine, error) {
-	e := grouping.Init()
+func (s *Stats) groupTimings() error {
+	if s.Grouping == nil {
+		s.Grouping = grouping.Init()
+	}
 
 	var ints []int
-	for _, d := range data {
+	for _, d := range s.Data {
 		ints = append(ints, int(d))
 	}
 
 	for i := 0; i < len(ints); i++ {
-		err := e.AddDatapoint(i, ints)
+		err := s.Grouping.AddDatapoint(i, ints)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return e, nil
+	return nil
 }

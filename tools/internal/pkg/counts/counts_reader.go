@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 
@@ -449,6 +450,91 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 	}
 
 	return counters, datatypeSize, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
+}
+
+func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThreshold int) (map[int]*CallData, error) {
+	callData := make(map[int]*CallData) // The key is the call number and the value a pointer to the call's data (several calls can share the same data)
+
+	bar := progress.NewBar(2, "Reading count files")
+	defer progress.EndBar(bar)
+
+	bar.Increment(1)
+	sendFile, err := os.Open(sendCountsFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open %s: %w", sendCountsFile, err)
+	}
+	defer sendFile.Close()
+	reader := bufio.NewReader(sendFile)
+	for {
+		_, _, callIDs, _, _, datatypeSize, readerErr := GetHeader(reader)
+		if readerErr == io.EOF || len(callIDs) == 0 {
+			break
+		}
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, fmt.Errorf("unable to read header from %s: %w", sendCountsFile, readerErr)
+		}
+		cd := new(CallData)
+		cd.MsgSizeThreshold = msgSizeThreshold
+		counts, readerErr := GetCounters(reader)
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, readerErr
+		}
+
+		cd.SendData.Statistics, err = AnalyzeCounts(counts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
+		if err != nil {
+			return nil, err
+		}
+		cd.SendData.Statistics.DatatypeSize = datatypeSize
+
+		for _, callID := range callIDs {
+			callData[callID] = cd
+		}
+
+		if readerErr == io.EOF {
+			break
+		}
+	}
+	bar.Increment(1)
+	recvFile, err := os.Open(recvCountsFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open %s: %w", recvCountsFile, err)
+	}
+	defer recvFile.Close()
+	reader = bufio.NewReader(recvFile)
+	for {
+		_, _, callIDs, _, _, recvDatatypeSize, readerErr := GetHeader(reader)
+		if readerErr == io.EOF {
+			break
+		}
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, fmt.Errorf("unable to read header from %s: %w", recvCountsFile, readerErr)
+		}
+
+		counts, readerErr := GetCounters(reader)
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, readerErr
+		}
+
+		stats, err := AnalyzeCounts(counts, msgSizeThreshold, recvDatatypeSize)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, callID := range callIDs {
+			if recvDatatypeSize != callData[callID].SendData.Statistics.DatatypeSize {
+				return nil, fmt.Errorf("inconsistent datatype size for call %d: %d vs. %d", callID, recvDatatypeSize, callData[callID].SendData.Statistics.DatatypeSize)
+			}
+			cb := callData[callID]
+			cb.RecvData.Statistics = stats
+			callData[callID] = cb
+		}
+
+		if readerErr == io.EOF {
+			break
+		}
+	}
+
+	return callData, nil
 }
 
 func findSendCountersFiles(basedir string, jobid int, id int) ([]string, error) {

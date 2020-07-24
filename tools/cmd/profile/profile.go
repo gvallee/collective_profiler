@@ -18,59 +18,69 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
-
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (counts.SendRecvStats, patterns.Data, error) {
-	var cs counts.SendRecvStats
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (map[int]*counts.CallData, counts.SendRecvStats, patterns.Data, error) {
 	var p patterns.Data
-
+	var sendRecvStats counts.SendRecvStats
+	var cs map[int]*counts.CallData
 	sendCountFile, recvCountFile := counts.GetFiles(jobid, rank)
 	sendCountFile = filepath.Join(basedir, sendCountFile)
 	recvCountFile = filepath.Join(basedir, recvCountFile)
 
 	numCalls, err := counts.GetNumCalls(sendCountFile)
 	if err != nil {
-		return cs, p, fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
+		return nil, sendRecvStats, p, fmt.Errorf("unable to get the number of alltoallv calls: %s", err)
 	}
 
 	// Note that by extracting the patterns, it will implicitly parses the send/recv counts
 	// since it is necessary to figure out patterns.
-	cs, p, err = patterns.ParseFiles(sendCountFile, recvCountFile, numCalls, sizeThreshold)
+	cs, p, err = patterns.ParseFiles(sendCountFile, recvCountFile, numCalls, rank, sizeThreshold)
 	if err != nil {
-		return cs, p, fmt.Errorf("unable to parse count file %s: %s", sendCountFile, err)
+		return cs, sendRecvStats, p, fmt.Errorf("unable to parse count file %s: %s", sendCountFile, err)
 	}
 
-	cs.BinThresholds = listBins
-	cs.Bins, err = counts.GetBinsFromFile(sendCountFile, listBins)
-	if err != nil {
-		return cs, p, err
+	b := progress.NewBar(len(cs), "Bin creation")
+	defer progress.EndBar(b)
+	for _, callData := range cs {
+		b.Increment(1)
+		callData.SendData.BinThresholds = listBins
+		sendBins := bins.Create(listBins)
+		sendBins, err = bins.GetFromCounts(callData.SendData.Counts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
+		if err != nil {
+			return cs, sendRecvStats, p, err
+		}
+		err = bins.Save(basedir, jobid, rank, sendBins)
+		if err != nil {
+			return cs, sendRecvStats, p, err
+		}
 	}
-	err = counts.SaveBins(basedir, jobid, rank, cs.Bins)
+
+	sendRecvStats, err = counts.GatherStatsFromCallData(cs, sizeThreshold)
 	if err != nil {
-		return cs, p, err
+		return cs, sendRecvStats, p, err
 	}
 
 	outputFilesInfo, err := profiler.GetCountProfilerFileDesc(basedir, jobid, rank)
-	if err != nil {
-		return cs, p, fmt.Errorf("unable to open output files: %s", err)
-	}
 	defer outputFilesInfo.Cleanup()
 
-	err = profiler.SaveStats(outputFilesInfo, cs, p, numCalls, sizeThreshold)
+	err = profiler.SaveStats(outputFilesInfo, sendRecvStats, p, numCalls, sizeThreshold)
 	if err != nil {
-		return cs, p, fmt.Errorf("unable to save counters' stats: %s", err)
+		return cs, sendRecvStats, p, fmt.Errorf("unable to save counters' stats: %s", err)
 	}
 
-	return cs, p, nil
+	return cs, sendRecvStats, p, nil
 }
 
 func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (map[int]counts.SendRecvStats, map[int]patterns.Data, error) {
@@ -118,12 +128,19 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	jobid := sendJobids[0]
 	allStats := make(map[int]counts.SendRecvStats)
 	allPatterns := make(map[int]patterns.Data)
+
 	for _, rank := range sendRanks {
-		cs, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
+		_, sendRecvStats, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
 		if err != nil {
 			return nil, nil, err
 		}
-		allStats[rank] = cs
+		/*
+			sendRecvStats, err := counts.GatherStatsFromCallData(cs, sizeThreshold)
+			if err != nil {
+				return allStats, allPatterns, err
+			}
+		*/
+		allStats[rank] = sendRecvStats
 		allPatterns[rank] = p
 	}
 
@@ -159,7 +176,10 @@ func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]c
 }
 
 func analyzeTimingsFiles(dir string, files []string) error {
+	bar := progress.NewBar(len(files), "Handling timings files")
+	defer progress.EndBar(bar)
 	for _, file := range files {
+		bar.Increment(1)
 		// The output directory is where the data is, this tool keeps all the data together
 		err := timings.ParseFile(file, dir)
 		if err != nil {
@@ -217,29 +237,52 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	listBins := counts.GetBinsFromInputDescr(*binThresholds)
+	listBins := bins.GetFromInputDescr(*binThresholds)
 
+	totalNumSteps := 4
+	currentStep := 1
+	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
+	t := timer.Start()
 	stats, allPatterns, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
+	duration := t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
 
+	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
+	t = timer.Start()
 	err = handleTimingFiles(*dir)
+	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
 
+	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data... ", currentStep, totalNumSteps)
+	t = timer.Start()
 	err = profiler.AnalyzeSubCommsResults(*dir, stats, allPatterns)
+	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
 
+	/* todo: move creation of heat maps to analyzeCountFiles so we do not need to parse the count files again */
+	fmt.Printf("\n* Step %d/%d: create maps... ", currentStep, totalNumSteps)
+	t = timer.Start()
 	err = maps.Create(maps.Heat, *dir)
+	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
 }

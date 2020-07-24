@@ -1,0 +1,4 @@
+If there is the need to modify (not add) one of the files in
+this directory, it most certainly means that there is the need
+to increase the value in the FORMAT_VERSION file in the top
+directory of the project.

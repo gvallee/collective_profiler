@@ -19,6 +19,7 @@ endif
 
 check: alltoallv
 	cd alltoallv && make check
+	cd tools && make check
 
 tests:
 	cd tests && make

@@ -15,9 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
-
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -58,16 +57,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	listBins := counts.GetBinsFromInputDescr(*binThresholds)
+	listBins := bins.GetFromInputDescr(*binThresholds)
 	log.Printf("Ready to create %d bins\n", len(listBins))
 
-	bins, err := counts.GetBinsFromFile(*file, listBins)
+	b, err := bins.GetFromFile(*file, listBins)
 	if err != nil {
 		fmt.Printf("[ERROR] Unable to get bins: %s", err)
 		os.Exit(1)
 	}
 
-	err = counts.SaveBins(*dir, jobids[0], ranks[0], bins)
+	err = bins.Save(*dir, jobids[0], ranks[0], b)
 	if err != nil {
 		fmt.Printf("[ERROR] Unable to save data in %s: %s\n", *dir, err)
 		os.Exit(1)
