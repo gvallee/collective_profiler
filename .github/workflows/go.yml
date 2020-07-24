@@ -26,6 +26,6 @@ jobs:
     - name: Build and test
       run: |
         mkdir -p $GOPATH
-        make tools; make check
+        make tools; cd tools; make check
       env:
         GOPATH: /tmp/go
