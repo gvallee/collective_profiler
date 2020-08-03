@@ -46,7 +46,7 @@ test:
 	cd internal/pkg/patterns; go test -v
 	cd internal/pkg/bins; go test -v
 	cd internal/pkg/maps; go test -v
-	cd internal/pkg/notaiton; go test -v
+	cd internal/pkg/notation; go test -v
 
 check: test
 
