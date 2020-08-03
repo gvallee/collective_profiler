@@ -30,7 +30,7 @@ func main() {
 
 	cmdName := filepath.Base(os.Args[0])
 	if *help {
-		fmt.Printf("%s convert various files from the profiler into the format used for post-portem analysis", cmdName)
+		fmt.Printf("%s converts various files from the profiler into the format used for post-portem analysis", cmdName)
 		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
 	}

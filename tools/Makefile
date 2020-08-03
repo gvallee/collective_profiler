@@ -45,8 +45,9 @@ test:
 	cd internal/pkg/grouping; go test -v
 	cd internal/pkg/patterns; go test -v
 	cd internal/pkg/bins; go test -v
-	cd internal/pkg/maps; go test -v
+	# cd internal/pkg/maps; go test -v
 	cd internal/pkg/notation; go test -v
+	cd internal/pkg/counts; go test -v
 
 check: test
 
