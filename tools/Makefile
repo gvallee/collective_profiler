@@ -1,6 +1,9 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+all: convert map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+
+convert:
+	cd cmd/convert; go build convert.go
 
 map:
 	cd cmd/map; go build map.go
@@ -42,6 +45,10 @@ test:
 	cd internal/pkg/grouping; go test -v
 	cd internal/pkg/patterns; go test -v
 	cd internal/pkg/bins; go test -v
+	cd internal/pkg/maps; go test -v
+	cd internal/pkg/notation; go test -v
+
+check: test
 
 clean:
 	@rm -f cmd/countersextractor/validate
@@ -57,3 +64,4 @@ clean:
 	@rm -f cmd/validate/validate
 	@rm -f cmd/profile/profile
 	@rm -f cmd/map/map
+	@rm -f cmd/convert/convert
