@@ -54,6 +54,9 @@ extern int mpi_fortran_bottom_;
 #define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
 #define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
 
+static int _finalize_profiling();
+static int _commit_data();
+
 void print_trace(FILE *f)
 {
 	assert(f);
@@ -766,6 +769,12 @@ int _mpi_init(int *argc, char ***argv)
 	return ret;
 }
 
+int MPI_Finalize() {
+	_commit_data();
+	_finalize_profiling();
+	return PMPI_Finalize();
+}
+
 int MPI_Init(int *argc, char ***argv)
 {
 	return _mpi_init(argc, argv);
@@ -971,6 +980,50 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
+static void save_counts(int* sendcounts, int* recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call) {
+        char *filename = NULL;
+        int i;
+        int rc;
+
+        if (getenv(OUTPUT_DIR_ENVVAR)) {
+                _asprintf(filename, rc, "%s/counts.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+        } else {
+                _asprintf(filename, rc, "counts.rank%d_call%d.md", world_rank, n_call);
+        }
+        assert (rc > 0);
+
+        FILE *f = fopen(filename, "w");
+
+        fprintf(f, "Send datatype size: %d\n", s_datatype_size);
+        fprintf(f, "Recv datatype size: %d\n", r_datatype_size);
+        fprintf(f, "Comm size: %d\n\n", comm_size);
+
+        int idx = 0;
+        fprintf(f, "Send counts\n");
+        for (i = 0; i < comm_size ; i++) {
+                int j;
+                for (j = 0; j < comm_size; j++) {
+                        fprintf(f, "%d ", sendcounts[idx]);
+                        idx++;
+                }
+                fprintf(f, "\n");
+        }
+
+        fprintf(f, "\n\nRecv counts\n");
+        for (i = 0; i < comm_size ; i++) {
+                int j;
+                for (j = 0; j < comm_size; j++) {
+                        fprintf(f, "%d ", recvcounts[idx]);
+                        idx++;
+                }
+                fprintf(f, "\n");
+        }
+
+        fclose(f);
+        free(filename);
+}
+
+
 static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, int n_call)
 {
 	char *filename = NULL;
@@ -1106,12 +1159,16 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
 #if ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
+#if ENABLE_COMPACT_FORMAT
 			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype)))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
-#endif
+#else
+			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);
+#endif // ENABLE_COMPACT_FORMAT
+#endif // ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
 #if ENABLE_PATTERN_DETECTION
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
@@ -1133,8 +1190,6 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	MPI_Barrier(comm);
 #endif
 
-	avCalls++;
-
 	char *need_data_commit_str = getenv(A2A_COMMIT_PROFILER_DATA_AT_ENVVAR);
 	char *need_to_free_data = getenv(A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR);
 
@@ -1151,6 +1206,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	{
 		_release_profiling_resources();
 	}
+
+	// avCalls is the absolute number of calls that the rank is dealing with
+	avCalls++;
 
 	return ret;
 }
@@ -1190,6 +1248,8 @@ void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_F
 		*ierr = OMPI_INT_2_FINT(c_ierr);
 }
 
+// This is a duplicate of MPI_Finalize() just in case we face a failure or
+// if the app never calls MPI_Finalize().
 void __attribute__((destructor)) calledLast();
 void calledLast()
 {
