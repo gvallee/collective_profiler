@@ -23,6 +23,7 @@ import (
 const (
 	Header = "# Raw counters"
 
+	compactCountsFileHeader    = "# Raw counters\n\n"
 	marker                     = "Count: "
 	numberOfRanksMarker        = "Number of ranks: "
 	datatypeSizeMarker         = "Datatype size: "
@@ -35,6 +36,24 @@ const (
 	// RecvCountersFilePrefix is the prefix used for all receive counts files
 	RecvCountersFilePrefix = "recv-counters."
 )
+
+type compressedRanksCountsT struct {
+	ranks  []int
+	counts string
+}
+
+type rawCountsT struct {
+	sendDatatypeSize int
+	recvDatatypeSize int
+	commSize         int
+	sendCounts       []string
+	recvCounts       []string
+}
+
+type rawCountsCallsT struct {
+	calls  []int
+	counts *rawCountsT
+}
 
 // CallData gathers all the data related to one and only one alltoallv call
 type CallData struct {
@@ -205,6 +224,19 @@ type SendRecvStats struct {
 		SendPatterns      map[int]int
 		RecvPatterns      map[int]int
 	*/
+}
+
+// CommDataT is a structure that allows us to store alltoallv calls' data on a per-communicator basis.
+// The communicator is identified by the leadRank, i.e., the comm world rank of the communicator's rank 0.
+// Note that for any leadRank, it is possible to have multiple commDataT since alltoallv calls can be
+// invoked on different communicators with the same leadRank and we are currently limited to compare
+// communicators to identify these that are identical.
+type CommDataT struct {
+	// LeadRank is the rank on COMMWORLD that is rank 0 on the communicator used for the alltoallv operation
+	LeadRank int
+
+	// CallData is the data for all the alltoallv calls performed on the communicator(s) led by leadRank
+	CallData map[int]*CallData // key is the call number and the value a pointer to the call's data (several calls can share the same data)
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
