@@ -692,23 +692,27 @@ static char *get_pe_id(int comm_rank)
 
 	_asprintf(id, size, "%d.%d.%d", getpid(), world_rank, comm_rank);
 	assert(size > 0 && size < 128);
-	if (size+strlen(hostname) < 128) {
+	if (size + strlen(hostname) < 128)
+	{
 		char *str = NULL;
 		_asprintf(str, size, "%s.%s", id, hostname);
 		assert(size > 0 && size < 128);
 		str = realloc(str, 128);
 		assert(str);
 		return str;
-	} else {
+	}
+	else
+	{
 		int idx;
 		int digits_len = idx = strlen(id);
 		int avail_len = 128 - digits_len;
 		int j;
 		int start_idx = strlen(hostname) - avail_len;
-		assert (start_idx > 0); // otherwise it would mean the hostname fits
+		assert(start_idx > 0); // otherwise it would mean the hostname fits
 		id = realloc(id, 128);
 		assert(id);
-		for (j = start_idx + 1 ; j < strlen(hostname); j++) {
+		for (j = start_idx + 1; j < strlen(hostname); j++)
+		{
 			id[idx] = hostname[j];
 			idx++;
 		}
@@ -769,7 +773,8 @@ int _mpi_init(int *argc, char ***argv)
 	return ret;
 }
 
-int MPI_Finalize() {
+int MPI_Finalize()
+{
 	_commit_data();
 	_finalize_profiling();
 	return PMPI_Finalize();
@@ -980,49 +985,57 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
-static void save_counts(int* sendcounts, int* recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call) {
-        char *filename = NULL;
-        int i;
-        int rc;
+static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call)
+{
+	char *filename = NULL;
+	int i;
+	int rc;
 
-        if (getenv(OUTPUT_DIR_ENVVAR)) {
-                _asprintf(filename, rc, "%s/counts.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-        } else {
-                _asprintf(filename, rc, "counts.rank%d_call%d.md", world_rank, n_call);
-        }
-        assert (rc > 0);
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		_asprintf(filename, rc, "%s/counts.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+	}
+	else
+	{
+		_asprintf(filename, rc, "counts.rank%d_call%d.md", world_rank, n_call);
+	}
+	assert(rc > 0);
 
-        FILE *f = fopen(filename, "w");
+	FILE *f = fopen(filename, "w");
 
-        fprintf(f, "Send datatype size: %d\n", s_datatype_size);
-        fprintf(f, "Recv datatype size: %d\n", r_datatype_size);
-        fprintf(f, "Comm size: %d\n\n", comm_size);
+	fprintf(f, "Send datatype size: %d\n", s_datatype_size);
+	fprintf(f, "Recv datatype size: %d\n", r_datatype_size);
+	fprintf(f, "Comm size: %d\n\n", comm_size);
 
-        int idx = 0;
-        fprintf(f, "Send counts\n");
-        for (i = 0; i < comm_size ; i++) {
-                int j;
-                for (j = 0; j < comm_size; j++) {
-                        fprintf(f, "%d ", sendcounts[idx]);
-                        idx++;
-                }
-                fprintf(f, "\n");
-        }
+	int idx = 0;
+	fprintf(f, "Send counts\n");
+	for (i = 0; i < comm_size; i++)
+	{
+		int j;
+		for (j = 0; j < comm_size; j++)
+		{
+			fprintf(f, "%d ", sendcounts[idx]);
+			idx++;
+		}
+		fprintf(f, "\n");
+	}
 
-        fprintf(f, "\n\nRecv counts\n");
-        for (i = 0; i < comm_size ; i++) {
-                int j;
-                for (j = 0; j < comm_size; j++) {
-                        fprintf(f, "%d ", recvcounts[idx]);
-                        idx++;
-                }
-                fprintf(f, "\n");
-        }
+	fprintf(f, "\n\nRecv counts\n");
+	idx = 0;
+	for (i = 0; i < comm_size; i++)
+	{
+		int j;
+		for (j = 0; j < comm_size; j++)
+		{
+			fprintf(f, "%d ", recvcounts[idx]);
+			idx++;
+		}
+		fprintf(f, "\n");
+	}
 
-        fclose(f);
-        free(filename);
+	fclose(f);
+	free(filename);
 }
-
 
 static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, int n_call)
 {
@@ -1030,22 +1043,28 @@ static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int
 	int i;
 	int rc;
 
-	if (getenv(OUTPUT_DIR_ENVVAR)) {
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
 		_asprintf(filename, rc, "%s/locations_rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	} else {
+	}
+	else
+	{
 		_asprintf(filename, rc, "locations_rank%d_call%d.md", world_rank, n_call);
 	}
-	assert (rc > 0);
+	assert(rc > 0);
 
 	FILE *f = fopen(filename, "w");
-	for (i = 0; i < comm_size; i++) {
+	for (i = 0; i < comm_size; i++)
+	{
 		fprintf(f, "COMMWORLD rank: %d - COMM rank: %d - PID: %d - Hostname: ", world_comm_ranks[i], i, pids[i]);
 		int j;
-		for (j = 0; j < 256; j++) {
-			if (hostnames[i*256+j] == '\0') {
+		for (j = 0; j < 256; j++)
+		{
+			if (hostnames[i * 256 + j] == '\0')
+			{
 				break;
 			}
-			fprintf(f, "%c", hostnames[i*256+j]);
+			fprintf(f, "%c", hostnames[i * 256 + j]);
 		}
 		fprintf(f, "\n");
 	}
@@ -1130,28 +1149,29 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
-#endif // ENABLE_TIMING 
+#endif // ENABLE_TIMING
 
 #if ENABLE_LOCATION_TRACKING
 		int my_pid = getpid();
-		int* pids = (int*)malloc(comm_size*sizeof(int));
+		int *pids = (int *)malloc(comm_size * sizeof(int));
 		assert(pids);
-		int *world_comm_ranks = (int*)malloc(comm_size*sizeof(int));
+		int *world_comm_ranks = (int *)malloc(comm_size * sizeof(int));
 		assert(world_comm_ranks);
 		char hostname[256];
 		gethostname(hostname, 256);
-		char *hostnames = (char*)malloc(256*comm_size*sizeof(char));
+		char *hostnames = (char *)malloc(256 * comm_size * sizeof(char));
 		assert(hostnames);
 
 		MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
 		MPI_Gather(&world_rank, 1, MPI_INT, world_comm_ranks, 1, MPI_INT, 0, comm);
 		MPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
-		if (my_comm_rank == 0) {
+		if (my_comm_rank == 0)
+		{
 			save_rank_ids(pids, world_comm_ranks, hostnames, comm_size, avCalls);
 		}
 #endif // ENABLE_LOCATION_TRACKING
 
-	//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
+		//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
 
 		if (my_comm_rank == 0)
 		{
