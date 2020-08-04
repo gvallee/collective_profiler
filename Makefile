@@ -33,3 +33,6 @@ clean:
 	cd tools && make clean
 	cd tests && make clean
 	cd doc && make clean
+
+validate: tools
+	cd tools/cmd/validate; ./validate -profiler
