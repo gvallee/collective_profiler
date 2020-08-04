@@ -1,4 +1,4 @@
-all: liballtoallv.so liballtoallv_location.so liballtoallv_counts.so liballtoallv_timings.so liballtoallv_backtrace.so grouping_test compress_array_test patterns_detection_test
+all: liballtoallv.so liballtoallv_location.so liballtoallv_counts.so liballtoallv_late_arrival.so liballtoallv_a2a_timings.so liballtoallv_backtrace.so grouping_test compress_array_test patterns_detection_test
 
 logger.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -c logger.c
@@ -6,8 +6,11 @@ logger.o: logger.c logger.h alltoallv_profiler.h
 logger_counts.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -DENABLE_RAW_DATA=1 -c logger.c -o logger_counts.o
 
-logger_timings.o: logger.c logger.h alltoallv_profiler.h
-	$(CC) -fPIC -DENABLE_TIMING=1 -c logger.c -o logger_timings.o
+logger_a2a_timings.o: logger.c logger.h alltoallv_profiler.h
+	$(CC) -fPIC -DENABLE_A2A_TIMING=1 -c logger.c -o logger_a2a_timings.o
+
+logger_late_arrival_timings.o: logger.c logger.h alltoallv_profiler.h
+	$(CC) -fPIC -DENABLE_LATE_ARRIVAL_TIMING=1 -c logger.c -o logger_late_arrival_timings.o
 
 logger_backtrace.o: logger.c logger.h alltoallv_profiler.h
 	$(CC) -fPIC -DENABLE_BACKTRACE=1 -c logger.c -o logger_backtrace.o
@@ -33,8 +36,11 @@ patterns_detection_test: pattern.o patterns_detection_test.c
 liballtoallv_counts.so: logger_counts.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC -DENABLE_RAW_DATA=1 logger_counts.o grouping.o mpi_alltoallv.c -o liballtoallv_counts.so
 
-liballtoallv_timings.so: logger_timings.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -g -shared -fPIC -DENABLE_TIMING=1 logger_timings.o grouping.o mpi_alltoallv.c -o liballtoallv_timings.so
+liballtoallv_a2a_timings.so: logger_a2a_timings.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
+	mpicc -g -shared -fPIC -DENABLE_A2A_TIMING=1 logger_a2a_timings.o grouping.o mpi_alltoallv.c -o liballtoallv_a2a_timings.so
+
+liballtoallv_late_arrival.so: logger_late_arrival_timings.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
+	mpicc -g -shared -fPIC -DENABLE_LATE_ARRIVAL_TIMING=1 logger_late_arrival_timings.o grouping.o mpi_alltoallv.c -o liballtoallv_late_arrival.so
 
 liballtoallv_backtrace.so: logger_backtrace.o grouping.o pattern.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -g -shared -fPIC -DENABLE_BACKTRACE=1 logger_backtrace.o grouping.o mpi_alltoallv.c -o liballtoallv_backtrace.so

@@ -38,10 +38,15 @@ static int get_job_id()
     if (getenv("SLURM_JOB_ID"))
     {
         jobid = getenv("SLURM_JOB_ID");
-    } else {
-        if (getenv("LSB_JOBID")) {
+    }
+    else
+    {
+        if (getenv("LSB_JOBID"))
+        {
             jobid = getenv("LSB_JOBID");
-        } else {
+        }
+        else
+        {
             jobid = "0";
         }
     }
@@ -572,23 +577,24 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 #endif
 }
 
-static void log_timings(logger_t *logger, int num_call, double *timings, double *late_arrival_timings, int size)
+static void log_timings(logger_t *logger, int num_call, double *timings, int size)
 {
     int j;
 
     if (logger->timing_fh == NULL)
     {
+        // Default filename that we overwrite based on enabled features
         logger->timing_filename = get_full_filename(MAIN_CTX, "timings", logger->rank);
+#if ENABLE_A2A_TIMING
+        logger->timing_filename = get_full_filename(MAIN_CTX, "a2a-timings", logger->rank);
+#endif // ENABLE_A2A_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
+        logger->timing_filename = get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->rank);
+#endif // ENABLE_LATE_ARRIVAL_TIMING
         logger->timing_fh = fopen(logger->timing_filename, "w");
     }
 
     fprintf(logger->timing_fh, "Alltoallv call #%d\n", num_call);
-    fprintf(logger->timing_fh, "# Late arrival timings\n");
-    for (j = 0; j < size; j++)
-    {
-        fprintf(logger->timing_fh, "Rank %d: %f\n", j, late_arrival_timings[j]);
-    }
-    fprintf(logger->timing_fh, "# Execution times of Alltoallv function\n");
     for (j = 0; j < size; j++)
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
@@ -641,7 +647,7 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
     }
 #endif
 
-#if ENABLE_TIMING
+#if ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
     // Handle the timing data
     if (times_list != NULL)
     {
@@ -649,12 +655,12 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         int i = 0;
         while (tPtr != NULL)
         {
-            log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
+            log_timings(logger, i, tPtr->timings, tPtr->size);
             tPtr = tPtr->next;
             i++;
         }
     }
-#endif
+#endif // ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
 }
 
 logger_t *logger_init(int world_rank, int world_size)
@@ -724,7 +730,7 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
     i = 0;
     while (tPtr != NULL)
     {
-        log_timings(logger, i, tPtr->timings, tPtr->t_arrivals, tPtr->size);
+        log_timings(logger, i, tPtr->timings, tPtr->size);
         tPtr = tPtr->next;
         i++;
     }
