@@ -36,6 +36,7 @@ const (
 	hostnameID         = "Hostname: "
 
 	commHeatMapPrefix   = "heat-map-subcomm"
+	hostHeatMapPrefix   = "hosts-heat-map.rank"
 	callHeatMapPrefix   = "heat-map.rank"
 	globalHeatMapPrefix = "heat-map.txt"
 	rankFilename        = "rankfile.txt"
@@ -130,7 +131,7 @@ func getLocationsFromStrings(lines []string) ([]Location, error) {
 			return nil, err
 		}
 
-		l.Hostname = strings.TrimLeft(tokens[3], hostnameID)
+		l.Hostname = strings.Replace(tokens[3], hostnameID, "", 1) // Surprisingly strings.TrimLeft(tokens[3], hostnameID) truncates the result, something to do with ":"
 
 		locations = append(locations, l)
 	}
@@ -167,7 +168,7 @@ func getRankMapFromLocations(locations []Location) map[int]int {
 	return m
 }
 
-func saveHeatMap(heatmap map[int]int, filepath string) error {
+func saveCallHeatMap(heatmap map[int]int, filepath string) error {
 	fd, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
@@ -175,6 +176,21 @@ func saveHeatMap(heatmap map[int]int, filepath string) error {
 	defer fd.Close()
 	for key, value := range heatmap {
 		_, err := fd.WriteString(fmt.Sprintf("Rank %d: %d bytes\n", key, value))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func saveHostHeatMap(heatMap map[string]int, filepath string) error {
+	fd, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	for key, value := range heatMap {
+		_, err := fd.WriteString(fmt.Sprintf("Host %s: %d bytes\n", key, value))
 		if err != nil {
 			return err
 		}
@@ -197,10 +213,11 @@ func getCallInfo(countFile string, callID int) (int, []string, error) {
 	return datatypeSize, callCounts, nil
 }
 
-func createMapFromCounts(callCounts []string, datatypeSize int, ranksMap map[int]int /*ranksLocation []Location*/, globalHeatMap map[int]int) (map[int]int, error) {
+func createCallsMapsFromCounts(callCounts []string, datatypeSize int, rankMap rankFileData, ranksMap map[int]int, globalHeatMap map[int]int) (map[int]int, map[string]int, error) {
 	// Now we can have send counts for all the ranks on the communicator as well as th translation comm rank to COMMWORLD rank
 	// We can populate the heat map
 	callHeatMap := make(map[int]int)
+	callHostHeatMap := make(map[string]int)
 
 	for _, counts := range callCounts {
 		counts = strings.TrimRight(counts, "\n")
@@ -209,7 +226,7 @@ func createMapFromCounts(callCounts []string, datatypeSize int, ranksMap map[int
 		// which we do not care about here
 		tokens := strings.Split(counts, ": ")
 		if len(tokens) != 2 {
-			return nil, fmt.Errorf("wrong counts format: %s", counts)
+			return nil, nil, fmt.Errorf("wrong counts format: %s", counts)
 		}
 		counts = tokens[1]
 
@@ -222,104 +239,49 @@ func createMapFromCounts(callCounts []string, datatypeSize int, ranksMap map[int
 			worldRank := ranksMap[curRank]
 			count, err := strconv.Atoi(countStr)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
+			curRankHost := rankMap.rankMap[curRank]
+			callHostHeatMap[curRankHost] += count * datatypeSize
 			globalHeatMap[worldRank] += count * datatypeSize
 			callHeatMap[worldRank] += count * datatypeSize
 			curRank++
 		}
 	}
-	return callHeatMap, nil
+	return callHeatMap, callHostHeatMap, nil
 }
 
-func createHeatMap(dir string, rankMap rankFileData, allCallsData []counts.CommDataT, callMap map[int][]Location, callsRanksMap map[int]map[int]int) error {
-	// Find all the files that have location data
-	/* GV HERE
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	*/
-
-	/*
-		var locationFiles []string
-		var countsFiles []string
-		for _, file := range files {
-			if strings.HasPrefix(file.Name(), locationFilePrefix) {
-				locationFiles = append(locationFiles, filepath.Join(dir, file.Name()))
-			}
-			if strings.HasPrefix(file.Name(), counts.SendCountersFilePrefix) {
-				countsFiles = append(countsFiles, filepath.Join(dir, file.Name()))
-			}
-		}
-	*/
-
-	// Create a list of all the communicators and all the alltoallv calls on these
-
+func createHeatMap(dir string, rankMap rankFileData, allCallsData []counts.CommDataT, callsRanksMap map[int]map[int]int) error {
 	globalHeatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
-	bar := progress.NewBar(len(allCallsData), "Rank location files")
+	bar := progress.NewBar(len(allCallsData), "Gathering map data")
 	defer progress.EndBar(bar)
 
+	// Create maps at the call level
 	for leadRank, v := range allCallsData {
 		bar.Increment(1)
 		for callID, cd := range v.CallData {
-			callHeatMap, err := createMapFromCounts(cd.SendData.Counts, cd.SendData.Statistics.DatatypeSize, callsRanksMap[callID], globalHeatMap)
+			callHeatMap, hostHeatMap, err := createCallsMapsFromCounts(cd.SendData.Counts, cd.SendData.Statistics.DatatypeSize, rankMap, callsRanksMap[callID], globalHeatMap)
 			if err != nil {
 				return err
 			}
 
-			// Save the call-based heat map
+			// Save the call-based heat maps
 			callHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d.call%d.txt", callHeatMapPrefix, leadRank, callID))
-			err = saveHeatMap(callHeatMap, callHeatMapFilePath)
+			err = saveCallHeatMap(callHeatMap, callHeatMapFilePath)
+			if err != nil {
+				return err
+			}
+			hostHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d.call%d.txt", hostHeatMapPrefix, leadRank, callID))
+			err = saveHostHeatMap(hostHeatMap, hostHeatMapFilePath)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	/*
-		for _, file := range locationFiles {
-				bar.Increment(1)
-
-					// This is not correct, commHeatMap will give the heat map for the last call that will be analyzed, it does not make sense.
-					commHeatMap := make(map[int]int)
-
-					callID, rankID, err := getCallidRankFromLocationFile(file)
-					if err != nil {
-						return err
-					}
-
-					countFile := findCountFile(countsFiles, rankID)
-
-					l, err := parseLocationFile(file)
-					if err != nil {
-						return err
-					}
-
-						// Get call info
-						datatypeSize, callCounts, err := getCallInfo(countFile, callID)
-						if err != nil {
-							return err
-						}
-
-						ranksMap := getRankMapFromLocations(l)
-
-							err = createMapFromCounts(heatMap, commHeatMap)
-							if err != nil {
-								return err
-							}
-
-				// Save the communicator-based heat map
-				commHeatMapFilePath := filepath.Join(dir, commHeatMapPrefix+".rank"+strconv.Itoa(rankID)+".txt")
-				err = saveHeatMap(commHeatMap, commHeatMapFilePath)
-				if err != nil {
-					return err
-				}
-			}
-	*/
 
 	// Save the heat map for the entire execution
 	globalHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix)
-	err := saveHeatMap(globalHeatMap, globalHeatMapFilePath)
+	err := saveCallHeatMap(globalHeatMap, globalHeatMapFilePath)
 	if err != nil {
 		return err
 	}
@@ -332,11 +294,11 @@ func createHeatMap(dir string, rankMap rankFileData, allCallsData []counts.CommD
 func Create(id int, dir string, allCallsData []counts.CommDataT) error {
 	switch id {
 	case Heat:
-		rankMap, callsMap, callsRanksMap, err := prepareRanksMap(dir)
+		rankMap, _, callsRanksMap, err := prepareRanksMap(dir)
 		if err != nil {
 			return err
 		}
-		return createHeatMap(dir, rankMap, allCallsData, callsMap, callsRanksMap)
+		return createHeatMap(dir, rankMap, allCallsData, callsRanksMap)
 	}
 
 	return fmt.Errorf("unknown map type: %d", id)
@@ -515,7 +477,7 @@ func prepareRanksMap(dir string) (rankFileData, map[int][]Location, map[int]map[
 		// Now we have a curated data, i.e., unique location files that represent location data for all the alltoallv calls performed on the communicator(s) led by leadRank.
 		// So we can efficiently parse the location files.
 		// We also slowly build the rank file's data will going through the files.
-		m, _ /*callMap*/, err := getRankMapFromFile(commRankMap, hm, callMap)
+		m, _, err := getRankMapFromFile(commRankMap, hm, callMap)
 		if err != nil {
 			return hm, nil, nil, err
 		}
