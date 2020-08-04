@@ -29,7 +29,7 @@
 #define A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR "A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT"
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
-#define DEFAULT_LIMIT_ALLTOALLV_CALLS (2) // Maximum number of alltoallv calls that we profile (-1 means no limit)
+#define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
 #define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALLV_CALLS says when we stop profiling
 #define DEFAULT_TRACKED_CALLS (10)
 
