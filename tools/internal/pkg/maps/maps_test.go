@@ -10,7 +10,15 @@ import (
 	"testing"
 )
 
-func TestMapCreate(t *testing.T) {
+func getRanksMapFromLocations(locations []Location) map[int]int {
+	ranksMap := make(map[int]int)
+	for _, l := range locations {
+		ranksMap[l.CommRank] = l.CommWorldRank
+	}
+	return ranksMap
+}
+
+func TestCreateMapFromCounts(t *testing.T) {
 	tests := []struct {
 		name            string
 		datatypeSize    int
@@ -28,6 +36,36 @@ func TestMapCreate(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Fatalf("Not running test %s", tt.name)
+		globalHeatMap := make(map[int]int)
+		l, err := getLocationsFromStrings(tt.locations)
+		if err != nil {
+			t.Fatalf("getLocationFromString() failed: %s", err)
+		}
+
+		ranksMap := getRanksMapFromLocations(l)
+		callHeatMap, err := createMapFromCounts(tt.counts, tt.datatypeSize, ranksMap, globalHeatMap)
+		if err != nil {
+			t.Fatalf("createMapFromCounts() failed: %s", err)
+		}
+
+		if len(callHeatMap) != len(tt.expectedHeatMap) {
+			t.Fatalf("call heat map has an invalid size: %d instead of %d", len(callHeatMap), len(tt.expectedHeatMap))
+		}
+		if len(globalHeatMap) != len(tt.expectedHeatMap) {
+			t.Fatalf("global heat map has an invalid size: %d instead of %d", len(globalHeatMap), len(tt.expectedHeatMap))
+		}
+
+		for i := 0; i < len(tt.expectedHeatMap); i++ {
+			if callHeatMap[i] != tt.expectedHeatMap[i] {
+				t.Fatalf("Value for rank %d in call heat is invalid: %d instead of %d", i, callHeatMap[i], tt.expectedHeatMap[i])
+			}
+		}
+
+		for i := 0; i < len(tt.expectedHeatMap); i++ {
+			if globalHeatMap[i] != tt.expectedHeatMap[i] {
+				t.Fatalf("Value for rank %d in call heat is invalid: %d instead of %d", i, globalHeatMap[i], tt.expectedHeatMap[i])
+			}
+		}
+
 	}
 }
