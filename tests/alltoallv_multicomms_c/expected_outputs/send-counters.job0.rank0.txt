@@ -1,0 +1,22 @@
+# Raw counters
+
+Number of ranks: 2
+Datatype size: 8
+Alltoallv calls 0-2
+Count: 2 calls - 0, 2
+
+
+BEGINNING DATA
+Rank(s) 0-1: 0 1 
+END DATA
+# Raw counters
+
+Number of ranks: 4
+Datatype size: 8
+Alltoallv calls 0-2
+Count: 1 calls - 1
+
+
+BEGINNING DATA
+Rank(s) 0-3: 0 1 2 3 
+END DATA
