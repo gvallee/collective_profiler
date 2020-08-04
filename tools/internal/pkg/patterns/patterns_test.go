@@ -7,9 +7,6 @@
 package patterns
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,27 +15,18 @@ import (
 	"testing"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 )
 
 func compareFiles(t *testing.T, file1 string, file2 string) {
-	file1Fd, err := os.Open(file1)
+	hashFile1, err := hash.File(file1)
 	if err != nil {
-		t.Fatalf("os.Open() failed: %s", err)
+		t.Fatalf("hash.File() failed: %s", err)
 	}
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, file1Fd)
+	hashFile2, err := hash.File(file2)
 	if err != nil {
-		t.Fatalf("io.Copy() failed: %s", err)
+		t.Fatalf("hash.File() failed: %s", err)
 	}
-	hashFile1 := hex.EncodeToString(hasher.Sum(nil))
-
-	file2Fd, err := os.Open(file2)
-	if err != nil {
-		t.Fatalf("os.Open() failed: %s", err)
-	}
-	hasher = sha256.New()
-	_, err = io.Copy(hasher, file2Fd)
-	hashFile2 := hex.EncodeToString(hasher.Sum(nil))
 
 	if hashFile1 != hashFile2 {
 		t.Fatalf("resulting file is not as expected: hashes are %s and %s (%s %s)", hashFile1, hashFile2, file1, file2)

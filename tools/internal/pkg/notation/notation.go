@@ -48,7 +48,11 @@ func CompressIntArray(array []int) string {
 
 func GetNumberOfEltsFromCompressedNotation(str string) (int, error) {
 	num := 0
+	// ", " and "," are two possible delimiters but cannot be mixed
 	t1 := strings.Split(str, ", ")
+	if len(t1) == 1 {
+		t1 = strings.Split(str, ",")
+	}
 	for _, t := range t1 {
 		t2 := strings.Split(t, "-")
 		if len(t2) == 2 {
@@ -69,25 +73,7 @@ func GetNumberOfEltsFromCompressedNotation(str string) (int, error) {
 }
 
 func GetNumberOfRanksFromCompressedNotation(str string) (int, error) {
-	num := 0
-	t1 := strings.Split(str, ", ")
-	for _, t := range t1 {
-		t2 := strings.Split(t, "-")
-		if len(t2) == 2 {
-			val1, err := strconv.Atoi(t2[0])
-			if err != nil {
-				return 0, err
-			}
-			val2, err := strconv.Atoi(t2[1])
-			if err != nil {
-				return 0, err
-			}
-			num += val2 - val1 + 1
-		} else {
-			num++
-		}
-	}
-	return num, nil
+	return GetNumberOfEltsFromCompressedNotation(str)
 }
 
 func ConvertCompressedCallListToIntSlice(str string) ([]int, error) {

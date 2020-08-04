@@ -42,7 +42,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	err := maps.Create(maps.Heat, *dir)
+	err := maps.Create(maps.Heat, *dir, nil)
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s", err)
 		os.Exit(1)

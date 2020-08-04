@@ -57,9 +57,6 @@ type rawCountsCallsT struct {
 
 // CallData gathers all the data related to one and only one alltoallv call
 type CallData struct {
-	// ID is the call number (zero-indexed)
-	ID int
-
 	// CommSize is the communicator size used for the call
 	CommSize int
 

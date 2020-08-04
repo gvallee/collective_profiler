@@ -44,6 +44,7 @@ func main() {
 		fmt.Printf("%s extracts data from send and receive counts and gathers statistics about them.", cmdName)
 		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
+		os.Exit(0)
 	}
 
 	if !util.PathExists(*outputDir) {
