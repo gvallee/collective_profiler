@@ -520,26 +520,19 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	return 0;
 }
 
-static void insert_op_exec_times_data(double *timings, double *t_arrivals, int size)
+static void insert_op_exec_times_data(double *timings, int size)
 {
 	assert(timings);
 	struct avTimingsNode *newNode = (struct avTimingsNode *)calloc(1, sizeof(struct avTimingsNode));
 	assert(newNode);
 	newNode->timings = (double *)malloc(size * sizeof(double));
 	assert(newNode->timings);
-	newNode->t_arrivals = (double *)malloc(size * sizeof(double));
-	assert(newNode->t_arrivals);
 
 	newNode->size = size;
 	int i;
 	for (i = 0; i < size; i++)
 	{
 		newNode->timings[i] = timings[i];
-	}
-
-	for (i = 0; i < size; i++)
-	{
-		newNode->t_arrivals[i] = t_arrivals[i];
 	}
 
 	if (op_timing_exec_head == NULL)
@@ -756,12 +749,14 @@ int _mpi_init(int *argc, char ***argv)
 	assert(sbuf);
 	rbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
 	assert(rbuf);
-#if ENABLE_TIMING
+#if ENABLE_A2A_TIMING
 	op_exec_times = (double *)malloc(world_size * sizeof(double));
 	assert(op_exec_times);
+#endif // ENABLE_A2A_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
 	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
 	assert(late_arrival_timings);
-#endif
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 
 #if ENABLE_VALIDATION
 	srand((unsigned)getpid());
@@ -916,9 +911,11 @@ static int _commit_data()
 {
 	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
 
+	/*
 #if ENABLE_TIMING
 	log_timing_data(logger, op_timing_exec_head);
 #endif // ENABLE_TIMING
+*/
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
 	save_patterns(world_rank);
@@ -1121,35 +1118,33 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			avCallStart = avCalls;
 		}
 
-#if ENABLE_LOCATION_TRACKING
-/*
-	char *my_id = get_pe_id(my_comm_rank);
-	char *all_ids = malloc(128*comm_size*sizeof(char));
-	assert(all_ids);
-*/
-#endif // ENABLE_LOCATION_TRACKING
-
-#if ENABLE_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
 		double t_barrier_end = MPI_Wtime();
+#endif // ENABLE_LATE_ARRIVAL_TIMING
+#if ENABLE_A2A_TIMING
 		double t_start = MPI_Wtime();
-#endif // ENABLE_TIMING
+#endif // ENABLE_A2A_TIMING
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
-#if ENABLE_TIMING
+#if ENABLE_A2A_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
+#endif // ENABLE_A2A_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
 		double t_arrival = t_barrier_end - t_barrier_start;
-#endif // ENABLE_TIMING
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 
 		// Gather a bunch of counters
 		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
 		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
 
-#if ENABLE_TIMING
+#if ENABLE_A2A_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
+#endif // ENABLE_A2A_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
-#endif // ENABLE_TIMING
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 
 #if ENABLE_LOCATION_TRACKING
 		int my_pid = getpid();
@@ -1192,8 +1187,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_PATTERN_DETECTION
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
-#if ENABLE_TIMING
-			insert_op_exec_times_data(op_exec_times, late_arrival_timings, comm_size);
+#if ENABLE_A2A_TIMING
+			insert_op_exec_times_data(op_exec_times, comm_size);
+#endif
+#if ENABLE_LATE_ARRIVAL_TIMING
+			insert_op_exec_times_data(late_arrival_timings, comm_size);
 #endif
 			avCallsLogged++;
 		}

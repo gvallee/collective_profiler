@@ -52,10 +52,15 @@
 #define ENABLE_COMPACT_FORMAT (1)
 #endif // ENABLE_COMPACT_FORMAT
 
-// Switch to enable/disable timing of various operations
-#ifndef ENABLE_TIMING
-#define ENABLE_TIMING (0)
-#endif // ENABLE_TIMING
+// Switch to enable/disable timing of alltoallv operations
+#ifndef ENABLE_A2A_TIMING
+#define ENABLE_A2A_TIMING (0)
+#endif // ENABLE_A2A_TIMING
+
+// Switch to enable/disable timing of late arrivals
+#ifndef ENABLE_LATE_ARRIVAL_TIMING
+#define ENABLE_LATE_ARRIVAL_TIMING (0)
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 
 // Switch to enable/disable tracking of the ranks' location
 #ifndef ENABLE_LOCATION_TRACKING
@@ -124,8 +129,7 @@ typedef struct avSRCountNode
 typedef struct avTimingsNode
 {
     int size;
-    double *timings;    // Time spent in the alltoallv function
-    double *t_arrivals; // Arrival time (used to track late arrival)
+    double *timings; // Time spent in the alltoallv function
     struct avTimingsNode *next;
 } avTimingsNode_t;
 
