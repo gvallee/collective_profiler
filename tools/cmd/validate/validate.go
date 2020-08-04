@@ -46,7 +46,6 @@ func validateProfiler() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("CHECKME: %s\n", makeBin)
 
 	// Compile both the profiler libraries and the example
 	log.Println("Building libraries and tests...")
