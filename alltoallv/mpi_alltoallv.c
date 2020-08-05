@@ -982,6 +982,47 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
+static void save_times(double *times, int comm_size, int n_call)
+{
+	char *filename = NULL;
+	int i;
+	int rc;
+
+#ifdef ENABLE_A2A_TIMINGS
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+	}
+	else
+	{
+		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%d.md", world_rank, n_call);
+	}
+#endif // ENABLE_A2A_TIMINGS
+
+#ifdef ENABLE_LATE_ARRIVAL_TIMING
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+	}
+	else
+	{
+		_asprintf(filename, rc, "late_arrival_times.rank%d_call%d.md", world_rank, n_call);
+	}
+#endif // ENABLE_LATE_ARRIVAL_TIMING
+	assert(rc > 0);
+
+	FILE *f = fopen(filename, "w");
+	assert(f);
+
+	for (i = 0; i < comm_size; i++)
+	{
+		fprintf(f, "%f\n", times[i]);
+	}
+
+	fclose(f);
+	free(filename);
+}
+
 static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call)
 {
 	char *filename = NULL;
@@ -999,6 +1040,7 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 	assert(rc > 0);
 
 	FILE *f = fopen(filename, "w");
+	assert(f);
 
 	fprintf(f, "Send datatype size: %d\n", s_datatype_size);
 	fprintf(f, "Recv datatype size: %d\n", r_datatype_size);
@@ -1188,11 +1230,19 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
 #if ENABLE_A2A_TIMING
+#if ENABLE_COMPACT_FORMAT
 			insert_op_exec_times_data(op_exec_times, comm_size);
-#endif
+#else
+			save_times(op_exec_times, comm_size, avCalls);
+#endif // ENABLE_COMPACT_FORMAT
+#endif // ENABLE_A2A_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
+#if ENABLE_COMPACT_FORMAT
 			insert_op_exec_times_data(late_arrival_timings, comm_size);
-#endif
+#else
+			save_times(late_arrival_timings, comm_size, avCalls);
+#endif // ENABLE_COMPACT_FORMAT
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 			avCallsLogged++;
 		}
 	}
