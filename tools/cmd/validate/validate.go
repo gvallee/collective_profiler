@@ -16,11 +16,40 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 	"github.com/gvallee/go_util/pkg/util"
 )
+
+const (
+	sharedLibCounts      = "liballtoallv_counts.so"
+	sharedLibBacktrace   = "liballtoallv_backtrace.so"
+	sharedLibLocation    = "liballtoallv_location.so"
+	sharedLibLateArrival = "liballtoallv_late_arrival.so"
+	sharedLibA2ATime     = "liballtoallv_a2a_timings.so"
+
+	exampleFileC          = "alltoallv.c"
+	exampleFileF          = "alltoallv.f90"
+	exampleFileMulticommC = "alltoallv_multicomms.c"
+
+	exampleBinaryC          = "alltoallv_c"
+	exampleBinaryF          = "alltoallv_f"
+	exampleBinaryMulticommC = "alltoallv_multicomms_c"
+)
+
+type Test struct {
+	np                             int
+	source                         string
+	binary                         string
+	expectedSendCompactCountsFiles []string
+	expectedRecvCompactCountsFiles []string
+	expectedCountsFiles            []string
+	expectedLocationFiles          []string
+	expectedA2ATimeFiles           []string
+	expectedLateArrivalFiles       []string
+}
 
 func validateCountProfiles(dir string, jobid int, id int) error {
 	err := counts.Validate(jobid, id, dir)
@@ -31,7 +60,98 @@ func validateCountProfiles(dir string, jobid int, id int) error {
 	return nil
 }
 
+func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []string) error {
+	for _, expectedOutputFile := range expectedFiles {
+		referenceFile := filepath.Join(expectedOutputDir, expectedOutputFile)
+		resultFile := filepath.Join(tempDir, expectedOutputFile)
+		fmt.Printf("Comparing %s and %s...", referenceFile, resultFile)
+		hashResultFile, err := hash.File(resultFile)
+		if err != nil {
+			fmt.Println(" failed")
+			return err
+		}
+		hashRefFile, err := hash.File(referenceFile)
+		if err != nil {
+			fmt.Println(" failed")
+			return err
+		}
+		if hashRefFile != hashResultFile {
+			fmt.Println(" failed")
+			return fmt.Errorf("Invalid output, send counters do not match")
+		}
+		fmt.Println(" ok")
+	}
+
+	return nil
+}
+
+func checkOutput(basedir string, tempDir string, tt Test) error {
+	expectedOutputDir := filepath.Join(basedir, "tests", tt.binary, "expectedOutput")
+
+	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
+	if err != nil {
+		return err
+	}
+
+	err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedRecvCompactCountsFiles)
+	if err != nil {
+		return err
+	}
+
+	/*
+		fixme: timings and locations are specific to a run. So we need to check how
+		many calls and how many files rather than the content if exactly the same
+
+		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedA2ATimeFiles)
+		if err != nil {
+			return err
+		}
+
+		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedLateArrivalFiles)
+		if err != nil {
+			return err
+		}
+
+		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedLocationFiles)
+		if err != nil {
+			return err
+		}
+	*/
+
+	// We do not check backtraces yet because the format of the file changes based
+	// on the system on which we run the test. We still need to check how many files
+	// are created and later on the result of the analysis
+
+	return nil
+}
+
 func validateProfiler() error {
+	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
+	validationTests := []Test{
+		{
+			np:                             4,
+			source:                         exampleFileC,
+			binary:                         exampleBinaryC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{},
+			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+		},
+		{
+			np:                             3,
+			source:                         exampleFileF,
+			binary:                         exampleBinaryF,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{},
+			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+		},
+	}
+
 	_, filename, _, _ := runtime.Caller(0)
 	basedir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
@@ -63,65 +183,35 @@ func validateProfiler() error {
 		return err
 	}
 
-	// Create a temporary directory where to store the results
-	tempDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return err
-	}
+	for _, tt := range validationTests {
+		// Create a temporary directory where to store the results
+		tempDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tempDir)
 
-	// Run the profiler
-	pathToLib := filepath.Join(basedir, "alltoallv", "liballtoallv_counts.so")
-	fmt.Printf("Running MPI application and gathering profiles with %s...\n", pathToLib)
-	cmd = exec.Command(mpiBin, "-np", "3", "--oversubscribe", filepath.Join(basedir, "examples", "alltoallv_f"))
-	cmd.Env = append(os.Environ(),
-		"LD_PRELOAD="+pathToLib,
-		"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-	cmd.Dir = tempDir
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
+		// Run the profiler
+		for _, lib := range sharedLibraries {
+			pathToLib := filepath.Join(basedir, "alltoallv", lib)
+			fmt.Printf("Running MPI application and gathering profiles with %s...\n", pathToLib)
+			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(basedir, "examples", tt.binary))
+			cmd.Env = append(os.Environ(),
+				"LD_PRELOAD="+pathToLib,
+				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+			cmd.Dir = tempDir
+			err = cmd.Run()
+			if err != nil {
+				return err
+			}
+		}
 
-	// Check the results
-	expectedOutputDir := filepath.Join(basedir, "tests", "alltoallv_f", "expectedOutput")
-
-	referenceSendProfileFile := filepath.Join(expectedOutputDir, "send-counters.job0.rank0.txt")
-	resultSendProfileFile := filepath.Join(tempDir, "send-counters.job0.rank0.txt")
-	fmt.Printf("Comparing %s and %s...", referenceSendProfileFile, resultSendProfileFile)
-	hashSendProfile, err := hash.File(resultSendProfileFile)
-	if err != nil {
-		fmt.Println(" failed")
-		return err
+		// Check the results
+		err = checkOutput(basedir, tempDir, tt)
+		if err != nil {
+			return err
+		}
 	}
-	hashRefSendProfile, err := hash.File(referenceSendProfileFile)
-	if err != nil {
-		fmt.Println(" failed")
-		return err
-	}
-	if hashRefSendProfile != hashSendProfile {
-		fmt.Println(" failed")
-		return fmt.Errorf("Invalid output, send counters do not match")
-	}
-	fmt.Println(" ok")
-
-	resultRecvProfileFile := filepath.Join(tempDir, "recv-counters.job0.rank0.txt")
-	referenceRecvProfileFile := filepath.Join(expectedOutputDir, "recv-counters.job0.rank0.txt")
-	fmt.Printf("Comparing %s and %s...", referenceRecvProfileFile, resultRecvProfileFile)
-	hashRecvProfile, err := hash.File(resultRecvProfileFile)
-	if err != nil {
-		fmt.Println(" failed")
-		return err
-	}
-	hashRefRecvProfile, err := hash.File(referenceRecvProfileFile)
-	if err != nil {
-		fmt.Println(" failed")
-		return err
-	}
-	if hashRefRecvProfile != hashRecvProfile {
-		fmt.Println(" failed")
-		return fmt.Errorf("Invalid output, recv counters do not match")
-	}
-	fmt.Println(" ok")
 
 	return nil
 }
