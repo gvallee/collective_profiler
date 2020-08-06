@@ -115,3 +115,16 @@ func ConvertCompressedCallListToIntSlice(str string) ([]int, error) {
 
 	return callIDs, nil
 }
+
+func IntSliceToString(s []int) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	str := strconv.Itoa(s[0])
+	for i := 1; i < len(s); i++ {
+		str += "," + strconv.Itoa(s[i])
+	}
+
+	return str
+}

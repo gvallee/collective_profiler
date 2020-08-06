@@ -65,3 +65,22 @@ func TestGetNumberOfRanksFromCompressedNotation(t *testing.T) {
 		}
 	}
 }
+
+func TestIntSliceToString(t *testing.T) {
+	tests := []struct {
+		s              []int
+		expectedResult string
+	}{
+		{
+			s:              []int{1, 2, 3, 4, 5, 6},
+			expectedResult: "1,2,3,4,5,6",
+		},
+	}
+
+	for _, tt := range tests {
+		str := IntSliceToString(tt.s)
+		if str != tt.expectedResult {
+			t.Fatalf("Test returned %s instead of %s", str, tt.expectedResult)
+		}
+	}
+}
