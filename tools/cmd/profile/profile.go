@@ -24,6 +24,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
@@ -145,6 +146,8 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		allCallsData = append(allCallsData, d)
 	}
 
+	fmt.Printf("Number of calls: %d\n", len(allCallsData[0].CallData))
+
 	return allStats, allPatterns, allCallsData, nil
 }
 
@@ -176,40 +179,20 @@ func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]c
 	return analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold, listBins)
 }
 
-func analyzeTimingsFiles(dir string, files []string) error {
-	bar := progress.NewBar(len(files), "Handling timings files")
-	defer progress.EndBar(bar)
-	for _, file := range files {
-		bar.Increment(1)
-		// The output directory is where the data is, this tool keeps all the data together
-		err := timings.ParseFile(file, dir)
-		if err != nil {
-			return err
+func plotData(dir string, allCallsData []counts.CommDataT, rankFileData maps.RankFileData, callMaps maps.CallsDataT, a2aExecutionTimes map[int]map[int]float64, lateArrivalTimes map[int]map[int]float64) error {
+	for i := 0; i < len(allCallsData); i++ {
+		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
+		defer progress.EndBar(b)
+		leadRank := allCallsData[i].LeadRank
+		for callID, _ := range allCallsData[i].CallData {
+			b.Increment(1)
+
+			err := plot.Create(dir, dir, leadRank, callID, rankFileData.HostMap, callMaps.SendHeatMap[i], callMaps.RecvHeatMap[i], a2aExecutionTimes[i], lateArrivalTimes[i])
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return nil
-}
-
-func handleTimingFiles(dir string) error {
-	// Figure out all the send/recv counts files
-	f, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	var timingsFiles []string
-	for _, file := range f {
-		if strings.HasPrefix(file.Name(), timings.FilePrefix) {
-			timingsFiles = append(timingsFiles, filepath.Join(dir, file.Name()))
-		}
-	}
-
-	// Analyze all the files we found
-	err = analyzeTimingsFiles(dir, timingsFiles)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -241,7 +224,7 @@ func main() {
 
 	listBins := bins.GetFromInputDescr(*binThresholds)
 
-	totalNumSteps := 4
+	totalNumSteps := 5
 	currentStep := 1
 	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
 	t := timer.Start()
@@ -249,17 +232,6 @@ func main() {
 	duration := t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	err = handleTimingFiles(*dir)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Step completed in %s\n", duration)
@@ -276,10 +248,9 @@ func main() {
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
-	/* todo: move creation of heat maps to analyzeCountFiles so we do not need to parse the count files again */
 	fmt.Printf("\n* Step %d/%d: create maps... ", currentStep, totalNumSteps)
 	t = timer.Start()
-	err = maps.Create(maps.Heat, *dir, allCallsData)
+	rankFileData, callMaps, err := maps.Create(maps.Heat, *dir, allCallsData)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
@@ -287,4 +258,27 @@ func main() {
 	}
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	a2aExecutionTimes, lateArrivalTimes, err := timings.HandleTimingFiles(*dir, &callMaps)
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	err = plotData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to plot data: %s", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
 }

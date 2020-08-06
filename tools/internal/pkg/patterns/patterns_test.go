@@ -7,8 +7,8 @@
 package patterns
 
 import (
+	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -57,9 +57,19 @@ func TestParsingCounts(t *testing.T) {
 		recvCounts []string
 	}{
 		{
-			name:       "oneRankSend1To10Recv0",
-			sendCounts: []string{"Rank(s) 0: 1 2 3 4 5 6 7 8 9 10"},
-			recvCounts: []string{"Rank(s) 0: 1 0 0 0 0 0 0 0 0 0"},
+			name: "oneRankSend1To10Recv0",
+			sendCounts: []string{"Rank(s) 0: 1 2 3 4 5 6 7 8 9 10",
+				"Rank(s) 1-9: 0 0 0 0 0 0 0 0 0 0"},
+			recvCounts: []string{"Rank(s) 0: 1 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 1: 2 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 2: 3 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 3: 4 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 4: 5 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 5: 6 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 6: 7 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 7: 8 0 0 0 0 0 0 0 0 0",
+				"Rank(s) 8: 9 0 0 0 0 0 0 0 0 0",
+				"Ranks(s) 9: 10 0 0 0 0 0 0 0 0 0"},
 		},
 		{
 			name:       "threeRanksSendNToNRecvNToN",
@@ -69,7 +79,7 @@ func TestParsingCounts(t *testing.T) {
 		{
 			name:       "threeRanksNto1",
 			sendCounts: generateCounts(0, 109, 109, 1, 3),                                              // Ranks 0-109: 109 zero counts and one count equal to 3
-			recvCounts: append(generateCounts(0, 0, 1, 110, 42), generateCounts(1, 109, 110, 0, 0)...), //Rank 0: 1 count equal to 0 and 110 counts equal to 42; ranks 1-109:  110 zero counts, non counts with non-zero vaue
+			recvCounts: append(generateCounts(0, 0, 1, 110, 42), generateCounts(1, 109, 110, 0, 0)...), // Rank 0: 1 count equal to 0 and 110 counts equal to 42; ranks 1-109:  110 zero counts, non counts with non-zero vaue
 		},
 	}
 
@@ -92,12 +102,14 @@ func TestParsingCounts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ioutil.TempFile() failed: %s\n", err)
 		}
-		defer os.Remove(patternsFd.Name())
+		//defer os.Remove(patternsFd.Name())
+		fmt.Printf("Pattern file: %s\n", patternsFd.Name())
 		patternsSummaryFd, err := ioutil.TempFile("", "summary-"+tt.name)
 		if err != nil {
 			t.Fatalf("ioutil.TempFile() failed: %s\n", err)
 		}
-		defer os.Remove(patternsSummaryFd.Name())
+		fmt.Printf("Summary file: %s\n", patternsSummaryFd.Name())
+		//defer os.Remove(patternsSummaryFd.Name())
 		err = WriteData(patternsFd, patternsSummaryFd, patterns, 1)
 		if err != nil {
 			t.Fatalf("writePatternsData() failed: %s\n", err)

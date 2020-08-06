@@ -3,5 +3,5 @@
 
 Alltoallv calls: 0
 1 ranks sent to 10 other ranks
-1 ranks recv'd from 1 other ranks
+10 ranks recv'd from 1 other ranks
 
