@@ -237,7 +237,7 @@ func main() {
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
-	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data... ", currentStep, totalNumSteps)
+	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
 	t = timer.Start()
 	err = profiler.AnalyzeSubCommsResults(*dir, stats, allPatterns)
 	duration = t.Stop()
@@ -248,7 +248,7 @@ func main() {
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
-	fmt.Printf("\n* Step %d/%d: create maps... ", currentStep, totalNumSteps)
+	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 	t = timer.Start()
 	rankFileData, callMaps, err := maps.Create(maps.Heat, *dir, allCallsData)
 	duration = t.Stop()

@@ -273,8 +273,9 @@ func createHeatMap(dir string, leadRank int, rankMap *RankFileData, allCallsData
 	bar := progress.NewBar(len(allCallsData), "Gathering map data")
 	defer progress.EndBar(bar)
 
-	bar.Increment(1)
 	for callID, cd := range allCallsData {
+		bar.Increment(1)
+
 		var err error
 		var hostSendHeatMap map[string]int
 		callsData.SendHeatMap[callID], hostSendHeatMap, err = createCallsMapsFromCounts(cd.SendData.Counts, cd.SendData.Statistics.DatatypeSize, rankMap, callsData.RanksMap[callID], globalSendHeatMap)
@@ -350,10 +351,8 @@ func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData)
 // Create is the main function to create heat maps. The id identifies what type of maps
 // need to be created.
 func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]RankFileData, map[int]CallsDataT, error) {
-	fmt.Printf("TYPE: %d\n", id)
 	switch id {
 	case Heat:
-		fmt.Printf("YOUPI\n")
 		var err error
 		globalCallsData := make(map[int]CallsDataT)
 		globalCommRankFileData := make(map[int]RankFileData)
