@@ -94,10 +94,10 @@ func TestCreateMapFromCounts(t *testing.T) {
 			datatypeSize:        1,
 			counts:              []string{"Rank(s) 0: 1 2", "Rank(s) 1: 3 4"},
 			locations:           []string{"COMMWORLD rank: 0 - COMM rank: 0 - PID: 2 - Hostname: node1", "COMMWORLD rank: 1 - COMM rank: 1 - PID: 3 - Hostname: node2"},
-			expectedCallHeatMap: []int{4, 6},
+			expectedCallHeatMap: []int{3, 7}, // Rank 0 sends a total of 3 bytes; rank 1 a total of 7 bytes
 			expectedHostHeatMap: map[string]int{
-				"node1": 4,
-				"node2": 6,
+				"node1": 3, // 3 bytes are sent from node1
+				"node2": 7, // 7 bytes are sent from node2
 			},
 		},
 	}
