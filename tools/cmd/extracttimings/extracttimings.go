@@ -43,8 +43,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	a2aTimes := map[int]map[int]float64{}
-	lateArrivalTimes := map[int]map[int]float64{}
+	a2aTimes := map[int]map[int]map[int]float64{}
+	lateArrivalTimes := map[int]map[int]map[int]float64{}
 	err := timings.PreprocessRawDataFile(*file, "", a2aTimes, lateArrivalTimes)
 	if err != nil {
 		log.Fatalf("unable to parse timing file %s: %s", *file, err)

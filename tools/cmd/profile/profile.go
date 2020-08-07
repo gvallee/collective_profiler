@@ -179,7 +179,7 @@ func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]c
 	return analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold, listBins)
 }
 
-func plotData(dir string, allCallsData []counts.CommDataT, rankFileData maps.RankFileData, callMaps maps.CallsDataT, a2aExecutionTimes map[int]map[int]float64, lateArrivalTimes map[int]map[int]float64) error {
+func plotData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]maps.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
 	for i := 0; i < len(allCallsData); i++ {
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)
@@ -187,7 +187,7 @@ func plotData(dir string, allCallsData []counts.CommDataT, rankFileData maps.Ran
 		for callID, _ := range allCallsData[i].CallData {
 			b.Increment(1)
 
-			err := plot.Create(dir, dir, leadRank, callID, rankFileData.HostMap, callMaps.SendHeatMap[i], callMaps.RecvHeatMap[i], a2aExecutionTimes[i], lateArrivalTimes[i])
+			err := plot.Create(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
 			if err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ func main() {
 
 	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	a2aExecutionTimes, lateArrivalTimes, err := timings.HandleTimingFiles(*dir, &callMaps)
+	a2aExecutionTimes, lateArrivalTimes, err := timings.HandleTimingFiles(*dir, callMaps)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
