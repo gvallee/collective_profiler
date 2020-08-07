@@ -34,5 +34,5 @@ clean:
 	cd tests && make clean
 	cd doc && make clean
 
-validate: tools
+validate: tools tests
 	cd tools/cmd/validate; ./validate -profiler

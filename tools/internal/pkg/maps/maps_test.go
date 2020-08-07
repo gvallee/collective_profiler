@@ -18,15 +18,15 @@ func getRanksMapFromLocations(locations []Location) map[int]int {
 	return ranksMap
 }
 
-func getRankFileDataFromLocations(locations []Location) rankFileData {
-	var data rankFileData
-	data.rankMap = make(map[int]string)
-	data.hostMap = make(map[string][]int)
+func getRankFileDataFromLocations(locations []Location) RankFileData {
+	var data RankFileData
+	data.RankMap = make(map[int]string)
+	data.HostMap = make(map[string][]int)
 
 	for _, l := range locations {
-		if _, ok := data.rankMap[l.CommWorldRank]; !ok {
-			data.rankMap[l.CommWorldRank] = l.Hostname
-			data.hostMap[l.Hostname] = append(data.hostMap[l.Hostname], l.CommWorldRank)
+		if _, ok := data.RankMap[l.CommWorldRank]; !ok {
+			data.RankMap[l.CommWorldRank] = l.Hostname
+			data.HostMap[l.Hostname] = append(data.HostMap[l.Hostname], l.CommWorldRank)
 		}
 	}
 	return data
@@ -111,7 +111,7 @@ func TestCreateMapFromCounts(t *testing.T) {
 
 		ranksMap := getRanksMapFromLocations(l)
 		rankFileData := getRankFileDataFromLocations(l)
-		callHeatMap, hostHeatMap, err := createCallsMapsFromCounts(tt.counts, tt.datatypeSize, rankFileData, ranksMap, globalHeatMap)
+		callHeatMap, hostHeatMap, err := createCallsMapsFromCounts(tt.counts, tt.datatypeSize, &rankFileData, ranksMap, globalHeatMap)
 		if err != nil {
 			t.Fatalf("createMapFromCounts() failed: %s", err)
 		}

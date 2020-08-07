@@ -532,17 +532,14 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 		}
 
 		for _, callID := range callIDs {
-			if recvDatatypeSize != callData[callID].SendData.Statistics.DatatypeSize {
-				return nil, fmt.Errorf("inconsistent datatype size for call %d: %d vs. %d", callID, recvDatatypeSize, callData[callID].SendData.Statistics.DatatypeSize)
-			}
 			if commSize != callData[callID].CommSize {
 				return nil, fmt.Errorf("inconsistent comm size for call %d: %d vs. %d", callID, commSize, callData[callID].CommSize)
-
 			}
 			cb := callData[callID]
 			cb.RecvData.Statistics = stats
 			cb.RecvData.Counts = counts
 			cb.RecvData.File = recvCountsFile
+			cb.RecvData.Statistics.DatatypeSize = recvDatatypeSize
 			callData[callID] = cb
 		}
 
