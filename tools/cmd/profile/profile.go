@@ -146,8 +146,6 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		allCallsData = append(allCallsData, d)
 	}
 
-	fmt.Printf("Number of calls: %d\n", len(allCallsData[0].CallData))
-
 	return allStats, allPatterns, allCallsData, nil
 }
 

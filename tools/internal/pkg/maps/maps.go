@@ -83,16 +83,6 @@ type CallsDataT struct {
 	RecvHeatMap map[int]map[int]int
 }
 
-/*
-type CommDataT struct {
-	// LeadRank is the rank on COMMWORLD that is rank 0 on the communicator used for the alltoallv operation
-	LeadRand int
-
-	// Maps gathers the rank map and the host map
-	Maps RankFileData
-}
-*/
-
 func getCallidRankFromLocationFile(path string) (int, int, error) {
 	str := filepath.Base(path)
 	str = strings.ReplaceAll(str, locationFilePrefix, "")

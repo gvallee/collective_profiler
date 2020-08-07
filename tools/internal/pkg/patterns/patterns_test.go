@@ -7,8 +7,8 @@
 package patterns
 
 import (
-	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -102,14 +102,12 @@ func TestParsingCounts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ioutil.TempFile() failed: %s\n", err)
 		}
-		//defer os.Remove(patternsFd.Name())
-		fmt.Printf("Pattern file: %s\n", patternsFd.Name())
+		defer os.Remove(patternsFd.Name())
 		patternsSummaryFd, err := ioutil.TempFile("", "summary-"+tt.name)
 		if err != nil {
 			t.Fatalf("ioutil.TempFile() failed: %s\n", err)
 		}
-		fmt.Printf("Summary file: %s\n", patternsSummaryFd.Name())
-		//defer os.Remove(patternsSummaryFd.Name())
+		defer os.Remove(patternsSummaryFd.Name())
 		err = WriteData(patternsFd, patternsSummaryFd, patterns, 1)
 		if err != nil {
 			t.Fatalf("writePatternsData() failed: %s\n", err)

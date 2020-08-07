@@ -490,13 +490,6 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 	defer progress.EndBar(b)
 	for i := 0; i < numCalls; i++ {
 		b.Increment(1)
-		/*
-			//callCountsData, err := counts.ParseFiles(sendCountsFile, recvCountsFile, numCalls, sizeThreshold)
-			callCountsData, profilerErr = counts.LookupCall(sendCountsFile, recvCountsFile, i)
-			if !profilerErr.Is(errors.ErrNone) {
-				return data, patterns, profilerErr.GetInternal()
-			}
-		*/
 
 		//displayCallPatterns(callInfo)
 		// Analyze the send/receive pattern from the call
@@ -516,8 +509,6 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 	}
 
 	if len(callData) != numCalls {
-		fmt.Printf("extracted data of only %d/%d calls\n", len(callData), numCalls)
-		os.Exit(42)
 		return nil, patterns, fmt.Errorf("extracted data of only %d/%d calls\n", len(callData), numCalls)
 	}
 
