@@ -235,23 +235,30 @@ func createCallsMapsFromCounts(callCounts []string, datatypeSize int, rankMap *R
 			return nil, nil, fmt.Errorf("wrong counts format: %s", counts)
 		}
 		counts = tokens[1]
+		ranks, err := notation.ConvertCompressedCallListToIntSlice(strings.TrimLeft(tokens[0], "Rank(s) "))
+		if err != nil {
+			return nil, nil, err
+		}
 
-		tokens = strings.Split(counts, " ")
-		curRank := 0 // curRank is also the rank of the communicator
-		for _, countStr := range tokens {
-			if countStr == "" {
-				continue
-			}
+		for _, curRank := range ranks {
+			tokens = strings.Split(counts, " ")
 			worldRank := ranksMap[curRank]
-			count, err := strconv.Atoi(countStr)
-			if err != nil {
-				return nil, nil, err
-			}
 			curRankHost := rankMap.RankMap[curRank]
-			callHostHeatMap[curRankHost] += count * datatypeSize
-			globalHeatMap[worldRank] += count * datatypeSize
-			callHeatMap[worldRank] += count * datatypeSize
-			curRank++
+			countSum := 0
+			for _, countStr := range tokens {
+				if countStr == "" {
+					continue
+				}
+				count, err := strconv.Atoi(countStr)
+				if err != nil {
+					return nil, nil, err
+				}
+				countSum += count
+				curRank++
+			}
+			callHostHeatMap[curRankHost] += countSum * datatypeSize
+			globalHeatMap[worldRank] += countSum * datatypeSize
+			callHeatMap[worldRank] += countSum * datatypeSize
 		}
 	}
 	return callHeatMap, callHostHeatMap, nil
