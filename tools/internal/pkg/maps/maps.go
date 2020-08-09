@@ -264,9 +264,7 @@ func createCallsMapsFromCounts(callCounts []string, datatypeSize int, rankMap *R
 	return callHeatMap, callHostHeatMap, nil
 }
 
-func createHeatMap(dir string, leadRank int, rankMap *RankFileData, allCallsData map[int]*counts.CallData, callsData *CallsDataT) error {
-	globalSendHeatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
-	globalRecvHeatMap := make(map[int]int)
+func createHeatMap(dir string, leadRank int, rankMap *RankFileData, allCallsData map[int]*counts.CallData, callsData *CallsDataT, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int) error {
 	bar := progress.NewBar(len(allCallsData), "Gathering map data")
 	defer progress.EndBar(bar)
 
@@ -310,23 +308,10 @@ func createHeatMap(dir string, leadRank int, rankMap *RankFileData, allCallsData
 		}
 	}
 
-	// Save the heat maps for the entire execution
-	globalSendHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-send.txt")
-	err := saveCallHeatMap(globalSendHeatMap, globalSendHeatMapFilePath)
-	if err != nil {
-		return err
-	}
-
-	globalRecvHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-recv.txt")
-	err = saveCallHeatMap(globalRecvHeatMap, globalRecvHeatMapFilePath)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData) (RankFileData, CallsDataT, error) {
+func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int) (RankFileData, CallsDataT, error) {
 	commMaps := CallsDataT{
 		SendHeatMap: map[int]map[int]int{},
 		RecvHeatMap: map[int]map[int]int{},
@@ -338,31 +323,63 @@ func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData)
 		return rankFileData, commMaps, err
 	}
 
-	err = createHeatMap(dir, leadRank, &rankFileData, allCallsData, &commMaps)
+	err = createHeatMap(dir, leadRank, &rankFileData, allCallsData, &commMaps, globalSendHeatMap, globalRecvHeatMap)
 	if err != nil {
 		return rankFileData, commMaps, err
 	}
+
+	// Save the heat maps for the entire execution
+	globalSendHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-send.txt")
+	err = saveCallHeatMap(globalSendHeatMap, globalSendHeatMapFilePath)
+	if err != nil {
+		return rankFileData, commMaps, err
+	}
+
+	globalRecvHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-recv.txt")
+	err = saveCallHeatMap(globalRecvHeatMap, globalRecvHeatMapFilePath)
+	if err != nil {
+		return rankFileData, commMaps, err
+	}
+
 	return rankFileData, commMaps, nil
 }
 
 // Create is the main function to create heat maps. The id identifies what type of maps
 // need to be created.
-func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]RankFileData, map[int]CallsDataT, error) {
+func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]RankFileData, map[int]CallsDataT, map[int]int, map[int]int, error) {
 	switch id {
 	case Heat:
 		var err error
 		globalCallsData := make(map[int]CallsDataT)
+		// fixme: RankFileData is supposed to be static and dealing with ranks on comm world, no need to track per lead rank
 		globalCommRankFileData := make(map[int]RankFileData)
+		globalSendHeatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
+		globalRecvHeatMap := make(map[int]int)
+
 		for _, commData := range allCallsData {
-			globalCommRankFileData[commData.LeadRank], globalCallsData[commData.LeadRank], err = commCreate(dir, commData.LeadRank, commData.CallData)
+			globalCommRankFileData[commData.LeadRank], globalCallsData[commData.LeadRank], err = commCreate(dir, commData.LeadRank, commData.CallData, globalSendHeatMap, globalRecvHeatMap)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 		}
-		return globalCommRankFileData, globalCallsData, nil
+
+		// Save the heat maps for the entire execution
+		globalSendHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-send.txt")
+		err = saveCallHeatMap(globalSendHeatMap, globalSendHeatMapFilePath)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		globalRecvHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-recv.txt")
+		err = saveCallHeatMap(globalRecvHeatMap, globalRecvHeatMapFilePath)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		return globalCommRankFileData, globalCallsData, globalSendHeatMap, globalRecvHeatMap, nil
 	}
 
-	return nil, nil, fmt.Errorf("unknown map type: %d", id)
+	return nil, nil, nil, nil, fmt.Errorf("unknown map type: %d", id)
 }
 
 // getCommMap looks at the list of files generated during profiling. The file is created by the
@@ -563,4 +580,19 @@ func prepareRanksMap(dir string) (RankFileData, map[int][]Location, map[int]map[
 	}
 
 	return hm, callMap, callsRanksMap, nil
+}
+
+func CreateAvgMaps(totalNumCalls int, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int) (map[int]int, map[int]int) {
+	avgSendMap := make(map[int]int)
+	avgRecvMap := make(map[int]int)
+
+	for key, val := range globalSendHeatMap {
+		avgSendMap[key] = val / totalNumCalls
+	}
+
+	for key, val := range globalRecvHeatMap {
+		avgRecvMap[key] = val / totalNumCalls
+	}
+
+	return avgSendMap, avgRecvMap
 }

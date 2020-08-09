@@ -84,58 +84,60 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 	return cs, sendRecvStats, p, nil
 }
 
-func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (map[int]counts.SendRecvStats, map[int]patterns.Data, []counts.CommDataT, error) {
+func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (int, map[int]counts.SendRecvStats, map[int]patterns.Data, []counts.CommDataT, error) {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
 	// used to run the alltoallv operations
 	sendRanks, err := datafilereader.GetRanksFromFileNames(sendCountFiles)
 	if err != nil || len(sendRanks) == 0 {
-		return nil, nil, nil, err
+		return 0, nil, nil, nil, err
 	}
 	sort.Ints(sendRanks)
 
 	recvRanks, err := datafilereader.GetRanksFromFileNames(recvCountFiles)
 	if err != nil || len(recvRanks) == 0 {
-		return nil, nil, nil, err
+		return 0, nil, nil, nil, err
 	}
 	sort.Ints(recvRanks)
 
 	if !reflect.DeepEqual(sendRanks, recvRanks) {
-		return nil, nil, nil, fmt.Errorf("list of ranks logging send and receive counts differ, data likely to be corrupted")
+		return 0, nil, nil, nil, fmt.Errorf("list of ranks logging send and receive counts differ, data likely to be corrupted")
 	}
 
 	sendJobids, err := datafilereader.GetJobIDsFromFileNames(sendCountFiles)
 	if err != nil {
-		return nil, nil, nil, err
+		return 0, nil, nil, nil, err
 	}
 
 	if len(sendJobids) != 1 {
-		return nil, nil, nil, fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
+		return 0, nil, nil, nil, fmt.Errorf("more than one job detected through send counts files; inconsistent data? (len: %d)", len(sendJobids))
 	}
 
 	recvJobids, err := datafilereader.GetJobIDsFromFileNames(recvCountFiles)
 	if err != nil {
-		return nil, nil, nil, err
+		return 0, nil, nil, nil, err
 	}
 
 	if len(recvJobids) != 1 {
-		return nil, nil, nil, fmt.Errorf("more than one job detected through recv counts files; inconsistent data?")
+		return 0, nil, nil, nil, fmt.Errorf("more than one job detected through recv counts files; inconsistent data?")
 	}
 
 	if sendJobids[0] != recvJobids[0] {
-		return nil, nil, nil, fmt.Errorf("results seem to be from different jobs, we strongly encourage users to get their counts data though a single run")
+		return 0, nil, nil, nil, fmt.Errorf("results seem to be from different jobs, we strongly encourage users to get their counts data though a single run")
 	}
 
 	jobid := sendJobids[0]
 	allStats := make(map[int]counts.SendRecvStats)
 	allPatterns := make(map[int]patterns.Data)
+	totalNumCalls := 0
 
 	var allCallsData []counts.CommDataT
 	for _, rank := range sendRanks {
 		callsData, sendRecvStats, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
 		if err != nil {
-			return nil, nil, nil, err
+			return 0, nil, nil, nil, err
 		}
+		totalNumCalls += len(callsData)
 		allStats[rank] = sendRecvStats
 		allPatterns[rank] = p
 
@@ -146,14 +148,14 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		allCallsData = append(allCallsData, d)
 	}
 
-	return allStats, allPatterns, allCallsData, nil
+	return totalNumCalls, allStats, allPatterns, allCallsData, nil
 }
 
-func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]counts.SendRecvStats, map[int]patterns.Data, []counts.CommDataT, error) {
+func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (int, map[int]counts.SendRecvStats, map[int]patterns.Data, []counts.CommDataT, error) {
 	// Figure out all the send/recv counts files
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, nil, nil, err
+		return 0, nil, nil, nil, err
 	}
 
 	var profileFiles []string
@@ -177,7 +179,7 @@ func handleCountsFiles(dir string, sizeThreshold int, listBins []int) (map[int]c
 	return analyzeCountFiles(dir, sendCountsFiles, recvCountsFiles, sizeThreshold, listBins)
 }
 
-func plotData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]maps.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]maps.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
 	for i := 0; i < len(allCallsData); i++ {
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)
@@ -185,7 +187,7 @@ func plotData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]
 		for callID, _ := range allCallsData[i].CallData {
 			b.Increment(1)
 
-			err := plot.Create(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
+			err := plot.CallsData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
 			if err != nil {
 				return err
 			}
@@ -226,7 +228,7 @@ func main() {
 	currentStep := 1
 	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
 	t := timer.Start()
-	stats, allPatterns, allCallsData, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
+	totalNumCalls, stats, allPatterns, allCallsData, err := handleCountsFiles(*dir, *sizeThreshold, listBins)
 	duration := t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
@@ -248,33 +250,49 @@ func main() {
 
 	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	rankFileData, callMaps, err := maps.Create(maps.Heat, *dir, allCallsData)
+	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, err := maps.Create(maps.Heat, *dir, allCallsData)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
 		os.Exit(1)
 	}
+	// Create maps with averages
+	avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
 	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	a2aExecutionTimes, lateArrivalTimes, err := timings.HandleTimingFiles(*dir, callMaps)
+	a2aExecutionTimes, lateArrivalTimes, totalA2AExecutionTimes, totalLateArrivalTimes, err := timings.HandleTimingFiles(*dir, totalNumCalls, callMaps)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
 		os.Exit(1)
+	}
+	avgExecutionTimes := make(map[int]float64)
+	for key, val := range totalA2AExecutionTimes {
+		// fixme: this is not quite correct in multi-comm case since all ranks may have participated to a different number of calls
+		avgExecutionTimes[key] = val / float64(totalNumCalls)
+	}
+	avgLateArrivalTimes := make(map[int]float64)
+	for key, val := range totalLateArrivalTimes {
+		// fixme: this is not quite correct in multi-comm case since all ranks may have participated to a different number of calls
+		avgExecutionTimes[key] = val / float64(totalNumCalls)
 	}
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
 	fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	err = plotData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
+	err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to plot data: %s", err)
 		os.Exit(1)
+	}
+	err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
+	if err != nil {
+		fmt.Printf("ERROR: unable to plot average data: %s", err)
 	}
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
