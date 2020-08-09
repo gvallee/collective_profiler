@@ -134,12 +134,12 @@ func TestLoadCallsData(t *testing.T) {
 				t.Fatalf("Send count file mismatch: %s vs. %s", callData.RecvData.File, tt.inputRecvCountsFile)
 			}
 
-			if !reflect.DeepEqual(callData.SendData.Counts, tt.expectedSendCounts[callID]) {
-				t.Fatalf("Wrong counts for call %d: .%s. vs. .%s.", callID, strings.Join(callData.SendData.Counts, "|"), strings.Join(tt.expectedSendCounts[callID], "|"))
+			if !reflect.DeepEqual(callData.SendData.RawCounts, tt.expectedSendCounts[callID]) {
+				t.Fatalf("Wrong counts for call %d: .%s. vs. .%s.", callID, strings.Join(callData.SendData.RawCounts, "|"), strings.Join(tt.expectedSendCounts[callID], "|"))
 			}
 
-			if !reflect.DeepEqual(callData.RecvData.Counts, tt.expectedRecvCounts[callID]) {
-				t.Fatalf("Wrong counts for call %d: .%s. vs. .%s.", callID, strings.Join(callData.RecvData.Counts, "|"), strings.Join(tt.expectedRecvCounts[callID], "|"))
+			if !reflect.DeepEqual(callData.RecvData.RawCounts, tt.expectedRecvCounts[callID]) {
+				t.Fatalf("Wrong counts for call %d: .%s. vs. .%s.", callID, strings.Join(callData.RecvData.RawCounts, "|"), strings.Join(tt.expectedRecvCounts[callID], "|"))
 			}
 
 			// todo: deal with callData.SendData.Stats / callData.RecvData.Stats

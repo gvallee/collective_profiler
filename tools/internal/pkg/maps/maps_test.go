@@ -8,6 +8,8 @@ package maps
 
 import (
 	"testing"
+
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 )
 
 func getRanksMapFromLocations(locations []Location) map[int]int {
@@ -84,6 +86,7 @@ func TestCreateMapFromCounts(t *testing.T) {
 	tests := []struct {
 		name                string
 		datatypeSize        int
+		commSize            int
 		counts              []string
 		locations           []string
 		expectedCallHeatMap []int
@@ -92,6 +95,7 @@ func TestCreateMapFromCounts(t *testing.T) {
 		{
 			name:                "oneComm",
 			datatypeSize:        1,
+			commSize:            2,
 			counts:              []string{"Rank(s) 0: 1 2", "Rank(s) 1: 3 4"},
 			locations:           []string{"COMMWORLD rank: 0 - COMM rank: 0 - PID: 2 - Hostname: node1", "COMMWORLD rank: 1 - COMM rank: 1 - PID: 3 - Hostname: node2"},
 			expectedCallHeatMap: []int{3, 7}, // Rank 0 sends a total of 3 bytes; rank 1 a total of 7 bytes
@@ -111,9 +115,25 @@ func TestCreateMapFromCounts(t *testing.T) {
 
 		ranksMap := getRanksMapFromLocations(l)
 		rankFileData := getRankFileDataFromLocations(l)
-		callHeatMap, hostHeatMap, err := createCallsMapsFromCounts(tt.counts, tt.datatypeSize, &rankFileData, ranksMap, globalHeatMap)
+		var data counts.Data
+		data.RawCounts = tt.counts
+		data.CountsMetadata.DatatypeSize = tt.datatypeSize
+		data.CountsMetadata.CallIDs = []int{0}
+		data.CountsMetadata.NumRanks = tt.commSize
+		rankNumCallsMap := make(map[int]int)
+		callHeatMap, hostHeatMap, err := createCallsMapsFromCounts(data, tt.datatypeSize, &rankFileData, ranksMap, globalHeatMap, rankNumCallsMap)
 		if err != nil {
 			t.Fatalf("createMapFromCounts() failed: %s", err)
+		}
+
+		if len(rankNumCallsMap) != tt.commSize {
+			t.Fatalf("number of calls per rank is invalid: %d instead of %d", len(rankNumCallsMap), tt.commSize)
+		}
+		for rank, numCalls := range rankNumCallsMap {
+			// fixme: do not hardcode this, in the context of multicommunicators, that would not be right
+			if numCalls != 1 {
+				t.Fatalf("number of calls for rank %d is %d instead of 1", rank, numCalls)
+			}
 		}
 
 		if len(hostHeatMap) != len(tt.expectedHostHeatMap) {
