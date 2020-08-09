@@ -49,6 +49,7 @@ test:
 	cd internal/pkg/notation; go test -v
 	cd internal/pkg/counts; go test -v
 	cd internal/pkg/timings; go test -v
+	cd internal/pkg/scale; go test -v
 
 check: test
 
