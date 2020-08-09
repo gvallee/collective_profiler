@@ -232,13 +232,6 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 
 			strParsing = strings.ReplaceAll(strParsing, marker, "")
 			strParsing = strings.ReplaceAll(strParsing, " calls", "")
-			/*
-				header.NumCalls, err = strconv.Atoi(strParsing)
-				if err != nil {
-					log.Println("[ERROR] unable to parse line to get #s of alltoallv calls")
-					return header, err
-				}
-			*/
 
 			if header.CallIDsStr != "" {
 				header.CallIDs, err = notation.ConvertCompressedCallListToIntSlice(header.CallIDsStr)
