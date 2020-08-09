@@ -78,9 +78,6 @@ type CallData struct {
 	// CommSize is the communicator size used for the call
 	CommSize int
 
-	// NumCalls is the number of calls represented by the counts
-	NumCalls int
-
 	// MsgSizeThreshold is the size value that differentiate small and large messages.
 	MsgSizeThreshold int
 
