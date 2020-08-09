@@ -86,6 +86,18 @@ func TestFloat64s(t *testing.T) {
 			expectedUnit:   "microseconds",
 			expectedValues: []float64{100, 200, 10, 2, 300, 110},
 		},
+		{
+			unit:           "MB/s",
+			values:         []float64{0.1, 0.2, 0.01, 0.002, 0.3, 0.11},
+			expectedUnit:   "KB/s",
+			expectedValues: []float64{100, 200, 10, 2, 300, 110},
+		},
+		{
+			unit:           "GB/s",
+			values:         []float64{1000, 1100, 10001, 10002, 22222, 2222, 244242},
+			expectedUnit:   "TB/s",
+			expectedValues: []float64{1, 1.1, 10.001, 10.002, 22.222, 2.222, 244.242},
+		},
 	}
 
 	for _, tt := range tests {

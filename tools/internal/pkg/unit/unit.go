@@ -12,6 +12,9 @@ const (
 
 	// TIME represents the unit used for time mesurements (e.g., seconds)
 	TIME
+
+	// BW represents the unit used for bandwidth mesurements (e.g., B/s)
+	BW
 )
 
 func getDataUnits() map[int]string {
@@ -20,7 +23,18 @@ func getDataUnits() map[int]string {
 		1: "KB",
 		2: "MB",
 		3: "GB",
-		4: "TB"}
+		4: "TB",
+	}
+}
+
+func getBWUnits() map[int]string {
+	return map[int]string{
+		0: "B/s",
+		1: "KB/s",
+		2: "MB/s",
+		3: "GB/s",
+		4: "TB/s",
+	}
 }
 
 func getTimeUnits() map[int]string {
@@ -48,6 +62,13 @@ func FromString(unitID string) (int, int) {
 		}
 	}
 
+	bwTypeData := getBWUnits()
+	for lvl, val := range bwTypeData {
+		if val == unitID {
+			return BW, lvl
+		}
+	}
+
 	return -1, -1
 }
 
@@ -60,6 +81,9 @@ func ToString(unitType int, unitScale int) string {
 
 	case TIME:
 		internalUnitData := getTimeUnits()
+		return internalUnitData[unitScale]
+	case BW:
+		internalUnitData := getBWUnits()
 		return internalUnitData[unitScale]
 	}
 	return ""
@@ -75,15 +99,11 @@ func IsValidScale(unitType int, newUnitScale int) bool {
 		internalUnitData := getTimeUnits()
 		_, ok := internalUnitData[newUnitScale]
 		return ok
+	case BW:
+		internalUnitData := getBWUnits()
+		_, ok := internalUnitData[newUnitScale]
+		return ok
 	}
 
 	return false
 }
-
-/*
-func getBandwidthUnits() map[int]string {
-	return map[int]string{
-		0: "B/s",
-	}
-}
-*/
