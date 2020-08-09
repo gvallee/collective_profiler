@@ -37,6 +37,24 @@ const (
 	RecvCountersFilePrefix = "recv-counters."
 )
 
+// HeaderT is the data extracted from the counts headr from a count profile file in the compact format
+type HeaderT struct {
+	// TotalNumCalls is the overall total number of alltoallv calls
+	TotalNumCalls int
+
+	// CallIDs is the list of alltoallv calls associated to the counts
+	CallIDs []int
+
+	// CallIDsStr is the list in string and compact format of all alltoallv calls associated to the counts
+	CallIDsStr string
+
+	// NumRanks is the number of ranks involved in the alltoallv call (i.e., the communicator size)
+	NumRanks int
+
+	// DatatypeSize is the size of the datatype associated to the counts
+	DatatypeSize int
+}
+
 type compressedRanksCountsT struct {
 	ranks  []int
 	counts string
@@ -126,8 +144,11 @@ type Data struct {
 	// File is the path to the associated counts files
 	File string
 
-	// Counts is the string representing all the send counts
-	Counts []string
+	// CountsMetadata is the metadata associated to the counts
+	CountsMetadata HeaderT
+
+	// RawCounts is the string representing all the send counts
+	RawCounts []string
 
 	// Statistics is all the statistics we could gather while parsing the count file
 	Statistics Stats
@@ -433,20 +454,22 @@ func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, *
 	recvCountsReader := bufio.NewReader(fRecvCounts)
 
 	// find the call's data from the send counts file first
-	sendNumRanks := 0
-	sendNumRanks, data.SendData.Statistics.DatatypeSize, data.SendData.Counts, profilerErr = LookupCallFromFile(sendCountsReader, numCall)
+	var sendCountsHeader HeaderT
+	sendCountsHeader, data.SendData.RawCounts, profilerErr = LookupCallFromFile(sendCountsReader, numCall)
 	if !profilerErr.Is(errors.ErrNone) {
 		return data, profilerErr
 	}
+	data.SendData.Statistics.DatatypeSize = sendCountsHeader.DatatypeSize
 
 	// find the call's data from the recv counts file then
-	recvNumRanks := 0
-	recvNumRanks, data.RecvData.Statistics.DatatypeSize, data.RecvData.Counts, profilerErr = LookupCallFromFile(recvCountsReader, numCall)
+	var recvCountsHeader HeaderT
+	recvCountsHeader, data.RecvData.RawCounts, profilerErr = LookupCallFromFile(recvCountsReader, numCall)
 	if err != nil {
 		return data, profilerErr
 	}
+	data.RecvData.Statistics.DatatypeSize = recvCountsHeader.DatatypeSize
 
-	if sendNumRanks != recvNumRanks {
+	if sendCountsHeader.NumRanks != recvCountsHeader.NumRanks {
 		return data, errors.New(errors.ErrFatal, fmt.Errorf("differ number of ranks from send and recv counts files"))
 	}
 

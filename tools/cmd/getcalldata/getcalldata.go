@@ -231,8 +231,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
-		if len(callInfo.CountsData.SendData.Counts) != 0 {
-			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.SendData.Counts, "\n"))
+		if len(callInfo.CountsData.SendData.RawCounts) != 0 {
+			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.SendData.RawCounts, "\n"))
 		} else {
 			_, err = newFile.WriteString("No data\n")
 		}
@@ -243,10 +243,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
 		}
-		if len(callInfo.CountsData.RecvData.Counts) == 0 {
+		if len(callInfo.CountsData.RecvData.RawCounts) == 0 {
 			_, err = newFile.WriteString("No data\n")
 		} else {
-			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.RecvData.Counts, "\n"))
+			_, err = newFile.WriteString(strings.Join(callInfo.CountsData.RecvData.RawCounts, "\n"))
 		}
 		if err != nil {
 			log.Fatalf("unable to write to file: %s", err)
@@ -330,8 +330,8 @@ func main() {
 			if info.CountsData.CommSize == uniqueMinMaxInfo.CountsData.CommSize &&
 				info.RecvStats.DatatypeSize == uniqueMinMaxInfo.RecvStats.DatatypeSize &&
 				info.SendStats.DatatypeSize == uniqueMinMaxInfo.SendStats.DatatypeSize &&
-				reflect.DeepEqual(info.CountsData.RecvData.Counts, uniqueMinMaxInfo.CountsData.RecvData.Counts) &&
-				reflect.DeepEqual(info.CountsData.SendData.Counts, uniqueMinMaxInfo.CountsData.SendData.Counts) {
+				reflect.DeepEqual(info.CountsData.RecvData.RawCounts, uniqueMinMaxInfo.CountsData.RecvData.RawCounts) &&
+				reflect.DeepEqual(info.CountsData.SendData.RawCounts, uniqueMinMaxInfo.CountsData.SendData.RawCounts) {
 				dataExists = true
 				callIDs[num] = append(callIDs[num], info.ID)
 				break

@@ -209,8 +209,6 @@ func (a *analyzer) Parse() error {
 	alltoallvCallStart := 0
 	alltoallvCallEnd := -1
 	lineNumber := 1
-	numCalls := 0
-	//callIDs := ""
 
 	file, err := os.Open(a.InputFile)
 	if err != nil {
@@ -218,10 +216,12 @@ func (a *analyzer) Parse() error {
 	}
 	defer file.Close()
 
+	var countsHeader counts.HeaderT
 	reader := bufio.NewReader(file)
 	for {
+		var readerErr error
 		log.Println("Getting header...")
-		_, numCalls, _, callIDsStr, _, _, readerErr := counts.GetHeader(reader)
+		countsHeader, readerErr = counts.GetHeader(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr
@@ -229,7 +229,7 @@ func (a *analyzer) Parse() error {
 		if readerErr == io.EOF {
 			break
 		}
-		log.Printf("-> Number of alltoallv calls: %d\n", numCalls)
+		log.Printf("-> Number of alltoallv calls: %d\n", len(countsHeader.CallIDs))
 
 		// After successfully reading a new header, we know we are about to read
 		// a bunch of new data so we re-init a few things
@@ -248,7 +248,7 @@ func (a *analyzer) Parse() error {
 
 			if strings.HasPrefix(line, "END DATA") {
 				for key, _ := range a.realEndpoints {
-					fmt.Printf("alltoallv call(s) #%s (%d calls): %d ranks (%s) communicate with %d other ranks \n", callIDsStr, numCalls, a.realEndpoints[key], a.ranksComm[key], key)
+					fmt.Printf("alltoallv call(s) #%s (%d calls): %d ranks (%s) communicate with %d other ranks \n", countsHeader.CallIDsStr, len(countsHeader.CallIDs), a.realEndpoints[key], a.ranksComm[key], key)
 				}
 				break
 			}
@@ -276,8 +276,8 @@ func (a *analyzer) Parse() error {
 		} else {
 	*/
 	expectedNumCalls := alltoallvCallEnd - alltoallvCallStart + 1 // 0 indexed so we need to add 1
-	if numCalls != expectedNumCalls {
-		log.Printf("[ERROR] Metadata specifies %d calls but we extracted %d calls", expectedNumCalls, numCalls)
+	if len(countsHeader.CallIDs) != expectedNumCalls {
+		log.Printf("[ERROR] Metadata specifies %d calls but we extracted %d calls", expectedNumCalls, len(countsHeader.CallIDs))
 	}
 	//}
 

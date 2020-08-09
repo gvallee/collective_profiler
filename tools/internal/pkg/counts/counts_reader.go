@@ -140,20 +140,19 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 	return stats, nil
 }
 
-func GetHeader(reader *bufio.Reader) (int, int, []int, string, int, int, error) {
-	var callIDs []int
-	numCalls := 0
-	callIDsStr := ""
+// GetHeader reads and parses a specific header from a send or receive count profile in the compact format
+func GetHeader(reader *bufio.Reader) (HeaderT, error) {
+	var header HeaderT
+	var err error
+
+	header.CallIDsStr = ""
+	header.TotalNumCalls = 0
+	header.NumRanks = 0
+	header.DatatypeSize = 0
+
 	alltoallvCallStart := -1
 	alltoallvCallEnd := -1
-	totalNumCalls := 0
-	//alltoallvCallNumber := 0
-	//alltoallvCallStart := 0
-	//alltoallvCallEnd := -1
 	line := ""
-	var err error
-	numRanks := 0
-	datatypeSize := 0
 
 	// Get the first line of the header skipping potential empty lines that
 	// can be in front of header
@@ -161,41 +160,41 @@ func GetHeader(reader *bufio.Reader) (int, int, []int, string, int, int, error) 
 	for line == "" || line == "\n" {
 		line, readerErr = reader.ReadString('\n')
 		if readerErr == io.EOF {
-			return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+			return header, readerErr
 		}
 		if readerErr != nil {
-			return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+			return header, readerErr
 		}
 	}
 
 	// Are we at the beginning of a metadata block?
 	if !strings.HasPrefix(line, "# Raw") {
-		return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, fmt.Errorf("[ERROR] not a header")
+		return header, fmt.Errorf("[ERROR] not a header")
 	}
 
 	for {
 		line, readerErr = reader.ReadString('\n')
 		if readerErr != nil && readerErr != io.EOF {
-			return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+			return header, readerErr
 		}
 
 		if strings.HasPrefix(line, numberOfRanksMarker) {
 			line = strings.ReplaceAll(line, numberOfRanksMarker, "")
 			line = strings.ReplaceAll(line, "\n", "")
-			numRanks, err = strconv.Atoi(line)
+			header.NumRanks, err = strconv.Atoi(line)
 			if err != nil {
 				log.Println("[ERROR] unable to parse number of ranks")
-				return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+				return header, readerErr
 			}
 		}
 
 		if strings.HasPrefix(line, datatypeSizeMarker) {
 			line = strings.ReplaceAll(line, "\n", "")
 			line = strings.ReplaceAll(line, datatypeSizeMarker, "")
-			datatypeSize, err = strconv.Atoi(line)
+			header.DatatypeSize, err = strconv.Atoi(line)
 			if err != nil {
 				log.Println("[ERROR] unable to parse the datatype size")
-				return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+				return header, readerErr
 			}
 		}
 
@@ -207,14 +206,14 @@ func GetHeader(reader *bufio.Reader) (int, int, []int, string, int, int, error) 
 				alltoallvCallStart, err = strconv.Atoi(strings.TrimLeft(tokens[0], " "))
 				if err != nil {
 					log.Printf("[ERROR] unable to parse line to get first alltoallv call number: %s", line)
-					return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, err
+					return header, err
 				}
 				alltoallvCallEnd, err = strconv.Atoi(tokens[1])
 				if err != nil {
 					log.Printf("[ERROR] unable to convert %s to interger: %s", tokens[1], err)
-					return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, err
+					return header, err
 				}
-				totalNumCalls = alltoallvCallEnd - alltoallvCallStart + 1 // Add 1 because we are 0-indexed
+				header.TotalNumCalls = alltoallvCallEnd - alltoallvCallStart + 1 // Add 1 because we are 0-indexed
 			}
 		}
 
@@ -224,43 +223,21 @@ func GetHeader(reader *bufio.Reader) (int, int, []int, string, int, int, error) 
 			tokens := strings.Split(line, " - ")
 			if len(tokens) > 1 {
 				strParsing = tokens[0]
-				callIDsStr = tokens[1]
-				tokens2 := strings.Split(callIDsStr, " (")
+				header.CallIDsStr = tokens[1]
+				tokens2 := strings.Split(header.CallIDsStr, " (")
 				if len(tokens2) > 1 {
-					callIDsStr = tokens2[0]
+					header.CallIDsStr = tokens2[0]
 				}
 			}
 
 			strParsing = strings.ReplaceAll(strParsing, marker, "")
 			strParsing = strings.ReplaceAll(strParsing, " calls", "")
-			numCalls, err = strconv.Atoi(strParsing)
-			if err != nil {
-				log.Println("[ERROR] unable to parse line to get #s of alltoallv calls")
-				return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, err
-			}
 
-			if callIDsStr != "" {
-				/*
-					tokens := strings.Split(callIDsStr, " ")
-					for _, t := range tokens {
-						if t == "..." {
-							incompleteData = true
-						}
-						if t != "" && t != "..." { // '...' means that we have a few more calls that are involved but we do not know what they are
-							n, err := strconv.Atoi(t)
-							if err != nil {
-								log.Fatalf("unable to parse '%s' - '%s'\n", callIDsStr, t)
-								return numCalls, callIDs, callIDsStr, numRanks, datatypeSize, incompleteData, err
-							}
-							callIDs = append(callIDs, n)
-						}
-					}
-				*/
-
-				callIDs, err = notation.ConvertCompressedCallListToIntSlice(callIDsStr)
+			if header.CallIDsStr != "" {
+				header.CallIDs, err = notation.ConvertCompressedCallListToIntSlice(header.CallIDsStr)
 				if err != nil {
 					log.Printf("[ERROR] unable to parse calls IDs: %s", err)
-					return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, err
+					return header, err
 				}
 			}
 		}
@@ -271,17 +248,11 @@ func GetHeader(reader *bufio.Reader) (int, int, []int, string, int, int, error) 
 		}
 
 		if readerErr == io.EOF {
-			return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, readerErr
+			return header, readerErr
 		}
 	}
 
-	/*
-		if numCalls != alltoallvCallNumber {
-			return numCalls, callIDs, callIDsStr, fmt.Errorf("[ERROR] Inconsistent metadata, number of calls differs (%d vs. %d)", numCalls, alltoallvCallNumber)
-		}
-	*/
-
-	return totalNumCalls, numCalls, callIDs, callIDsStr, numRanks, datatypeSize, nil
+	return header, nil
 }
 
 func GetCounters(reader *bufio.Reader) ([]string, error) {
@@ -304,43 +275,42 @@ func GetCounters(reader *bufio.Reader) ([]string, error) {
 }
 
 // LookupCallFromFile extract counts of a specific call from a count file.
-func LookupCallFromFile(reader *bufio.Reader, numCall int) (int, int, []string, *errors.ProfilerError) {
+func LookupCallFromFile(reader *bufio.Reader, numCall int) (HeaderT, []string, *errors.ProfilerError) {
 	var counts []string
 	var err error
 	var callIDs []int
-
-	numRanks := 0
-	datatypeSize := 0
+	var header HeaderT
 
 	for {
-		_, _, callIDs, _, numRanks, datatypeSize, err = GetHeader(reader)
+		header, err = GetHeader(reader)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, fmt.Errorf("unable to read header: %s", err))
+			return header, nil, errors.New(errors.ErrFatal, fmt.Errorf("unable to read header: %s", err))
 		}
 		for _, i := range callIDs {
 			if i == numCall {
 				counts, err = GetCounters(reader)
 				if err == nil {
-					return numRanks, datatypeSize, counts, errors.New(errors.ErrNone, nil)
+					// We found the call's data
+					return header, counts, errors.New(errors.ErrNone, nil)
 				}
-				return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, err)
+				return header, nil, errors.New(errors.ErrFatal, err)
 			}
 		}
 
 		// We do not need these counts but we still read them to find the next header
-		_, err := GetCounters(reader)
+		_, err = GetCounters(reader)
 		if err != nil {
-			return numRanks, datatypeSize, counts, errors.New(errors.ErrFatal, fmt.Errorf("unable to parse file: %s", err))
+			return header, nil, errors.New(errors.ErrFatal, fmt.Errorf("unable to parse file: %s", err))
 		}
 	}
 
 	// We did not find the callID and it might be expected: the call ID is absolute,
 	// i.e., reflect all the Alltoallv calls the rank encounters as a lead (rank 0
 	// on the communicator) or participants.
-	return -1, -1, counts, errors.New(errors.ErrNotFound, nil)
+	return header, nil, errors.New(errors.ErrNotFound, nil)
 }
 
 func findCountersFilesWithPrefix(basedir string, jobid string, pid string, prefix string) ([]string, error) {
@@ -411,8 +381,8 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 
 		reader := bufio.NewReader(file)
 		for {
-			_, _, callIDs, _, _, dtSize, readerErr1 := GetHeader(reader)
-			datatypeSize = dtSize
+			header, readerErr1 := GetHeader(reader)
+			datatypeSize = header.DatatypeSize
 
 			if readerErr1 != nil && readerErr1 != io.EOF {
 				fmt.Printf("ERROR: %s", readerErr1)
@@ -420,8 +390,8 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 			}
 
 			targetCall := false
-			for i := 0; i < len(callIDs); i++ {
-				if callIDs[i] == callNum {
+			for i := 0; i < len(header.CallIDs); i++ {
+				if header.CallIDs[i] == callNum {
 					targetCall = true
 					break
 				}
@@ -460,6 +430,8 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 }
 
 func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThreshold int) (map[int]*CallData, error) {
+	var readerErr error
+
 	callData := make(map[int]*CallData) // The key is the call number and the value a pointer to the call's data (several calls can share the same data)
 
 	bar := progress.NewBar(2, "Reading count files")
@@ -473,30 +445,29 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 	defer sendFile.Close()
 	reader := bufio.NewReader(sendFile)
 	for {
-		_, _, callIDs, _, commSize, datatypeSize, readerErr := GetHeader(reader)
-		if readerErr == io.EOF || len(callIDs) == 0 {
+		cd := new(CallData)
+		cd.SendData.CountsMetadata, readerErr = GetHeader(reader)
+		if readerErr == io.EOF || len(cd.SendData.CountsMetadata.CallIDs) == 0 {
 			break
 		}
 		if readerErr != nil && readerErr != io.EOF {
 			return nil, fmt.Errorf("unable to read header from %s: %w", sendCountsFile, readerErr)
 		}
-		cd := new(CallData)
-		cd.CommSize = commSize
+		cd.CommSize = cd.SendData.CountsMetadata.NumRanks
 		cd.MsgSizeThreshold = msgSizeThreshold
-		counts, readerErr := GetCounters(reader)
+		cd.SendData.RawCounts, readerErr = GetCounters(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			return nil, fmt.Errorf("unable to read header from %s: %w", sendCountsFile, readerErr)
 		}
-		cd.SendData.Counts = counts
 		cd.SendData.File = sendCountsFile
 
-		cd.SendData.Statistics, err = AnalyzeCounts(cd.SendData.Counts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
+		cd.SendData.Statistics, err = AnalyzeCounts(cd.SendData.RawCounts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
-		cd.SendData.Statistics.DatatypeSize = datatypeSize
+		cd.SendData.Statistics.DatatypeSize = cd.SendData.CountsMetadata.DatatypeSize
 
-		for _, callID := range callIDs {
+		for _, callID := range cd.SendData.CountsMetadata.CallIDs {
 			callData[callID] = cd
 		}
 
@@ -513,7 +484,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 	defer recvFile.Close()
 	reader = bufio.NewReader(recvFile)
 	for {
-		_, _, callIDs, _, commSize, recvDatatypeSize, readerErr := GetHeader(reader)
+		header, readerErr := GetHeader(reader)
 		if readerErr == io.EOF {
 			break
 		}
@@ -526,20 +497,21 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 			return nil, fmt.Errorf("unavle to reader counts from %s: %w", recvCountsFile, readerErr)
 		}
 
-		stats, err := AnalyzeCounts(counts, msgSizeThreshold, recvDatatypeSize)
+		stats, err := AnalyzeCounts(counts, msgSizeThreshold, header.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, callID := range callIDs {
-			if commSize != callData[callID].CommSize {
-				return nil, fmt.Errorf("inconsistent comm size for call %d: %d vs. %d", callID, commSize, callData[callID].CommSize)
+		for _, callID := range header.CallIDs {
+			if header.NumRanks != callData[callID].CommSize {
+				return nil, fmt.Errorf("inconsistent comm size for call %d: %d vs. %d", callID, header.NumRanks, callData[callID].CommSize)
 			}
 			cb := callData[callID]
+			cb.RecvData.CountsMetadata = header
 			cb.RecvData.Statistics = stats
-			cb.RecvData.Counts = counts
+			cb.RecvData.RawCounts = counts
 			cb.RecvData.File = recvCountsFile
-			cb.RecvData.Statistics.DatatypeSize = recvDatatypeSize
+			cb.RecvData.Statistics.DatatypeSize = header.DatatypeSize
 			callData[callID] = cb
 		}
 
@@ -614,6 +586,7 @@ func FindCallRankCounters(basedir string, jobid int, rank int, callNum int) (str
 	return sendCounters, recvCounters, nil
 }
 
+// GetNumCalls returns the total number of calls associated to a specific send/receive count profile file
 func GetNumCalls(path string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -622,12 +595,11 @@ func GetNumCalls(path string) (int, error) {
 	defer f.Close()
 
 	reader := bufio.NewReader(f)
-	totalNumCalls, _, _, _, _, _, err := GetHeader(reader)
+	header, err := GetHeader(reader)
 	if err != nil {
 		return 0, err
 	}
-
-	return totalNumCalls, nil
+	return header.TotalNumCalls, nil
 }
 
 func sameRawCounts(counts1 []string, counts2 []string) bool {

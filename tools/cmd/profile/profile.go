@@ -58,7 +58,7 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 		b.Increment(1)
 		callData.SendData.BinThresholds = listBins
 		sendBins := bins.Create(listBins)
-		sendBins, err = bins.GetFromCounts(callData.SendData.Counts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
+		sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
 		if err != nil {
 			return cs, sendRecvStats, p, err
 		}
@@ -250,7 +250,7 @@ func main() {
 
 	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, err := maps.Create(maps.Heat, *dir, allCallsData)
+	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(maps.Heat, *dir, allCallsData)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
@@ -270,14 +270,14 @@ func main() {
 		os.Exit(1)
 	}
 	avgExecutionTimes := make(map[int]float64)
-	for key, val := range totalA2AExecutionTimes {
-		// fixme: this is not quite correct in multi-comm case since all ranks may have participated to a different number of calls
-		avgExecutionTimes[key] = val / float64(totalNumCalls)
+	for rank, execTime := range totalA2AExecutionTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
 	}
 	avgLateArrivalTimes := make(map[int]float64)
-	for key, val := range totalLateArrivalTimes {
-		// fixme: this is not quite correct in multi-comm case since all ranks may have participated to a different number of calls
-		avgExecutionTimes[key] = val / float64(totalNumCalls)
+	for rank, lateTime := range totalLateArrivalTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
 	}
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++

@@ -297,20 +297,27 @@ func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold 
 	recvCountsFileReader := bufio.NewReader(recvCountsFd)
 
 	var profilerErr *errors.ProfilerError
-	info.CountsData.CommSize, info.CountsData.SendData.Statistics.DatatypeSize, info.CountsData.SendData.Counts, profilerErr = counts.LookupCallFromFile(sendCountsFileReader, callNum)
+	var countsHeader counts.HeaderT
+	countsHeader, info.CountsData.SendData.RawCounts, profilerErr = counts.LookupCallFromFile(sendCountsFileReader, callNum)
 	if !profilerErr.Is(errors.ErrNone) {
 		return info, profilerErr.GetInternal()
 	}
-	_, info.CountsData.RecvData.Statistics.DatatypeSize, info.CountsData.RecvData.Counts, profilerErr = counts.LookupCallFromFile(recvCountsFileReader, callNum)
+	info.CountsData.CommSize = countsHeader.NumRanks
+	info.CountsData.SendData.Statistics.DatatypeSize = countsHeader.DatatypeSize
+	countsHeader, info.CountsData.RecvData.RawCounts, profilerErr = counts.LookupCallFromFile(recvCountsFileReader, callNum)
 	if !profilerErr.Is(errors.ErrNone) {
 		return info, profilerErr.GetInternal()
 	}
+	if info.CountsData.CommSize != countsHeader.NumRanks {
+		return info, fmt.Errorf("Communicator of different size: %d vs. %d", info.CountsData.CommSize, countsHeader.NumRanks)
+	}
+	info.CountsData.RecvData.Statistics.DatatypeSize = countsHeader.DatatypeSize
 
-	info.SendStats, err = counts.AnalyzeCounts(info.CountsData.SendData.Counts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)
+	info.SendStats, err = counts.AnalyzeCounts(info.CountsData.SendData.RawCounts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)
 	if err != nil {
 		return info, err
 	}
-	info.RecvStats, err = counts.AnalyzeCounts(info.CountsData.RecvData.Counts, msgSizeThreshold, info.CountsData.RecvData.Statistics.DatatypeSize)
+	info.RecvStats, err = counts.AnalyzeCounts(info.CountsData.RecvData.RawCounts, msgSizeThreshold, info.CountsData.RecvData.Statistics.DatatypeSize)
 	if err != nil {
 		return info, err
 	}
