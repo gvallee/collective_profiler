@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/scale"
 )
 
 const (
@@ -90,6 +91,18 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	maxValue := 0
 	numRanks := 0
 	values := make(map[int]bool)
+	sendRankBW := make(map[int]float64)
+	recvRankBW := make(map[int]float64)
+	scaledSendRankBW := make(map[int]float64)
+	scaledRecvRankBW := make(map[int]float64)
+
+	avgSendHeatMapUnit, avgSendScaledHeatMap := scale.MapInts("B", avgSendHeatMap)
+	avgRecvHeatMapUnit, avgRecvScaledHeatMap := scale.MapInts("B", avgRecvHeatMap)
+	avgExecTimeMapUnit, avgExecScaledTimeMap := scale.MapFloat64s("seconds", avgExecTimeMap)
+	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
+
+	sBWUnit := ""
+	rBWUnit := ""
 
 	emptyLines := 0
 	for _, hostname := range hosts {
@@ -116,10 +129,23 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 					return "", err
 				}
 			}
-			sendBW := float64(avgSendHeatMap[rank]) / avgExecTimeMap[rank]
-			recvBW := float64(avgRecvHeatMap[rank]) / avgExecTimeMap[rank]
-			maxValue, values = getMax(maxValue, values, rank, avgSendHeatMap, avgRecvHeatMap, avgExecTimeMap, avgLateArrivalTimeMap, sendBW, recvBW)
-			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, avgSendHeatMap[rank], avgRecvHeatMap[rank], avgExecTimeMap[rank], avgLateArrivalTimeMap[rank], sendBW, recvBW))
+			sendRankBW[rank] = float64(avgSendHeatMap[rank]) / avgExecTimeMap[rank]
+			recvRankBW[rank] = float64(avgRecvHeatMap[rank]) / avgExecTimeMap[rank]
+			var scaledSendRankBWUnit string
+			var scaledRecvRankBWUnit string
+			scaledSendRankBWUnit, scaledSendBW := scale.Float64s("B/s", []float64{sendRankBW[rank]})
+			scaledSendRankBW[rank] = scaledSendBW[0]
+			scaledRecvRankBWUnit, scaledRecvBW := scale.Float64s("B/s", []float64{recvRankBW[rank]})
+			scaledRecvRankBW[rank] = scaledRecvBW[0]
+			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
+				return "", fmt.Errorf("detected different scales for BW data")
+			}
+			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
+				return "", fmt.Errorf("detected different scales for BW data")
+			}
+
+			maxValue, values = getMax(maxValue, values, rank, avgSendScaledHeatMap, avgRecvScaledHeatMap, avgExecScaledTimeMap, avgLateArrivalScaledTimeMap, sendRankBW[rank], recvRankBW[rank])
+			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, avgSendScaledHeatMap[rank], avgRecvScaledHeatMap[rank], avgExecScaledTimeMap[rank], avgLateArrivalScaledTimeMap[rank], sendRankBW[0], recvRankBW[1]))
 			if err != nil {
 				return "", err
 			}
@@ -166,7 +192,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		a = append(a, key)
 	}
 	sort.Ints(a)
-	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts)
+	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
 	}
@@ -179,6 +205,16 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	maxValue := 0
 	numRanks := 0
 	values := make(map[int]bool)
+	sendRankBW := make(map[int]float64)
+	recvRankBW := make(map[int]float64)
+
+	sendHeatMapUnit, sendScaledHeatMap := scale.MapInts("B", sendHeatMap)
+	recvHeatMapUnit, recvScaledHeatMap := scale.MapInts("B", recvHeatMap)
+	execTimeMapUnit, execScaledTimeMap := scale.MapFloat64s("seconds", execTimeMap)
+	lateArrivalTimeMapUnit, lateArrivalScaledTimeMap := scale.MapFloat64s("seconds", lateArrivalMap)
+
+	sBWUnit := ""
+	rBWUnit := ""
 
 	emptyLines := 0
 	for _, hostname := range hosts {
@@ -205,10 +241,18 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 					return "", err
 				}
 			}
-			sendBW := float64(sendHeatMap[rank]) / execTimeMap[rank]
-			recvBW := float64(recvHeatMap[rank]) / execTimeMap[rank]
-			maxValue, values = getMax(maxValue, values, rank, sendHeatMap, recvHeatMap, execTimeMap, lateArrivalMap, sendBW, recvBW)
-			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, sendHeatMap[rank], recvHeatMap[rank], execTimeMap[rank], lateArrivalMap[rank], sendBW, recvBW))
+			sendRankBW[rank] = float64(sendHeatMap[rank]) / execTimeMap[rank]
+			recvRankBW[rank] = float64(recvHeatMap[rank]) / execTimeMap[rank]
+			scaledSendRankBWUnit, scaledSendRankBW := scale.MapFloat64s("B/s", sendRankBW)
+			scaledRecvRankBWUnit, scaledRecvRankBW := scale.MapFloat64s("B/s", recvRankBW)
+			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
+				return "", fmt.Errorf("detected different scales for BW data")
+			}
+			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
+				return "", fmt.Errorf("detected different scales for BW data")
+			}
+			maxValue, values = getMax(maxValue, values, rank, sendScaledHeatMap, recvScaledHeatMap, execScaledTimeMap, lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
+			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, sendScaledHeatMap[rank], recvScaledHeatMap[rank], execScaledTimeMap[rank], lateArrivalScaledTimeMap[rank], scaledSendRankBW[rank], scaledRecvRankBW[rank]))
 			if err != nil {
 				return "", err
 			}
@@ -255,7 +299,8 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 		a = append(a, key)
 	}
 	sort.Ints(a)
-	gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts)
+
+	gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts, sendHeatMapUnit, recvHeatMapUnit, execTimeMapUnit, lateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +308,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	return gnuplotScript, nil
 }
 
-func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string) error {
+func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
 	_, err := fd.WriteString(fmt.Sprintf("set xrange [-1:%d]\n", numRanks))
 	if err != nil {
 		return err
@@ -288,12 +333,17 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	for _, hostname := range hosts {
 		str += "\"ranks_map_" + hostname + ".txt\" using 0:1 with boxes title '" + hostname + "', \\\n"
 	}
+
+	if sendBWUnit != recvBWUnit {
+		return fmt.Errorf("units different for send and receive bandwidth")
+	}
+
 	// Special for the first node
-	str += fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 title \"data sent (bytes)\", \\\n", hosts[0])
-	str += fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 title \"data received (bytes)\", \\\n", hosts[0])
-	str += fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 title \"execution time (s)\", \\\n", hosts[0])
-	str += fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 title \"late arrival timing (s)\", \\\n", hosts[0])
-	str += fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 title \"bandwidth (bytes/s)\", \\\n", hosts[0])
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 title \"data sent (%s)\", \\\n", hosts[0], sendUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 title \"data received (%s)\", \\\n", hosts[0], recvUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 title \"execution time (%s)\", \\\n", hosts[0], execTimeUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 title \"late arrival timing (%s)\", \\\n", hosts[0], lateArrivalTimeUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 title \"bandwidth (%s)\", \\\n", hosts[0], sendBWUnit))
 	for i := 1; i < len(hosts); i++ {
 		str += fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 notitle, \\\n", hosts[i])
 		str += fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 notitle, \\\n", hosts[i])
@@ -310,7 +360,7 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	return nil
 }
 
-func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string) (string, error) {
+func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
 	plotScriptFile := filepath.Join(outputDir, "profiler_rank"+strconv.Itoa(leadRank)+"_call"+strconv.Itoa(callID)+".gnuplot")
 	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -327,7 +377,7 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 		return "", err
 	}
 
-	err = write(fd, numRanks, maxValue, values, hosts)
+	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", err
 	}
@@ -335,7 +385,7 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 	return plotScriptFile, nil
 }
 
-func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, values []int, hosts []string) (string, error) {
+func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
 	plotScriptFile := filepath.Join(outputDir, "profiler_avgs.gnuplot")
 	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -351,7 +401,7 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 	if err != nil {
 		return "", err
 	}
-	err = write(fd, numRanks, maxValue, values, hosts)
+	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", err
 	}
