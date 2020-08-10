@@ -44,7 +44,7 @@
             <tr>
                 <td>
                     <div class="callList">
-                        <table class="callList">
+                        <table class="callList" id="callListTable">
                             <tr class="callList">
                                 <th class="callList">Communicator</th>
                                 <th class="callList">Call</th>
@@ -64,21 +64,35 @@
                 <td>
                     <div class="callDetails">
                         <p>Call Details</p>
+                        <table>
+                            <tr>
+                                <td>Test</td>
+                            </tr>
+                        </table>
                     </div>
                 </td>
             </tr>
         </table>
     </div>
     <script type="text/javascript">
-        document.querySelector('ul').addEventListener('click', function (e) {
-            var selected;
-
-            if (e.target.tagName === 'LI') {
-                selected = document.querySelector('li.selected');
-                if (selected) selected.className = '';
-                e.target.className = 'selected';
+        function highlight(e) {
+            if (selected[0]) {
+                selected[0].className = '';
             }
-        });
+            var t = document.getElementById('callListTable')
+            for (var i = 0, row; row = table.rows[i]; i++) {
+                row.className = 'callList';
+            }
+            e.target.parentNode.className = 'selected';
+        }
+
+        var table = document.getElementById('callListTable'),
+            selected = table.getElementsByClassName('selected');
+        table.onclick = highlight;
+
+        function fnselect() {
+            alert($("tr.selected td:first").html());
+        }
     </script>
 </body>
 
