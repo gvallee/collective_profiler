@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        .selected {
+            background: lightgreen;
+        }
+
+        table.CallList {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.callList,
+        td.callList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.callList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.callList {
+            max-width: 200px;
+            margin: auto;
+            min-height: 800px;
+        }
+
+        div.callDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Profile: {{ .PageTitle }}</h1>
+    <div class="mainPanel">
+        <table>
+            <tr>
+                <td>
+                    <div class="callList">
+                        <table class="callList" id="callListTable">
+                            <tr class="callList">
+                                <th class="callList">Communicator</th>
+                                <th class="callList">Call</th>
+                            </tr>
+                            {{range .Calls}}
+                            {{ $leadRank := .LeadRank }}
+                            {{range $callID, $callData := .CallData}}
+                            <tr class="callList">
+                                <td class="callList" id="leadRank">{{ $leadRank}}</td>
+                                <td class="callList" id="callID">{{ $callID }}</td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </table>
+                    </div>
+                </td>
+                <td>
+                    <div class="callDetails">
+                        <table id="callInfo">
+
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <script type="text/javascript">
+        function highlight(e) {
+            if (selected[0]) {
+                selected[0].className = '';
+            }
+            var t = document.getElementById('callListTable')
+            for (var i = 0, row; row = table.rows[i]; i++) {
+                row.className = 'callList';
+            }
+            e.target.parentNode.className = 'selected';
+            var leadRank = e.target.parentNode.children[0].innerHTML;
+            var callID = e.target.parentNode.children[1].innerHTML;
+
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    document.getElementById("callInfo").innerHTML = xhr.responseText;
+                }
+            }
+            var params = 'leadRank=' + leadRank + "&callID=" + callID;
+            console.log(params)
+            xhr.open("GET", "/call" + "?" + params);
+            xhr.send();
+        }
+
+        var table = document.getElementById('callListTable'),
+            selected = table.getElementsByClassName('selected');
+        table.onclick = highlight;
+
+        function fnselect() {
+            alert($("tr.selected td:first").html());
+        }
+    </script>
+</body>
+
+</html>
