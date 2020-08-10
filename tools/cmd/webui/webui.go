@@ -24,11 +24,6 @@ import (
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-type CallData struct {
-	LeadRank int
-	CallID   int
-}
-
 type CallsPageData struct {
 	PageTitle string
 	Calls     []counts.CommDataT
