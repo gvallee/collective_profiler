@@ -135,6 +135,7 @@ func displayUI(dataBasedir string, name string) error {
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
+	baseDir := flag.String("basedir", "", "Base directory of the dataset")
 	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
@@ -156,7 +157,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	basedir := "/home/gvallee/projects/alltoall_profiling/examples"
+	basedir := *baseDir
 	name := "example"
 	displayUI(basedir, name)
 }
