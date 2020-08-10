@@ -777,9 +777,56 @@ func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls 
 	return nil
 }
 
-func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
+func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, files []string) error {
 	var rawSendCounts []rawCountsCallsT
 	var rawRecvCounts []rawCountsCallsT
+
+	b := progress.NewBar(len(files), fmt.Sprintf("Converting count files for communicator %d", leadRank))
+	defer progress.EndBar(b)
+	for _, file := range files {
+		b.Increment(1)
+		rc, err := parseRawFile(file)
+		if err != nil {
+			return err
+		}
+
+		_, callId, err := getInfoFromRawCountsFileName(file)
+		if err != nil {
+			return err
+		}
+
+		idx := rawSendCountsAlreadyExists(rc, rawSendCounts)
+		if idx == -1 {
+			newData := rawCountsCallsT{
+				calls:  []int{callId},
+				counts: &rc,
+			}
+			rawSendCounts = append(rawSendCounts, newData)
+		} else {
+			rawSendCounts[idx].calls = append(rawSendCounts[idx].calls, callId)
+		}
+
+		idx = rawRecvCountsAlreadyExists(rc, rawRecvCounts)
+		if idx == -1 {
+			newData := rawCountsCallsT{
+				calls:  []int{callId},
+				counts: &rc,
+			}
+			rawRecvCounts = append(rawRecvCounts, newData)
+		} else {
+			rawRecvCounts[idx].calls = append(rawRecvCounts[idx].calls, callId)
+		}
+	}
+
+	err := saveAllCountsInCompactFormat(outputDir, 0, leadRank, numCalls, rawSendCounts, rawRecvCounts)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 
 	commMap := make(map[int][]string)
 	numCalls := 0
@@ -811,41 +858,7 @@ func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 
 	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
 	for leadRank, files := range commMap {
-		for _, file := range files {
-			rc, err := parseRawFile(file)
-			if err != nil {
-				return err
-			}
-
-			_, callId, err := getInfoFromRawCountsFileName(file)
-			if err != nil {
-				return err
-			}
-
-			idx := rawSendCountsAlreadyExists(rc, rawSendCounts)
-			if idx == -1 {
-				newData := rawCountsCallsT{
-					calls:  []int{callId},
-					counts: &rc,
-				}
-				rawSendCounts = append(rawSendCounts, newData)
-			} else {
-				rawSendCounts[idx].calls = append(rawSendCounts[idx].calls, callId)
-			}
-
-			idx = rawRecvCountsAlreadyExists(rc, rawRecvCounts)
-			if idx == -1 {
-				newData := rawCountsCallsT{
-					calls:  []int{callId},
-					counts: &rc,
-				}
-				rawRecvCounts = append(rawRecvCounts, newData)
-			} else {
-				rawRecvCounts[idx].calls = append(rawRecvCounts[idx].calls, callId)
-			}
-		}
-
-		err := saveAllCountsInCompactFormat(outputDir, 0, leadRank, numCalls, rawSendCounts, rawRecvCounts)
+		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
 		if err != nil {
 			return err
 		}
