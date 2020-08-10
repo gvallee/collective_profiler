@@ -101,6 +101,10 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	avgExecTimeMapUnit, avgExecScaledTimeMap := scale.MapFloat64s("seconds", avgExecTimeMap)
 	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
 
+	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
+	// is the same scale all the time. It might not be true so we really need to figure out the
+	// scale based on sendHeatMapUnit and recvHeatMapUnit and force it to be used later when
+	// calculating the bandwidth
 	sBWUnit := ""
 	rBWUnit := ""
 
@@ -213,6 +217,10 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	execTimeMapUnit, execScaledTimeMap := scale.MapFloat64s("seconds", execTimeMap)
 	lateArrivalTimeMapUnit, lateArrivalScaledTimeMap := scale.MapFloat64s("seconds", lateArrivalMap)
 
+	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
+	// is the same scale all the time. It might not be true so we really need to figure out the
+	// scale based on sendHeatMapUnit and recvHeatMapUnit and force it to be used later when
+	// calculating the bandwidth
 	sBWUnit := ""
 	rBWUnit := ""
 
