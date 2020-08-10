@@ -20,6 +20,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gomarkdown/markdown"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
+
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
@@ -37,9 +40,23 @@ type CallPageData struct {
 	CallsData []counts.CommDataT
 }
 
+type PatternsSummaryData struct {
+	Content string
+}
+
+const (
+	sizeThreshold = 200
+	binThresholds = "200,1024,2048,4096"
+)
+
 var datasetBasedir string
 var datasetName string
 var mainData CallsPageData
+
+var numCalls int
+var stats map[int]counts.SendRecvStats
+var allPatterns map[int]patterns.Data
+var allCallsData []counts.CommDataT
 
 var basedir string
 
@@ -97,36 +114,110 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
+func loadData() error {
+	var err error
+
+	if stats == nil {
+		listBins := bins.GetFromInputDescr(binThresholds)
+		numCalls, stats, allPatterns, allCallsData, err = profiler.HandleCountsFiles(datasetBasedir, sizeThreshold, listBins)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func CallsLayoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 
-	sizeThreshold := 200
-	binThresholds := "200,1024,2048,4096"
-	listBins := bins.GetFromInputDescr(binThresholds)
-	_, _, _, allCallsData, err := profiler.HandleCountsFiles(datasetBasedir, sizeThreshold, listBins)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	loadData()
 
 	mainData = CallsPageData{
 		PageTitle: datasetName,
 		Calls:     allCallsData,
 	}
 
-	indexTemplate, err := template.New("callsLayout.html").ParseFiles(filepath.Join(basedir, "templates", "callsLayout.html"))
-	err = indexTemplate.Execute(w, mainData)
+	callsLayoutTemplate, err := template.New("callsLayout.html").ParseFiles(filepath.Join(basedir, "templates", "callsLayout.html"))
+	err = callsLayoutTemplate.Execute(w, mainData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
+func findPatternsSummaryFile() (string, error) {
+	files, err := ioutil.ReadDir(datasetBasedir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, file := range files {
+		if strings.HasPrefix(file.Name(), patterns.SummaryFilePrefix) {
+			return filepath.Join(datasetBasedir, file.Name()), nil
+		}
+	}
+
+	return "", nil
+}
+
+func PatternsHandler(w http.ResponseWriter, r *http.Request) {
+	// check if the summary file is already there; if not, generate it.
+
+	patternsFilePath, err := findPatternsSummaryFile()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	if patternsFilePath == "" {
+		// The summary pattern file does not exist
+		loadData()
+		err = profiler.AnalyzeSubCommsResults(datasetBasedir, stats, allPatterns)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	patternsFilePath, err = findPatternsSummaryFile()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	if patternsFilePath == "" {
+		http.Error(w, "unable to load patterns", http.StatusInternalServerError)
+	}
+
+	mdContent, err := ioutil.ReadFile(patternsFilePath)
+	if err != nil {
+		http.Error(w, "unable to load patterns", http.StatusInternalServerError)
+	}
+	htmlContent := string(markdown.ToHTML(mdContent, nil, nil))
+
+	patternsSummaryData := PatternsSummaryData{
+		Content: htmlContent,
+	}
+
+	patternsTemplate, err := template.New("patterns.html").ParseFiles(filepath.Join(basedir, "templates", "patterns.html"))
+	err = patternsTemplate.Execute(w, patternsSummaryData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+
+	indexTemplate, err := template.New("index.html").ParseFiles(filepath.Join(basedir, "templates", "index.html"))
+	err = indexTemplate.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+}
+
 func displayUI(dataBasedir string, name string) error {
 	datasetBasedir = dataBasedir
 	datasetName = name
-	_, filename, _, _ := runtime.Caller(0)
-	basedir = filepath.Dir(filename)
 
 	http.HandleFunc("/", IndexHandler)
+	http.HandleFunc("/calls", CallsLayoutHandler)
+	http.HandleFunc("/patterns", PatternsHandler)
 	http.HandleFunc("/call", CallHandler)
 	http.ListenAndServe(":8080", nil)
 
@@ -157,7 +248,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	basedir := *baseDir
+	_, filename, _, _ := runtime.Caller(0)
+	basedir = filepath.Dir(filename)
 	name := "example"
-	displayUI(basedir, name)
+	displayUI(*baseDir, name)
 }
