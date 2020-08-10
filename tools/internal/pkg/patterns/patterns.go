@@ -318,13 +318,13 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 
 func writeDataToFile(fd *os.File, cd *CallData) error {
 	for nDest, nSrc := range cd.Send {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", nSrc, nDest))
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n\n", nSrc, nDest))
 		if err != nil {
 			return err
 		}
 	}
 	for key, val := range cd.Recv {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", val, key))
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n\n", val, key))
 		if err != nil {
 			return err
 		}
@@ -337,7 +337,7 @@ func WriteToFile(fd *os.File, num int, totalNumCalls int, cd *CallData) error {
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cd.Calls)))
+	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n\n", notation.CompressIntArray(cd.Calls)))
 	if err != nil {
 		return err
 	}
