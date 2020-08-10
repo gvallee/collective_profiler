@@ -8,7 +8,6 @@ package counts
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -39,7 +38,7 @@ func TestConvertRawToCompactFormat(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to create temporary directory")
 		}
-		defer os.RemoveAll(tempDir)
+		//defer os.RemoveAll(tempDir)
 
 		err = LoadRawCountsFromDirs(tt.dirs, tempDir)
 		if err != nil {

@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -672,7 +673,6 @@ func countsSeriesExists(c string, list []compressedRanksCountsT) int {
 		}
 		idx++
 	}
-
 	return -1
 }
 
@@ -695,6 +695,7 @@ func compressCounts(counts []string) []string {
 	}
 
 	for _, s := range uniqueCountsSeries {
+		//sort.Ints(s.ranks)
 		ranksStr := notation.CompressIntArray(s.ranks)
 		compressedCounts = append(compressedCounts, fmt.Sprintf("Rank(s) %s: %s", ranksStr, strings.TrimRight(s.counts, "\n")))
 	}
@@ -702,7 +703,7 @@ func compressCounts(counts []string) []string {
 	return compressedCounts
 }
 
-func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int) error {
+func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int, context string) error {
 	for _, c := range data {
 		_, err := fd.WriteString(compactCountsFileHeader)
 		if err != nil {
@@ -714,9 +715,17 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 			return err
 		}
 
-		_, err = fd.WriteString(fmt.Sprintf("%s%d\n", datatypeSizeMarker, c.counts.sendDatatypeSize))
-		if err != nil {
-			return err
+		if context == "S" {
+			_, err = fd.WriteString(fmt.Sprintf("%s%d\n", datatypeSizeMarker, c.counts.sendDatatypeSize))
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err = fd.WriteString(fmt.Sprintf("%s%d\n", datatypeSizeMarker, c.counts.recvDatatypeSize))
+			if err != nil {
+				return err
+			}
+
 		}
 
 		_, err = fd.WriteString(fmt.Sprintf("%s 0-%d\n", alltoallvCallNumbersMarker, numCalls-1))
@@ -724,6 +733,7 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 			return err
 		}
 
+		sort.Ints(c.calls)
 		compressedListCalls := notation.CompressIntArray(c.calls)
 		_, err = fd.WriteString(fmt.Sprintf("%s%d calls - %s\n", marker, len(c.calls), compressedListCalls))
 		if err != nil {
@@ -735,10 +745,18 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 			return err
 		}
 
-		sendCompressedCounts := compressCounts(c.counts.sendCounts)
-		_, err = fd.WriteString(strings.Join(sendCompressedCounts, "\n"))
-		if err != nil {
-			return err
+		if context == "S" {
+			sendCompressedCounts := compressCounts(c.counts.sendCounts)
+			_, err = fd.WriteString(strings.Join(sendCompressedCounts, "\n"))
+			if err != nil {
+				return err
+			}
+		} else {
+			recvCompressedCounts := compressCounts(c.counts.recvCounts)
+			_, err = fd.WriteString(strings.Join(recvCompressedCounts, "\n"))
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = fd.WriteString(fmt.Sprintf("\n%s\n", endDataMarker))
@@ -757,7 +775,7 @@ func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls 
 	}
 	defer scFd.Close()
 
-	err = saveCountsInCompactFormat(scFd, sc, numCalls)
+	err = saveCountsInCompactFormat(scFd, sc, numCalls, "S")
 	if err != nil {
 		return err
 	}
@@ -769,7 +787,7 @@ func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls 
 	}
 	defer rcFd.Close()
 
-	err = saveCountsInCompactFormat(rcFd, rc, numCalls)
+	err = saveCountsInCompactFormat(rcFd, rc, numCalls, "R")
 	if err != nil {
 		return err
 	}
@@ -826,8 +844,35 @@ func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, fil
 	return nil
 }
 
-func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
+func LoadRawCountsFromFiles(listFiles []string, outputDir string) error {
+	commMap := make(map[int][]string)
+	numCalls := 0
 
+	for _, file := range listFiles {
+		leadRank, _, err := getInfoFromRawCountsFileName(file)
+		if err != nil {
+			return err
+		}
+		if _, ok := commMap[leadRank]; ok {
+			commMap[leadRank] = append(commMap[leadRank], file)
+		} else {
+			commMap[leadRank] = []string{file}
+		}
+		numCalls++ // One call per file, we just parsed one file.
+	}
+
+	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
+	for leadRank, files := range commMap {
+		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 	commMap := make(map[int][]string)
 	numCalls := 0
 
@@ -930,7 +975,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		if err != nil {
 			return rc, err
 		}
-		rc.sendCounts = append(rc.sendCounts, line)
+		rc.sendCounts = append(rc.sendCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
 	}
 
 	// We have two empty lines
@@ -957,7 +1002,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		if err != nil && err != io.EOF { // the last line does not include "\n"
 			return rc, err
 		}
-		rc.recvCounts = append(rc.recvCounts, line)
+		rc.recvCounts = append(rc.recvCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
 	}
 
 	return rc, nil
