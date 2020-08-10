@@ -1,6 +1,9 @@
 # Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
 
-all: convert map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+all: webui convert map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+
+webui:
+	cd cmd/webui; go build webui.go
 
 convert:
 	cd cmd/convert; go build convert.go
@@ -68,3 +71,4 @@ clean:
 	@rm -f cmd/profile/profile
 	@rm -f cmd/map/map
 	@rm -f cmd/convert/convert
+	@rm -f cmd/webui/webui

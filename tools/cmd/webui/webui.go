@@ -19,6 +19,7 @@ import (
 	"text/template"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
@@ -30,11 +31,10 @@ type CallData struct {
 
 type CallsPageData struct {
 	PageTitle string
-	Calls     []CallData
+	Calls     []counts.CommDataT
 }
 
-func displayUI(datasetBasedir string) error {
-
+func displayUI(datasetBasedir string, datasetName string) error {
 	sizeThreshold := 200
 	binThresholds := "200,1024,2048,4096"
 	listBins := bins.GetFromInputDescr(binThresholds)
@@ -44,16 +44,8 @@ func displayUI(datasetBasedir string) error {
 	}
 
 	data := CallsPageData{
-		PageTitle: "Alltoallv Calls",
-	}
-	for _, callsData := range allCallsData {
-		for callID, _ := range callsData.CallData {
-			cd := CallData{
-				LeadRank: callsData.LeadRank,
-				CallID:   callID,
-			}
-			data.Calls = append(data.Calls, cd)
-		}
+		PageTitle: datasetName,
+		Calls:     allCallsData,
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
@@ -92,5 +84,6 @@ func main() {
 	}
 
 	basedir := "/home/gvallee/projects/alltoall_profiling/examples"
-	displayUI(basedir)
+	name := "example"
+	displayUI(basedir, name)
 }
