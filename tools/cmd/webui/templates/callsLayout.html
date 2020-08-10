@@ -53,8 +53,8 @@
                             {{ $leadRank := .LeadRank }}
                             {{range $callID, $callData := .CallData}}
                             <tr class="callList">
-                                <td class="callList">{{ $leadRank}}</td>
-                                <td class="callList">{{ $callID }}</td>
+                                <td class="callList" id="leadRank">{{ $leadRank}}</td>
+                                <td class="callList" id="callID">{{ $callID }}</td>
                             </tr>
                             {{end}}
                             {{end}}
@@ -63,11 +63,8 @@
                 </td>
                 <td>
                     <div class="callDetails">
-                        <p>Call Details</p>
-                        <table>
-                            <tr>
-                                <td>Test</td>
-                            </tr>
+                        <table id="callInfo">
+
                         </table>
                     </div>
                 </td>
@@ -84,6 +81,19 @@
                 row.className = 'callList';
             }
             e.target.parentNode.className = 'selected';
+            var leadRank = e.target.parentNode.children[0].innerHTML;
+            var callID = e.target.parentNode.children[1].innerHTML;
+
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    document.getElementById("callInfo").innerHTML = xhr.responseText;
+                }
+            }
+            var params = 'leadRank=' + leadRank + "&callID=" + callID;
+            console.log(params)
+            xhr.open("GET", "/call" + "?" + params);
+            xhr.send();
         }
 
         var table = document.getElementById('callListTable'),
