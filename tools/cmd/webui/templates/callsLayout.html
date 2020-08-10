@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        .selected {
+            background: lightgreen;
+        }
+
+        table.CallList {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.callList,
+        td.callList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.callList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.callList {
+            max-width: 200px;
+            margin: auto;
+            min-height: 800px;
+        }
+
+        div.callDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Profile: {{ .PageTitle }}</h1>
+    <div class="mainPanel">
+        <table>
+            <tr>
+                <td>
+                    <div class="callList">
+                        <table class="callList">
+                            <tr class="callList">
+                                <th class="callList">Communicator</th>
+                                <th class="callList">Call</th>
+                            </tr>
+                            {{range .Calls}}
+                            {{ $leadRank := .LeadRank }}
+                            {{range $callID, $callData := .CallData}}
+                            <tr class="callList">
+                                <td class="callList">{{ $leadRank}}</td>
+                                <td class="callList">{{ $callID }}</td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </table>
+                    </div>
+                </td>
+                <td>
+                    <div class="callDetails">
+                        <p>Call Details</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <script type="text/javascript">
+        document.querySelector('ul').addEventListener('click', function (e) {
+            var selected;
+
+            if (e.target.tagName === 'LI') {
+                selected = document.querySelector('li.selected');
+                if (selected) selected.className = '';
+                e.target.className = 'selected';
+            }
+        });
+    </script>
+</body>
+
+</html>
