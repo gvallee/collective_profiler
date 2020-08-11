@@ -14,7 +14,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -695,7 +694,6 @@ func compressCounts(counts []string) []string {
 	}
 
 	for _, s := range uniqueCountsSeries {
-		//sort.Ints(s.ranks)
 		ranksStr := notation.CompressIntArray(s.ranks)
 		compressedCounts = append(compressedCounts, fmt.Sprintf("Rank(s) %s: %s", ranksStr, strings.TrimRight(s.counts, "\n")))
 	}
@@ -733,7 +731,6 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 			return err
 		}
 
-		sort.Ints(c.calls)
 		compressedListCalls := notation.CompressIntArray(c.calls)
 		_, err = fd.WriteString(fmt.Sprintf("%s%d calls - %s\n", marker, len(c.calls), compressedListCalls))
 		if err != nil {
