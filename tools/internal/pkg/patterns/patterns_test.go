@@ -132,5 +132,102 @@ func TestParsingCounts(t *testing.T) {
 		compareFiles(t, patternsFilepath, refPatternsFilepath)
 		compareFiles(t, summaryFilePath, refSummaryFilepath)
 	}
+}
 
+func compareArrayCallData(t *testing.T, data1 []*CallData, data2 []*CallData) {
+	if len(data1) != len(data2) {
+		t.Fatalf("sizes differ: length is %d instead of %d", len(data1), len(data2))
+	}
+	for i := 0; i < len(data1); i++ {
+		if len(data1[i].Send) != len(data2[i].Send) {
+			t.Fatalf("Send patterns are of length %d instead of %d", len(data1[i].Send), len(data2[i].Send))
+		}
+		if len(data1[i].Recv) != len(data2[i].Recv) {
+			t.Fatalf("Recv patterns are of length %d instead of %d", len(data1[i].Recv), len(data2[i].Recv))
+		}
+		if len(data1[i].Calls) != len(data2[i].Calls) {
+			t.Fatalf("Send patterns are of length %d instead of %d", len(data1[i].Calls), len(data2[i].Calls))
+		}
+		for j := 0; j < len(data1[i].Calls); j++ {
+			if data1[i].Calls[j] != data2[i].Calls[j] {
+				t.Fatalf("Pattern call #%d is %d instead of %d", j, data1[i].Calls[j], data2[i].Calls[j])
+			}
+		}
+		for k, v := range data1[i].Send {
+			if data2[i].Send[k] != v {
+				t.Fatalf("Value for key %d is %d instead of %d", k, data2[i].Send[k], v)
+			}
+		}
+		for k, v := range data1[i].Recv {
+			if data2[i].Recv[k] != v {
+				t.Fatalf("Value for key %d is %d instead of %d", k, data2[i].Recv[k], v)
+			}
+		}
+	}
+}
+
+func TestParseFile(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	basedir := filepath.Dir(filename)
+
+	tests := []struct {
+		sendCountsFile string
+		recvCountsFile string
+		numCalls       int
+		leadRank       int
+		sizeThreshold  int
+		expectedOutput Data
+	}{
+		{
+			sendCountsFile: filepath.Join(basedir, "testData", "set1", "input", "send-counters.job0.rank0.txt"),
+			recvCountsFile: filepath.Join(basedir, "testData", "set1", "input", "recv-counters.job0.rank0.txt"),
+			numCalls:       3,
+			leadRank:       0,
+			sizeThreshold:  200,
+			expectedOutput: Data{
+				AllPatterns: []*CallData{
+					&CallData{
+						Send: map[int]int{
+							1023: 1024,
+						},
+						Recv: map[int]int{
+							1023: 1024,
+						},
+						Count: 1,
+						Calls: []int{0, 1, 2},
+					},
+				},
+				NToN: []*CallData{
+					&CallData{
+						Send: map[int]int{
+							1023: 1024,
+						},
+						Recv: map[int]int{
+							1023: 1024,
+						},
+						Count: 1,
+						Calls: []int{0, 1, 2},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		_, patterns, err := ParseFiles(tt.sendCountsFile, tt.recvCountsFile, tt.numCalls, tt.leadRank, tt.sizeThreshold)
+		if err != nil {
+			t.Fatalf("ParseFile() failed: %s", err)
+		}
+		t.Log("Comparing AllPatterns list...")
+		compareArrayCallData(t, tt.expectedOutput.AllPatterns, patterns.AllPatterns)
+		t.Log("Comparing OneToN list...")
+		compareArrayCallData(t, tt.expectedOutput.OneToN, patterns.OneToN)
+		t.Log("Comparing NToN list...")
+		compareArrayCallData(t, tt.expectedOutput.NToN, patterns.NToN)
+		t.Log("Comparing NToOne list...")
+		compareArrayCallData(t, tt.expectedOutput.NToOne, patterns.NToOne)
+		t.Log("Comparing Empty patterns...")
+		compareArrayCallData(t, tt.expectedOutput.Empty, patterns.Empty)
+		t.Log("All done for test.")
+	}
 }

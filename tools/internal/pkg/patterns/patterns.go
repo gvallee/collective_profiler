@@ -301,7 +301,7 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 		}
 
 		// Detect n->n patterns
-		if nSrc == nDest {
+		if float64(nDest)*0.9 <= float64(nSrc) && float64(nSrc) <= float64(nDest)*1.1 {
 			d.NToN = append(d.NToN, new_cp)
 			continue
 		}
@@ -509,7 +509,7 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 	}
 
 	if len(callData) != numCalls {
-		return nil, patterns, fmt.Errorf("extracted data of only %d/%d calls\n", len(callData), numCalls)
+		return nil, patterns, fmt.Errorf("extracted data of %d calls instead of %d\n", len(callData), numCalls)
 	}
 
 	return callData, patterns, nil
