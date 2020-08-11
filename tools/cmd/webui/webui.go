@@ -115,9 +115,20 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loadData() error {
-	var err error
-
 	if stats == nil {
+		_, sendCountsFiles, _, err := profiler.FindCompactFormatCountsFiles(datasetBasedir)
+		if err != nil {
+			return err
+		}
+		if len(sendCountsFiles) == 0 {
+			// We do not have the files in the right format: try to convert raw counts files
+			_, dirs := profiler.FindRawCountFiles(datasetBasedir)
+			err := counts.LoadRawCountsFromDirs(dirs, datasetBasedir)
+			if err != nil {
+				return err
+			}
+		}
+
 		listBins := bins.GetFromInputDescr(binThresholds)
 		numCalls, stats, allPatterns, allCallsData, err = profiler.HandleCountsFiles(datasetBasedir, sizeThreshold, listBins)
 		if err != nil {

@@ -301,7 +301,7 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 		}
 
 		// Detect n->n patterns
-		if nSrc == nDest {
+		if float64(nDest)*0.9 <= float64(nSrc) && float64(nSrc) <= float64(nDest)*1.1 {
 			d.NToN = append(d.NToN, new_cp)
 			continue
 		}
@@ -318,13 +318,13 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 
 func writeDataToFile(fd *os.File, cd *CallData) error {
 	for nDest, nSrc := range cd.Send {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n", nSrc, nDest))
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n\n", nSrc, nDest))
 		if err != nil {
 			return err
 		}
 	}
 	for key, val := range cd.Recv {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n", val, key))
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n\n", val, key))
 		if err != nil {
 			return err
 		}
@@ -337,7 +337,7 @@ func WriteToFile(fd *os.File, num int, totalNumCalls int, cd *CallData) error {
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n", notation.CompressIntArray(cd.Calls)))
+	_, err = fd.WriteString(fmt.Sprintf("Alltoallv calls: %s\n\n", notation.CompressIntArray(cd.Calls)))
 	if err != nil {
 		return err
 	}
@@ -509,7 +509,7 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 	}
 
 	if len(callData) != numCalls {
-		return nil, patterns, fmt.Errorf("extracted data of only %d/%d calls\n", len(callData), numCalls)
+		return nil, patterns, fmt.Errorf("extracted data of %d calls instead of %d\n", len(callData), numCalls)
 	}
 
 	return callData, patterns, nil

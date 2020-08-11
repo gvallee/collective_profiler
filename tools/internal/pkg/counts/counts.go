@@ -35,6 +35,8 @@ const (
 	SendCountersFilePrefix = "send-counters."
 	// RecvCountersFilePrefix is the prefix used for all receive counts files
 	RecvCountersFilePrefix = "recv-counters."
+	// RawCountersFilePrefix is the prefix used for all raw counts files (one file per call; no compact format)
+	RawCountersFilePrefix = "counts.rank"
 )
 
 // HeaderT is the data extracted from the counts headr from a count profile file in the compact format

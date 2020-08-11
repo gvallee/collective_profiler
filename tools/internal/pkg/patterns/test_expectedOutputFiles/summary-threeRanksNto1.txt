@@ -4,6 +4,9 @@
 ## Pattern #0 (1/1 alltoallv calls)
 
 Alltoallv calls: 0
+
 110 ranks sent to 1 other ranks
+
 1 ranks recv'd from 110 other ranks
+
 
