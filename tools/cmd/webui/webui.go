@@ -238,6 +238,7 @@ func displayUI(dataBasedir string, name string) error {
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	baseDir := flag.String("basedir", "", "Base directory of the dataset")
+	name := flag.String("name", "example", "Name of the dataset to display")
 	help := flag.Bool("h", false, "Help message")
 
 	flag.Parse()
@@ -261,6 +262,5 @@ func main() {
 
 	_, filename, _, _ := runtime.Caller(0)
 	basedir = filepath.Dir(filename)
-	name := "example"
-	displayUI(*baseDir, name)
+	displayUI(*baseDir, *name)
 }

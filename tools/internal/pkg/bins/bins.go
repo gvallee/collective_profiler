@@ -18,6 +18,7 @@ import (
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/go_util/pkg/util"
 )
 
 type Data struct {
@@ -36,6 +37,16 @@ func getOutputFile(dir string, jobid, rank int, b Data) string {
 	}
 
 	return outputFile
+}
+
+func FilesExist(outputDir string, jobid int, rank int, listBins []int) bool {
+	bins := Create(listBins) // Create is a cheap operation
+	for _, b := range bins {
+		if !util.PathExists(getOutputFile(outputDir, jobid, rank, b)) {
+			return false
+		}
+	}
+	return true
 }
 
 // GetBinsFromInputDescr parses the string describing a series of threshold to use

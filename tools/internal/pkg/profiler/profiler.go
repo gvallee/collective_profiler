@@ -469,19 +469,21 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 		return cs, sendRecvStats, p, fmt.Errorf("unable to parse count file %s: %s", sendCountFile, err)
 	}
 
-	b := progress.NewBar(len(cs), "Bin creation")
-	defer progress.EndBar(b)
-	for _, callData := range cs {
-		b.Increment(1)
-		callData.SendData.BinThresholds = listBins
-		sendBins := bins.Create(listBins)
-		sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
-		if err != nil {
-			return cs, sendRecvStats, p, err
-		}
-		err = bins.Save(basedir, jobid, rank, sendBins)
-		if err != nil {
-			return cs, sendRecvStats, p, err
+	if !bins.FilesExist(basedir, jobid, rank, listBins) {
+		b := progress.NewBar(len(cs), "Bin creation")
+		defer progress.EndBar(b)
+		for _, callData := range cs {
+			b.Increment(1)
+			callData.SendData.BinThresholds = listBins
+			sendBins := bins.Create(listBins)
+			sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
+			if err != nil {
+				return cs, sendRecvStats, p, err
+			}
+			err = bins.Save(basedir, jobid, rank, sendBins)
+			if err != nil {
+				return cs, sendRecvStats, p, err
+			}
 		}
 	}
 
