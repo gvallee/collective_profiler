@@ -18,13 +18,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/scale"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
 const (
-	plotScriptPrelude = "set term png size 800,600\nset key outside\nset key right top\n"
+	plotScriptPrelude = "set term png size 1200,900\nset key out vert\nset key bot center\n"
 )
 
 func sortHostMapKeys(m map[string][]int) []string {
@@ -317,6 +316,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	return pngFile, gnuplotScript, nil
 }
 
+// fixme: maxValue is deprecated since we autonatically scale all data so [0-1000]
 func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("empty list of hosts")
@@ -325,7 +325,7 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("set yrange [0:%d]\n", maxValue))
+	_, err = fd.WriteString(fmt.Sprintf("set yrange [0:1000]\n"))
 	if err != nil {
 		return err
 	}
@@ -333,10 +333,12 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("set ytics (%s)\n", notation.IntSliceToString(values)))
-	if err != nil {
-		return err
-	}
+	/*
+		_, err = fd.WriteString(fmt.Sprintf("set ytics (%s)\n", notation.IntSliceToString(values)))
+		if err != nil {
+			return err
+		}
+	*/
 	_, err = fd.WriteString("\nshow label\n\n")
 	if err != nil {
 		return err
