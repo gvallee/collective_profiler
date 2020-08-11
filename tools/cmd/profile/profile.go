@@ -34,7 +34,7 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 		for callID, _ := range allCallsData[i].CallData {
 			b.Increment(1)
 
-			err := plot.CallsData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
+			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
 			if err != nil {
 				return err
 			}

@@ -1,6 +1,9 @@
 <p>Call Details for {{ .CallID }}</p>
 <table id="callDetails">
     <tr>
+        <td>
+            <img src="/images/{{displayCallPlot .LeadRank .CallID}}" width="800" height="600">
+        </td>
         <td>Send counts:<br />
             <p>{{displaySendCounts .CallsData .LeadRank .CallID}}</p>
         </td>

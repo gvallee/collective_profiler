@@ -70,7 +70,7 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 	}
 	sort.Float64s(sortedValues)
 
-	if sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
+	if len(sortedValues) >= 2 && sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
 		// We scale down all the values if possible
 
 		// Translate the human reading unit into something we can inteprete
@@ -81,7 +81,7 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 		return MapFloat64s(newUnitID, newValues)
 	}
 
-	if sortedValues[0] >= 1000 {
+	if len(sortedValues) > 0 && sortedValues[0] >= 1000 {
 		// We scale up the value if possible
 
 		// Translate the human reading unit into something we can inteprete

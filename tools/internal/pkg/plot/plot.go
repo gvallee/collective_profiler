@@ -20,6 +20,7 @@ import (
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/scale"
+	"github.com/gvallee/go_util/pkg/util"
 )
 
 const (
@@ -204,7 +205,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	return gnuplotScript, nil
 }
 
-func generateCallDataFiles(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, error) {
+func generateCallDataFiles(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, string, error) {
 	hosts := sortHostMapKeys(hostMap)
 	maxValue := 0
 	numRanks := 0
@@ -230,13 +231,13 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 
 		fd, err := os.OpenFile(hostFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		defer fd.Close()
 
 		_, err = fd.WriteString("# Rank send_size recv_size exec_time late_time send_bw recv_bw\n")
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		ranks := hostMap[hostname]
@@ -246,7 +247,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 			for i := 0; i < emptyLines; i++ {
 				_, err = fd.WriteString("- - - - - - -\n")
 				if err != nil {
-					return "", err
+					return "", "", err
 				}
 			}
 			sendRankBW[rank] = float64(sendHeatMap[rank]) / execTimeMap[rank]
@@ -254,15 +255,15 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 			scaledSendRankBWUnit, scaledSendRankBW := scale.MapFloat64s("B/s", sendRankBW)
 			scaledRecvRankBWUnit, scaledRecvRankBW := scale.MapFloat64s("B/s", recvRankBW)
 			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
-				return "", fmt.Errorf("detected different scales for BW data")
+				return "", "", fmt.Errorf("detected different scales for BW data")
 			}
 			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
-				return "", fmt.Errorf("detected different scales for BW data")
+				return "", "", fmt.Errorf("detected different scales for BW data")
 			}
 			maxValue, values = getMax(maxValue, values, rank, sendScaledHeatMap, recvScaledHeatMap, execScaledTimeMap, lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
 			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, sendScaledHeatMap[rank], recvScaledHeatMap[rank], execScaledTimeMap[rank], lateArrivalScaledTimeMap[rank], scaledSendRankBW[rank], scaledRecvRankBW[rank]))
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
 		}
 		emptyLines += len(ranks)
@@ -275,27 +276,27 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 
 		fd2, err := os.OpenFile(hostRankFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		defer fd2.Close()
 		for i := 0; i < emptyLines; i++ {
 			_, err := fd2.WriteString("0\n")
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
 			idx++
 		}
 		for i := 0; i < len(hostMap[hostname]); i++ {
 			_, err := fd2.WriteString(fmt.Sprintf("%d\n", maxValue))
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
 			idx++
 		}
 		for i := idx; i < numRanks; i++ {
 			_, err := fd2.WriteString("0\n")
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
 			idx++
 		}
@@ -308,15 +309,18 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	}
 	sort.Ints(a)
 
-	gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts, sendHeatMapUnit, recvHeatMapUnit, execTimeMapUnit, lateArrivalTimeMapUnit, sBWUnit, rBWUnit)
+	pngFile, gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts, sendHeatMapUnit, recvHeatMapUnit, execTimeMapUnit, lateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return gnuplotScript, nil
+	return pngFile, gnuplotScript, nil
 }
 
 func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
+	if len(hosts) == 0 {
+		return fmt.Errorf("empty list of hosts")
+	}
 	_, err := fd.WriteString(fmt.Sprintf("set xrange [-1:%d]\n", numRanks))
 	if err != nil {
 		return err
@@ -368,29 +372,34 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	return nil
 }
 
-func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
+func getPlotFilename(leadRank int, callID int) string {
+	return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
+}
+
+func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, string, error) {
 	plotScriptFile := filepath.Join(outputDir, "profiler_rank"+strconv.Itoa(leadRank)+"_call"+strconv.Itoa(callID)+".gnuplot")
 	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer fd.Close()
 
 	_, err = fd.WriteString(plotScriptPrelude)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("set output \"profiler_rank%d_call%d.png\"\n\nset pointsize 2\n\n", leadRank, callID))
+	targetPlotFile := getPlotFilename(leadRank, callID)
+	_, err = fd.WriteString(fmt.Sprintf("set output \"%s\"\n\nset pointsize 2\n\n", targetPlotFile))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return plotScriptFile, nil
+	return targetPlotFile, plotScriptFile, nil
 }
 
 func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
@@ -440,13 +449,21 @@ func runGnuplot(gnuplotScript string, outputDir string) error {
 	return nil
 }
 
-func CallsData(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) error {
-	gnuplotScript, err := generateCallDataFiles(dir, outputDir, leadRank, callID, hostMap, sendHeatMap, recvHeatMap, execTimeMap, lateArrivalMap)
-	if err != nil {
-		return err
+func CallFilesExist(outputDir string, leadRank int, callID int) bool {
+	return util.PathExists(filepath.Join(outputDir, getPlotFilename(leadRank, callID)))
+}
+
+func CallData(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, error) {
+	if len(hostMap) == 0 {
+		return "", fmt.Errorf("empty list of hosts")
 	}
 
-	return runGnuplot(gnuplotScript, outputDir)
+	pngFile, gnuplotScript, err := generateCallDataFiles(dir, outputDir, leadRank, callID, hostMap, sendHeatMap, recvHeatMap, execTimeMap, lateArrivalMap)
+	if err != nil {
+		return "", err
+	}
+
+	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
 
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
