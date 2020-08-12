@@ -70,15 +70,25 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 	}
 	sort.Float64s(sortedValues)
 
+	// If all values are 0 nothing can be done
+	if allZerosFloat64s(sortedValues) {
+		return unitID, values
+	}
+
 	if len(sortedValues) >= 2 && sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
 		// We scale down all the values if possible
 
 		// Translate the human reading unit into something we can inteprete
 		unitType, unitScale := unit.FromString(unitID)
-
 		unitType, unitScale, newValues := mapFloat64sScaleDown(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
-		return MapFloat64s(newUnitID, newValues)
+		if newUnitID != unitID {
+			// It actually scaled down one level, can we do one more?
+			return MapFloat64s(newUnitID, newValues)
+		} else {
+			// Nothing could be down returning...
+			return newUnitID, newValues
+		}
 	}
 
 	if len(sortedValues) > 0 && sortedValues[0] >= 1000 {
