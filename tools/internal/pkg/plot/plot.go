@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	plotScriptPrelude = "set term png size 1200,900\nset key out vert\nset key bot center\n"
+	plotScriptPrelude = "set term png size 3200,2400\nset key out vert\nset key right\n"
 )
 
 func sortHostMapKeys(m map[string][]int) []string {
@@ -88,7 +88,7 @@ func getMax(max int, values map[int]bool, rank int, sendHeatMap map[int]int, rec
 // fixme: too similar to generateCallDataFiles
 func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) (string, error) {
 	hosts := sortHostMapKeys(hostMap)
-	maxValue := 0
+	maxValue := 1000 // We automatically scale the data, the max is always 1000
 	numRanks := 0
 	values := make(map[int]bool)
 	sendRankBW := make(map[int]float64)
@@ -126,13 +126,13 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		ranks := hostMap[hostname]
 		numRanks += len(ranks)
 		sort.Ints(ranks)
-		for _, rank := range ranks {
-			for i := 0; i < emptyLines; i++ {
-				_, err = fd.WriteString("- - - - - - -\n")
-				if err != nil {
-					return "", err
-				}
+		for i := 0; i < emptyLines; i++ {
+			_, err = fd.WriteString("- - - - - - -\n")
+			if err != nil {
+				return "", err
 			}
+		}
+		for _, rank := range ranks {
 			sendRankBW[rank] = float64(avgSendHeatMap[rank]) / avgExecTimeMap[rank]
 			recvRankBW[rank] = float64(avgRecvHeatMap[rank]) / avgExecTimeMap[rank]
 			var scaledSendRankBWUnit string
@@ -147,8 +147,14 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
 				return "", fmt.Errorf("detected different scales for BW data")
 			}
+			if sBWUnit == "" {
+				sBWUnit = scaledSendRankBWUnit
+			}
+			if rBWUnit == "" {
+				rBWUnit = scaledRecvRankBWUnit
+			}
 
-			maxValue, values = getMax(maxValue, values, rank, avgSendScaledHeatMap, avgRecvScaledHeatMap, avgExecScaledTimeMap, avgLateArrivalScaledTimeMap, sendRankBW[rank], recvRankBW[rank])
+			_, values = getMax(maxValue, values, rank, avgSendScaledHeatMap, avgRecvScaledHeatMap, avgExecScaledTimeMap, avgLateArrivalScaledTimeMap, sendRankBW[rank], recvRankBW[rank])
 			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, avgSendScaledHeatMap[rank], avgRecvScaledHeatMap[rank], avgExecScaledTimeMap[rank], avgLateArrivalScaledTimeMap[rank], sendRankBW[0], recvRankBW[1]))
 			if err != nil {
 				return "", err
@@ -196,6 +202,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		a = append(a, key)
 	}
 	sort.Ints(a)
+	fmt.Printf("Unit BWs: %s %s\n", sBWUnit, rBWUnit)
 	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
@@ -206,7 +213,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 
 func generateCallDataFiles(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, string, error) {
 	hosts := sortHostMapKeys(hostMap)
-	maxValue := 0
+	maxValue := 1000 // We scale the data the maximum is always 1000
 	numRanks := 0
 	values := make(map[int]bool)
 	sendRankBW := make(map[int]float64)
@@ -242,13 +249,13 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 		ranks := hostMap[hostname]
 		numRanks += len(ranks)
 		sort.Ints(ranks)
-		for _, rank := range ranks {
-			for i := 0; i < emptyLines; i++ {
-				_, err = fd.WriteString("- - - - - - -\n")
-				if err != nil {
-					return "", "", err
-				}
+		for i := 0; i < emptyLines; i++ {
+			_, err = fd.WriteString("- - - - - - -\n")
+			if err != nil {
+				return "", "", err
 			}
+		}
+		for _, rank := range ranks {
 			sendRankBW[rank] = float64(sendHeatMap[rank]) / execTimeMap[rank]
 			recvRankBW[rank] = float64(recvHeatMap[rank]) / execTimeMap[rank]
 			scaledSendRankBWUnit, scaledSendRankBW := scale.MapFloat64s("B/s", sendRankBW)
@@ -259,7 +266,20 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
 				return "", "", fmt.Errorf("detected different scales for BW data")
 			}
-			maxValue, values = getMax(maxValue, values, rank, sendScaledHeatMap, recvScaledHeatMap, execScaledTimeMap, lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
+			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
+				return "", "", fmt.Errorf("detected different scales for BW data")
+			}
+			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
+				return "", "", fmt.Errorf("detected different scales for BW data")
+			}
+			if sBWUnit == "" {
+				sBWUnit = scaledSendRankBWUnit
+			}
+			if rBWUnit == "" {
+				rBWUnit = scaledRecvRankBWUnit
+			}
+
+			_, values = getMax(maxValue, values, rank, sendScaledHeatMap, recvScaledHeatMap, execScaledTimeMap, lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
 			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, sendScaledHeatMap[rank], recvScaledHeatMap[rank], execScaledTimeMap[rank], lateArrivalScaledTimeMap[rank], scaledSendRankBW[rank], scaledRecvRankBW[rank]))
 			if err != nil {
 				return "", "", err
@@ -329,7 +349,7 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString("set xtics\n\nset style fill pattern\n\nset style fill solid .1 noborder\nset style line 1 lc rgb 'black' pt 2\nset style line 2 lc rgb 'black' pt 1\nset style line 3 lc rgb 'black' pt 4\nset style line 4 lc rgb 'black' pt 9\nset style line 5 lc rgb 'black' pt 6\n")
+	_, err = fd.WriteString("set xtics\n\nset style fill pattern\n\nset style fill solid .1 noborder\nset style line 1 lc rgb 'black' pt 2\nset style line 2 lc rgb 'blue' pt 1\nset style line 3 lc rgb 'red' pt 4\nset style line 4 lc rgb 'pink' pt 9\nset style line 5 lc rgb 'green' pt 6\n")
 	if err != nil {
 		return err
 	}
@@ -376,6 +396,7 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 
 func getPlotFilename(leadRank int, callID int) string {
 	return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
+	//return fmt.Sprintf("profiler_rank%d_call%d.svg", leadRank, callID)
 }
 
 func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, string, error) {
@@ -417,6 +438,7 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 		return "", err
 	}
 	_, err = fd.WriteString("set output \"profiler_avgs.png\"\n\nset pointsize 2\n\n")
+	//_, err = fd.WriteString("set output \"profiler_avgs.svg\"\n\nset pointsize 2\n\n")
 	if err != nil {
 		return "", err
 	}

@@ -699,17 +699,16 @@ func LoadHostMap(filePath string) (map[string][]int, error) {
 		if len(tokens) != 2 {
 			return nil, fmt.Errorf("%s is not of valid format", line)
 		}
-		rankList, err := notation.ConvertCompressedCallListToIntSlice(tokens[1])
+		hostname := strings.TrimLeft(tokens[0], "Host ")
+		tokens2 := strings.Split(hostname, " - ")
+		if len(tokens2) != 2 {
+			return nil, fmt.Errorf("%s is of invalid format", line)
+		}
+		hostname = tokens2[0]
+		m[hostname], err = notation.ConvertCompressedCallListToIntSlice(tokens[1])
 		if err != nil {
 			return nil, err
 		}
-		hostname := strings.TrimRight(tokens[0], "Host ")
-		tokens = strings.Split(hostname, " - ")
-		if len(tokens) != 2 {
-			return nil, fmt.Errorf("%s is of invalid format", line)
-		}
-		hostname = tokens[1]
-		m[hostname] = rankList
 	}
 
 	return m, nil

@@ -1,0 +1,7 @@
+Total of 6 nodes
+Host node-031 - 11 ranks: 960-970
+Host node-002 - 1 ranks: 32
+Host node-012 - 3 ranks: 352-354
+Host node-017 - 8 ranks: 512-518,520
+Host node-026 - 2 ranks: 800-802
+Host node-029 - 13 ranks: 900-912
