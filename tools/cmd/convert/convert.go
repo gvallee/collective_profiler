@@ -16,10 +16,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
-
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

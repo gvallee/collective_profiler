@@ -202,7 +202,6 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		a = append(a, key)
 	}
 	sort.Ints(a)
-	fmt.Printf("Unit BWs: %s %s\n", sBWUnit, rBWUnit)
 	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
@@ -336,7 +335,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	return pngFile, gnuplotScript, nil
 }
 
-// fixme: maxValue is deprecated since we autonatically scale all data so [0-1000]
+// fixme: values is not currently used, by removing it, the code would become much simpler.
 func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("empty list of hosts")
@@ -396,7 +395,6 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 
 func getPlotFilename(leadRank int, callID int) string {
 	return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
-	//return fmt.Sprintf("profiler_rank%d_call%d.svg", leadRank, callID)
 }
 
 func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, string, error) {
@@ -438,7 +436,6 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 		return "", err
 	}
 	_, err = fd.WriteString("set output \"profiler_avgs.png\"\n\nset pointsize 2\n\n")
-	//_, err = fd.WriteString("set output \"profiler_avgs.svg\"\n\nset pointsize 2\n\n")
 	if err != nil {
 		return "", err
 	}
