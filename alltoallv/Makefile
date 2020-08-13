@@ -1,3 +1,8 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# See LICENSE.txt for license information
+#
+
 all: liballtoallv.so liballtoallv_location.so liballtoallv_counts.so liballtoallv_late_arrival.so liballtoallv_a2a_timings.so liballtoallv_backtrace.so grouping_test compress_array_test patterns_detection_test
 
 logger.o: logger.c logger.h alltoallv_profiler.h
