@@ -69,6 +69,11 @@ func MapInts(unitID string, m map[int]int) (string, map[int]int) {
 	}
 	sort.Ints(sortedValues)
 
+	// If all values are 0 nothing can be done
+	if allZerosInts(sortedValues) {
+		return unitID, m
+	}
+
 	if sortedValues[0] >= 1000 {
 		// We scale up the value if possible
 
@@ -77,7 +82,13 @@ func MapInts(unitID string, m map[int]int) (string, map[int]int) {
 
 		unitType, unitScale, newMap := mapIntsScaleUp(unitType, unitScale, m)
 		newUnitID := unit.ToString(unitType, unitScale)
-		return MapInts(newUnitID, newMap)
+		if newUnitID != unitID {
+			// It actually scaled down one level, can we do one more?
+			return MapInts(newUnitID, newMap)
+		} else {
+			// Nothing could be down returning...
+			return newUnitID, newMap
+		}
 	}
 
 	// Nothing to do, just return the same

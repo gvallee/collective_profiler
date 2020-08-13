@@ -35,6 +35,12 @@ func TestInts(t *testing.T) {
 			expectedUnit:   "KB",
 			expectedValues: []int{1, 1, 10, 10, 22, 2, 244},
 		},
+		{
+			unit:           "MB/s",
+			values:         []int{0, 0, 0, 0},
+			expectedUnit:   "MB/s",
+			expectedValues: []int{0, 0, 0, 0},
+		},
 	}
 
 	for _, tt := range tests {
@@ -98,6 +104,12 @@ func TestFloat64s(t *testing.T) {
 			expectedUnit:   "TB/s",
 			expectedValues: []float64{1, 1.1, 10.001, 10.002, 22.222, 2.222, 244.242},
 		},
+		{
+			unit:           "MB/s",
+			values:         []float64{0, 0, 0, 0},
+			expectedUnit:   "MB/s",
+			expectedValues: []float64{0, 0, 0, 0},
+		},
 	}
 
 	for _, tt := range tests {
@@ -142,6 +154,12 @@ func TestMapInts(t *testing.T) {
 			values:         map[int]int{1: 1000, 3: 1100, 4: 10001, 5: 10002, 6: 22222, 8: 2222, 10: 244242},
 			expectedUnit:   "KB",
 			expectedValues: map[int]int{1: 1, 3: 1, 4: 10, 5: 10, 6: 22, 8: 2, 10: 244},
+		},
+		{
+			unit:           "MB/s",
+			values:         map[int]int{0: 0, 1: 0, 2: 0, 3: 0},
+			expectedUnit:   "MB/s",
+			expectedValues: map[int]int{0: 0, 1: 0, 2: 0, 3: 0},
 		},
 	}
 
@@ -205,6 +223,12 @@ func TestMapFloat64s(t *testing.T) {
 			values:         map[int]float64{0: 1000, 1: 1100, 2: 10001, 3: 10002, 4: 22222, 5: 2222, 10: 244242},
 			expectedUnit:   "TB/s",
 			expectedValues: map[int]float64{0: 1, 1: 1.1, 2: 10.001, 3: 10.002, 4: 22.222, 5: 2.222, 10: 244.242},
+		},
+		{
+			unit:           "MB/s",
+			values:         map[int]float64{0: 0, 1: 0, 2: 0, 3: 0},
+			expectedUnit:   "MB/s",
+			expectedValues: map[int]float64{0: 0, 1: 0, 2: 0, 3: 0},
 		},
 	}
 

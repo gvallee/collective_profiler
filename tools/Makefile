@@ -53,6 +53,7 @@ test:
 	cd internal/pkg/counts; go test -v
 	cd internal/pkg/timings; go test -v
 	cd internal/pkg/scale; go test -v
+	cd internal/pkg/plot; go test -v
 
 check: test
 

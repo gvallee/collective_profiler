@@ -9,6 +9,7 @@ package maps
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,11 +36,11 @@ const (
 	pidID              = "PID: "
 	hostnameID         = "Hostname: "
 
-	commHeatMapPrefix   = "heat-map-subcomm"
-	hostHeatMapPrefix   = "hosts-heat-map.rank"
-	callHeatMapPrefix   = "heat-map.rank"
-	globalHeatMapPrefix = "heat-map"
-	rankFilename        = "rankfile.txt"
+	CommHeatMapPrefix   = "heat-map-subcomm"
+	HostHeatMapPrefix   = "hosts-heat-map.rank"
+	CallHeatMapPrefix   = "heat-map.rank"
+	GlobalHeatMapPrefix = "heat-map"
+	RankFilename        = "rankfile.txt"
 )
 
 // RankFileData gathers data about the hostname and what COMMWORLD ranks are on each node
@@ -174,6 +175,70 @@ func getRankMapFromLocations(locations []Location) map[int]int {
 	return m
 }
 
+func getDataFromHeatMapFilename(filename string) (int, int, error) {
+	filename = strings.TrimLeft(filename, CallHeatMapPrefix)
+	tokens := strings.Split(filename, "-")
+	if len(tokens) != 2 {
+		return -1, -1, fmt.Errorf("unabel to parse filename: %s", filename)
+	}
+	leadRankStr := tokens[0]
+	leadRank, err := strconv.Atoi(leadRankStr)
+	if err != nil {
+		return -1, -1, err
+	}
+	callIDStr := tokens[1]
+	callIDStr = strings.TrimRight(callIDStr, "-send.call")
+	callIDStr = strings.TrimRight(callIDStr, "-recv.call")
+	callIDStr = strings.TrimLeft(callIDStr, ".txt")
+	callID, err := strconv.Atoi(callIDStr)
+	if err != nil {
+		return -1, -1, err
+	}
+
+	return leadRank, callID, err
+}
+
+func LoadCallFileHeatMap(filePath string) (map[int]int, error) {
+	m := make(map[int]int)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	for {
+		line, readerErr := reader.ReadString('\n')
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, readerErr
+		}
+		if readerErr != nil && readerErr == io.EOF {
+			break // end of dataset
+		}
+
+		line = strings.TrimRight(line, "\n")
+		if line == "" {
+			continue
+		}
+		tokens := strings.Split(line, ": ")
+		if len(tokens) != 2 {
+			return nil, fmt.Errorf("%s is not in a valid format", line)
+		}
+		rank, err := strconv.Atoi(strings.TrimLeft(tokens[0], "Rank "))
+		if err != nil {
+			return nil, err
+		}
+
+		size, err := strconv.Atoi(strings.TrimRight(tokens[1], " bytes"))
+		if err != nil {
+			return nil, err
+		}
+		m[rank] = size
+	}
+
+	return m, nil
+}
+
 func saveCallHeatMap(heatmap map[int]int, filepath string) error {
 	fd, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -286,23 +351,23 @@ func createHeatMap(dir string, leadRank int, rankMap *RankFileData, allCallsData
 		}
 
 		// Save the call-based heat maps
-		callSendHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-send.call%d.txt", callHeatMapPrefix, leadRank, callID))
+		callSendHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-send.call%d.txt", CallHeatMapPrefix, leadRank, callID))
 		err = saveCallHeatMap(callsData.SendHeatMap[callID], callSendHeatMapFilePath)
 		if err != nil {
 			return err
 		}
-		hostSendHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-send.call%d.txt", hostHeatMapPrefix, leadRank, callID))
+		hostSendHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-send.call%d.txt", HostHeatMapPrefix, leadRank, callID))
 		err = saveHostHeatMap(hostSendHeatMap, hostSendHeatMapFilePath)
 		if err != nil {
 			return err
 		}
 
-		callRecvHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-recv.call%d.txt", callHeatMapPrefix, leadRank, callID))
+		callRecvHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-recv.call%d.txt", CallHeatMapPrefix, leadRank, callID))
 		err = saveCallHeatMap(callsData.RecvHeatMap[callID], callRecvHeatMapFilePath)
 		if err != nil {
 			return err
 		}
-		hostRecvHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-recv.call%d.txt", hostHeatMapPrefix, leadRank, callID))
+		hostRecvHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-recv.call%d.txt", HostHeatMapPrefix, leadRank, callID))
 		err = saveHostHeatMap(hostRecvHeatMap, hostRecvHeatMapFilePath)
 		if err != nil {
 			return err
@@ -330,13 +395,13 @@ func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData,
 	}
 
 	// Save the heat maps for the entire execution
-	globalSendHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-send.txt")
+	globalSendHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-send.txt")
 	err = saveCallHeatMap(globalSendHeatMap, globalSendHeatMapFilePath)
 	if err != nil {
 		return rankFileData, commMaps, err
 	}
 
-	globalRecvHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-recv.txt")
+	globalRecvHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-recv.txt")
 	err = saveCallHeatMap(globalRecvHeatMap, globalRecvHeatMapFilePath)
 	if err != nil {
 		return rankFileData, commMaps, err
@@ -367,13 +432,13 @@ func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]RankFi
 		}
 
 		// Save the heat maps for the entire execution
-		globalSendHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-send.txt")
+		globalSendHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-send.txt")
 		err = saveCallHeatMap(globalSendHeatMap, globalSendHeatMapFilePath)
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
 
-		globalRecvHeatMapFilePath := filepath.Join(dir, globalHeatMapPrefix+"-recv.txt")
+		globalRecvHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-recv.txt")
 		err = saveCallHeatMap(globalRecvHeatMap, globalRecvHeatMapFilePath)
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
@@ -507,7 +572,7 @@ func getRankMapFromFile(info map[string]*rankMapInfo, hm RankFileData, callMap m
 }
 
 func createRankFile(dir string, hm RankFileData) error {
-	rankFilePath := filepath.Join(dir, rankFilename)
+	rankFilePath := filepath.Join(dir, RankFilename)
 	fd, err := os.OpenFile(rankFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
@@ -598,4 +663,53 @@ func CreateAvgMaps(totalNumCalls int, globalSendHeatMap map[int]int, globalRecvH
 	}
 
 	return avgSendMap, avgRecvMap
+}
+
+func LoadHostMap(filePath string) (map[string][]int, error) {
+	m := make(map[string][]int)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+
+	// First line is metadata, we skip it
+	_, readerErr := reader.ReadString('\n')
+	if readerErr != nil {
+		return nil, readerErr
+	}
+
+	for {
+		line, readerErr := reader.ReadString('\n')
+		if readerErr != nil && readerErr != io.EOF {
+			return nil, readerErr
+		}
+		if readerErr != nil && readerErr == io.EOF {
+			break // end of dataset
+		}
+
+		line = strings.TrimRight(line, "\n")
+		if line == "" {
+			continue
+		}
+
+		tokens := strings.Split(line, "ranks: ")
+		if len(tokens) != 2 {
+			return nil, fmt.Errorf("%s is not of valid format", line)
+		}
+		hostname := strings.TrimLeft(tokens[0], "Host ")
+		tokens2 := strings.Split(hostname, " - ")
+		if len(tokens2) != 2 {
+			return nil, fmt.Errorf("%s is of invalid format", line)
+		}
+		hostname = tokens2[0]
+		m[hostname], err = notation.ConvertCompressedCallListToIntSlice(tokens[1])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return m, nil
 }

@@ -7,6 +7,8 @@
 package maps
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
@@ -165,5 +167,47 @@ func TestCreateMapFromCounts(t *testing.T) {
 			}
 		}
 
+	}
+}
+
+func TestLoadHostMap(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	basedir := filepath.Dir(filename)
+
+	tests := []struct {
+		inputFile   string
+		expectedMap map[string][]int
+	}{
+		{
+			inputFile: filepath.Join(basedir, "testData", "set1", "input", "rankfile.txt"),
+			expectedMap: map[string][]int{
+				"node-031": []int{960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970},
+				"node-002": []int{32},
+				"node-012": []int{352, 353, 354},
+				"node-017": []int{512, 513, 514, 515, 516, 517, 518, 520},
+				"node-026": []int{800, 801, 802},
+				"node-029": []int{900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		m, err := LoadHostMap(tt.inputFile)
+		if err != nil {
+			t.Fatalf("LoadHostMap() failed: %s", err)
+		}
+		if len(m) != len(tt.expectedMap) {
+			t.Fatalf("LoadHostMap() returned %d ranks instead of %d", len(m), len(tt.expectedMap))
+		}
+		for k, v := range tt.expectedMap {
+			if len(v) != len(m[k]) {
+				t.Fatalf("Host %s is reported as having %d ranks instead of %d", k, len(m[k]), len(v))
+			}
+			for i := 0; i < len(v); i++ {
+				if tt.expectedMap[k][i] != m[k][i] {
+					t.Fatalf("Rank %d for host %s is reported as %d instead of %d", i, k, m[k][i], tt.expectedMap[k][i])
+				}
+			}
+		}
 	}
 }

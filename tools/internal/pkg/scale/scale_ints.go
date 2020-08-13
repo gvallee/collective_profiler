@@ -70,6 +70,11 @@ func Ints(unitID string, values []int) (string, []int) {
 	}
 	sort.Ints(sortedValues)
 
+	// If all values are 0 nothing can be done
+	if allZerosInts(sortedValues) {
+		return unitID, values
+	}
+
 	/* We deal with integers so this does not make much sense i think
 	if sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
 		// We scale down all the values if possible

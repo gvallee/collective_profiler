@@ -29,6 +29,37 @@ func TestCompressIntArray(t *testing.T) {
 	}
 }
 
+func TestConvertCompressedCallListToIntSlice(t *testing.T) {
+	tests := []struct {
+		input         string
+		expectedArray []int
+	}{
+		{
+			input:         "32",
+			expectedArray: []int{32},
+		},
+		{
+			input:         "32-35,40",
+			expectedArray: []int{32, 33, 34, 35, 40},
+		},
+	}
+
+	for _, tt := range tests {
+		array, err := ConvertCompressedCallListToIntSlice(tt.input)
+		if err != nil {
+			t.Fatalf("ConvertCompressedCallListToIntSlice() failed: %s", err)
+		}
+		if len(array) != len(tt.expectedArray) {
+			t.Fatalf("ConvertCompressedCallListToIntSlice() returned %d elements instead of %d", len(array), len(tt.expectedArray))
+		}
+		for i := 0; i < len(tt.expectedArray); i++ {
+			if array[i] != tt.expectedArray[i] {
+				t.Fatalf("element %d of the array is %d instead of %d", i, array[i], tt.expectedArray[i])
+			}
+		}
+	}
+}
+
 func TestGetNumberOfRanksFromCompressedNotation(t *testing.T) {
 	tests := []struct {
 		input          string
@@ -53,6 +84,10 @@ func TestGetNumberOfRanksFromCompressedNotation(t *testing.T) {
 		{
 			input:          "0,1-5,6",
 			expectedOutput: 7,
+		},
+		{
+			input:          "32",
+			expectedOutput: 1,
 		},
 	}
 	for _, tt := range tests {

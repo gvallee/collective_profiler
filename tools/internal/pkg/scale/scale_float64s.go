@@ -70,6 +70,11 @@ func Float64s(unitID string, values []float64) (string, []float64) {
 	}
 	sort.Float64s(sortedValues)
 
+	// If all values are 0 nothing can be done
+	if allZerosFloat64s(sortedValues) {
+		return unitID, values
+	}
+
 	if sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
 		// We scale down all the values if possible
 
