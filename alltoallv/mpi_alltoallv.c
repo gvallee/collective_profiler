@@ -1165,14 +1165,18 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		PMPI_Barrier(comm);
 		double t_barrier_end = MPI_Wtime();
 #endif // ENABLE_LATE_ARRIVAL_TIMING
+
 #if ENABLE_A2A_TIMING
 		double t_start = MPI_Wtime();
 #endif // ENABLE_A2A_TIMING
+
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+
 #if ENABLE_A2A_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
 #endif // ENABLE_A2A_TIMING
+
 #if ENABLE_LATE_ARRIVAL_TIMING
 		double t_arrival = t_barrier_end - t_barrier_start;
 #endif // ENABLE_LATE_ARRIVAL_TIMING
@@ -1184,6 +1188,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_A2A_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 #endif // ENABLE_A2A_TIMING
+
 #if ENABLE_LATE_ARRIVAL_TIMING
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
@@ -1208,41 +1213,43 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		}
 #endif // ENABLE_LOCATION_TRACKING
 
-		//MPI_Gather(myhostname, HOSTNAME_LEN, MPI_CHAR, hostnames, HOSTNAME_LEN, MPI_CHAR, 0, comm);
-
 		if (my_comm_rank == 0)
 		{
 #if DEBUG
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
-#if ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
-#if ENABLE_COMPACT_FORMAT
+
+#if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype)))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
-#else
+#endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
+
+#if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
 			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);
-#endif // ENABLE_COMPACT_FORMAT
-#endif // ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION
+#endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
+
 #if ENABLE_PATTERN_DETECTION
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
-#if ENABLE_A2A_TIMING
-#if ENABLE_COMPACT_FORMAT
+
+#if (ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT)
 			insert_op_exec_times_data(op_exec_times, comm_size);
-#else
+#endif // ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT
+
+#if (ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT)
 			save_times(op_exec_times, comm_size, avCalls);
-#endif // ENABLE_COMPACT_FORMAT
-#endif // ENABLE_A2A_TIMING
-#if ENABLE_LATE_ARRIVAL_TIMING
-#if ENABLE_COMPACT_FORMAT
+#endif // ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT
+
+#if (ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT)
 			insert_op_exec_times_data(late_arrival_timings, comm_size);
-#else
+#endif // ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT
+
+#if (ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT)
 			save_times(late_arrival_timings, comm_size, avCalls);
-#endif // ENABLE_COMPACT_FORMAT
-#endif // ENABLE_LATE_ARRIVAL_TIMING
+#endif // ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT
 			avCallsLogged++;
 		}
 	}
