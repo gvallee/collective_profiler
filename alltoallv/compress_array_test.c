@@ -17,7 +17,7 @@ typedef struct ca_test
     char expected_result[MAX_STRLEN];
 } ca_test_t;
 
-int compress_array_test(void)
+static int compress_array_test(void)
 {
     ca_test_t tests[] = {
         {

@@ -24,102 +24,102 @@ typedef struct gp_test
     gp_result_t groups_result[MAX_SUBGROUPS];
 } gp_test_t;
 
-int grouping_test(void)
+static int grouping_test(void)
 {
-    gp_test_t tests[] ={
+    gp_test_t tests[] = {
         {
-            num_points: 5,
+            num_points : 5,
             points : {1, 2, 3, 3, 3},
             num_gps : 2,
             groups_result : {
                 {
-                    size: 2,
-                        elts : {1, 2},
+                    size : 2,
+                    elts : {1, 2},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {3, 3, 3},
                 },
-    },
+            },
         },
         {
-            num_points: 3,
+            num_points : 3,
             points : {1, 2, 3},
             num_gps : 1,
             groups_result : {
                 {
-                    size: 3,
-                        elts : {1, 2, 3},
+                    size : 3,
+                    elts : {1, 2, 3},
                 },
-                    },
+            },
         },
         {
-            num_points: 4,
+            num_points : 4,
             points : {1, 2, 3, 5},
             num_gps : 1,
             groups_result : {
                 {
-                    size: 4,
-                        elts : {1, 2, 3, 5},
+                    size : 4,
+                    elts : {1, 2, 3, 5},
                 },
-                    },
+            },
         },
         {
-            num_points: 6,
+            num_points : 6,
             points : {1, 2, 3, 10, 11, 12},
             num_gps : 2,
             groups_result : {
                 {
-                    size: 3,
-                        elts : {1, 2, 3},
+                    size : 3,
+                    elts : {1, 2, 3},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {10, 11, 12},
                 },
-                    },
+            },
         },
         {
-            num_points: 9,
+            num_points : 9,
             points : {0, 1, 2, 5, 6, 7, 20, 30, 25},
             num_gps : 3,
             groups_result : {
                 {
-                    size: 3,
-                        elts : {0, 1, 2},
+                    size : 3,
+                    elts : {0, 1, 2},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {5, 6, 7},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {20, 25, 30},
                 },
-                    },
+            },
         },
         {
-            num_points: 10,
+            num_points : 10,
             points : {100, 0, 1, 5, 6, 7, 20, 2, 30, 25},
             num_gps : 4,
             groups_result : {
                 {
-                    size: 3,
-                        elts : {0, 1, 2},
+                    size : 3,
+                    elts : {0, 1, 2},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {5, 6, 7},
                 },
                 {
-                    size: 3,
+                    size : 3,
                     elts : {20, 25, 30},
                 },
                 {
-                    size: 1,
+                    size : 1,
                     elts : {100},
                 },
-                    },
+            },
         },
     };
 
