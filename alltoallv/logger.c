@@ -602,7 +602,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     fprintf(logger->timing_fh, "\n");
 }
 
-static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
+static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);
 #if ENABLE_RAW_DATA
@@ -618,14 +618,13 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
         }
         assert(logger->f);
         fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
-        int count = 0;
+        uint64_t count = 0;
         while (srCountPtr != NULL)
         {
-            fprintf(logger->f, "\n## Data set #%d\n\n", count);
-            //fprintf(logger->f, "comm size = %d; alltoallv calls = %d [%d-%d]\n\n", srCountPtr->size, srCountPtr->count, startcall, endcall - 1); // endcall is 1 ahead so we substract 1
-            fprintf(logger->f, "comm size = %d; alltoallv calls = %d\n\n", srCountPtr->size, srCountPtr->count);
+            fprintf(logger->f, "\n## Data set #%" PRIu64 "\n\n", count);
+            fprintf(logger->f, "comm size = %d; alltoallv calls = %" PRIu64 "\n\n", srCountPtr->size, srCountPtr->count);
 
-            DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %d\n", srCountPtr->count);
+            DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %" PRIu64 "\n", srCountPtr->count);
             DEBUG_ALLTOALLV_PROFILING("Logging send counts\n");
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
@@ -640,7 +639,7 @@ static void log_data(logger_t *logger, int startcall, int endcall, avSRCountNode
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
-            DEBUG_ALLTOALLV_PROFILING("alltoallv call %d logged\n", srCountPtr->count);
+            DEBUG_ALLTOALLV_PROFILING("alltoallv call %" PRIu64 " logged\n", srCountPtr->count);
             srCountPtr = srCountPtr->next;
             count++;
         }
@@ -736,7 +735,7 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
     }
 }
 
-void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
+void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     // We log the data most of the time right before unloading our shared
     // library, and it includes the mpirun process. So the logger may be NULL.
@@ -753,7 +752,7 @@ void log_profiling_data(logger_t *logger, int avCalls, int avCallStart, int avCa
         }
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "COMM_WORLD size: %d\n", logger->world_size);
-        fprintf(logger->f, "Total number of alltoallv calls = %d (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
+        fprintf(logger->f, "Total number of alltoallv calls = %" PRIu64 " (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALLV_CALLS);
         //fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
     }

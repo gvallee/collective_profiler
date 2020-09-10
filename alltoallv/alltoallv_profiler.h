@@ -111,8 +111,8 @@ typedef struct counts_data
 typedef struct avSRCountNode
 {
     int size;
-    int count; // How many time we detected the pattern; also size of list_calls
-    int max_calls;
+    uint64_t count; // How many time we detected the pattern; also size of list_calls
+    uint64_t max_calls;
     int *list_calls; // Which calls produced the pattern
     int comm;
     int sendtype_size;
