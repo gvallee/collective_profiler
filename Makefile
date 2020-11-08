@@ -1,9 +1,11 @@
-all: alltoallv examples tools tests doc
+all: alltoallv libraries examples tools tests doc
 
-.PHONY: alltoallv examples tools check tests
+.PHONY: libraries alltoallv examples tools check tests
 
 alltoallv:
 	cd alltoallv && make
+
+libraries: alltoallv
 
 examples: alltoallv
 	cd examples && make
