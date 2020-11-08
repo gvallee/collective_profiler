@@ -44,7 +44,7 @@ a file: `timings.job<JOBID>.rank<RANK>.md`.
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
 files `backtrace_rank<RANK>_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
 directory.
-- Gatherr location: use the `liballtoallv_location.so` shared library. This generates files
+- Gather location: use the `liballtoallv_location.so` shared library. This generates files
 `location_rank<RANK>_call<ID>.md`, one per alltoallv call.
 
 ### Compilation
