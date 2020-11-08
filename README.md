@@ -1,15 +1,16 @@
 # Introduction
 
-This repository provides a set of tools and a library to profile Alltoallv MPI calls
+This repository provides a set of tools and libraries to profile Alltoallv MPI calls
 without having to modify applications. Profiling is performed in two phases:
-- creation of a trace on the execution platform,
+- creation of traces on the execution platform,
 - analysis of the traces.
-Users can find a makefile at the top directory of the repository. This makefile will 
-compile both a shared library for the creation of traces and the tools for post-mortem
+Users can find a makefile at the top directory of the repository. This makefile  
+compiles both the shared libraries for the creation of traces and the tools for post-mortem
 analysis. Note that the shared library is implemented in C, while the tools are
 implemented in Go. It is therefore not unusual to only compile the shared library on
 the execution platform and compile the analysis tool on the system where post-mortem
-analysis is performed.
+analysis is performed. To only compile the shared libraries only, execute `make alltoallv`;
+to compile the post-mortem analysis tools, execute `make tool`.
 
 # Creation of the profiling trace
 
@@ -43,18 +44,25 @@ a file: `timings.job<JOBID>.rank<RANK>.md`.
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
 files `backtrace_rank<RANK>_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
 directory.
+- Gather location: use the `liballtoallv_location.so` shared library. This generates files
+`location_rank<RANK>_call<ID>.md`, one per alltoallv call.
 
 ### Compilation
 
-From the top directory of the repository source code, execute: `make library`.
+From the top directory of the repository source code, execute: `make libraries`.
+This requires to have MPI available on the system.
 
-This will create the `liballtoallv_counts.so`,  `liballtoallv_timings.so`,
-`liballtoallv_backtrace.so` and`alltoallv/liballtoallv.so` shared libraries. For
-most cases, the first 3 libraries are all users need.
+This creates the following shared libraries:
+- `liballtoallv_counts.so`,
+- `liballtoallv_timings.so`,
+- `liballtoallv_backtrace.so`,
+- `liballtoallv_location.so`,
+- and `alltoallv/liballtoallv.so`.
+For most cases, the first 4 libraries are all users need.
 
 ### Execution
 
-Before running the application to get a trace, users have the option to customize the
+Before running the application to get traces, users have the option to customize the
 tool behavior, mainly setting the place where the output files are stored (if not specified,
 the current directory) by using the `A2A_PROFILING_OUTPUT_DIR` environment variable.
 
@@ -73,6 +81,47 @@ it would look like:
 mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/alltoall_profiling/alltoallv/liballtoallv_counts.so app.exe
 ```
 
+When using a job scheduler, users are required to correctly set the LD_PRELOAD details
+in their scripts or command line.
+
+### Example
+
+Assuming Slurm is used to execute jobs on the target platform, the following is an example of
+a Slurm batch script that runs the OSU microbenchmakrs and gathers all the profiling traces
+supported by our tool:
+
+```
+#!/bin/bash
+#SBATCH -p cluster
+#SBATCH -N 32
+#SBATCH -t 05:00:00
+#SBATCH -e alltoallv-32nodes-1024pe-%j.err
+#SBATCH -o alltoallv-32nodes-1024pe-%j.out
+
+set -x
+
+module purge
+module load gcc/4.8.5 ompi/4.0.1
+
+export A2A_PROFILING_OUTPUT_DIR=/shared/data/profiling/osu/alltoallv/traces1
+
+COUNTSFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_counts.so"
+MAPFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_location.so"
+BACKTRACEFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_backtrace.so"
+A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_a2a_timings.so"
+LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
+
+MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
+MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
+MPIFLAGS+="-x LD_LIBRARY_PATH "
+
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$COUNTSFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$MAPFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$BACKTRACEFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$A2ATIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATETIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+``` 
+
 # Post-mortem analysis
 
 We provide a set of tools that parses and analyses the data compiled when executing
@@ -82,7 +131,7 @@ them except one (`analyzebacktrace`) can be executed on a different platform.
 ## Installation
 
 Most MPI applications are executed on a system where users cannot install system 
-software, i.e., can be installed without privileges. Furthermore most systems do not
+software, i.e., can be installed without privileges. Furthermore many systems do not
 provide a Go installation. We therefore advice the following installation and 
 configuration when users want to enable backtrace analysis on the computing
 platform:
