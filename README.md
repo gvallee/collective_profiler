@@ -33,19 +33,33 @@ gather all the data at once, it is not encouraged to do so. We advice to follow 
 following there steps. For convenience, multiple shared libraries are being generated
 with the adequate configuration for these steps.
 - Gather the send/receive counts associated to the alltoallv calls: use the 
-`liballtoallv_counts.so` library. This will generate two files: 
-`send-counters.job<JOBID>.rank<RANK>.txt` and `recv-counters.job<JOBID>.rank<RANK>.txt`. 
-Note that these files automatically include the jobid (if executed on a platform where
-Slurm is not used, it is strongly advised to set the `SLURM_JOB_ID` environment variable
-to specify a unique identifier). Using these two identifiers makes it easier to handle
-multiple traces from multiple application and/or platforms.
+`liballtoallv_counts.so` library. This generates files based on the following naming
+scheme: 
+`send-counters.job<JOBID>.rank<RANK>.txt` and `recv-counters.job<JOBID>.rank<RANK>.txt`;
+where:
+    - `JOBID` is the job number when using a job scheduler (e.g., SLURM) or `0` when no
+job scheduler is used or the value assigned to the `SLURM_JOB_ID` environment variable
+users decide to set (it is strongly advised to set the `SLURM_JOB_ID` environment variable
+to specify a unique identifier when not using a job scheduler).
+    - `RANK` is the rank number on `MPI_COMM_WORLD` that is rank 0 on the communicator used 
+for the alltoallv operations. Note that this means that if the
+application is executing alltoallv operations on different communicators, the tool
+generates multiple counter files, one per communicator. If the application is only using
+`MPI_COMM_WORLD`, the two output files are named `send-counters.job<JOBID>.rank0.txt` and
+`recv-counters.job<JOBID>.rank0.txt`.
+Using these two identifiers makes it easier to handle multiple traces from multiple 
+applications and/or platforms.
 - Gather timings: use the `liballtoallv_timings.so` shared library. This generates
-a file: `timings.job<JOBID>.rank<RANK>.md`. 
+by default multiple files based on the following naming scheme:
+ `late-arrivals-timings.job<JOBID>.rank<RANK>.md` and `a2a-timings.job<JOBID>.rank<RANK>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
-files `backtrace_rank<RANK>_call<ID>.md`, one per alltoallv call, all of them stored in a `backtraces`
-directory.
+files `backtrace_rank<RANK>_call<ID>.md`, *one per alltoallv call*, all of them stored in a `backtraces`
+directory. In other words, this generates one file per alltoallv call, where `<ID>` is the
+alltoallv call number on the communicator (starting at 0).
 - Gather location: use the `liballtoallv_location.so` shared library. This generates files
-`location_rank<RANK>_call<ID>.md`, one per alltoallv call.
+`location_rank<RANK>_call<ID>.md`, *one per alltoallv call*. In other words, this generates 
+one file per alltoallv call, where `<ID>` is the alltoallv call number on the communicator 
+(starting at 0).
 
 ### Compilation
 
