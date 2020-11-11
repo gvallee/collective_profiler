@@ -33,14 +33,14 @@ gather all the data at once, it is not encouraged to do so. We advice to follow 
 following there steps. For convenience, multiple shared libraries are being generated
 with the adequate configuration for these steps.
 - Gather the send/receive counts associated to the alltoallv calls: use the 
-`liballtoallv_counts.so` library. This will generate files based on the following naming
+`liballtoallv_counts.so` library. This generates files based on the following naming
 scheme: 
 `send-counters.job<JOBID>.rank<RANK>.txt` and `recv-counters.job<JOBID>.rank<RANK>.txt`;
 where:
     - `JOBID` is the job number when using a job scheduler (e.g., SLURM) or `0` when no
 job scheduler is used or the value assigned to the `SLURM_JOB_ID` environment variable
-user decide to set (it is strongly advised to set the `SLURM_JOB_ID` environment variable
-to specify a unique identifier).
+users decide to set (it is strongly advised to set the `SLURM_JOB_ID` environment variable
+to specify a unique identifier when not using a job scheduler).
     - `RANK` is the rank number on `MPI_COMM_WORLD` that is rank 0 on the communicator used 
 for the alltoallv operations. Note that this means that if the
 application is executing alltoallv operations on different communicators, the tool
