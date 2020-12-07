@@ -32,3 +32,7 @@ MPI_ALLTOALL(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT,
     \<type\>    SENDBUF(*), RECVBUF(*)  
     INTEGER    SENDCOUNT, SENDTYPE, RECVCOUNT, RECVTYPE  
     INTEGER    COMM, IERROR  
+
+
+# Meaning of sendcout/recvcount
+Study openmpi manual:
