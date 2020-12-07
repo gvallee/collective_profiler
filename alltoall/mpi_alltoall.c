@@ -1112,9 +1112,8 @@ static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int
 	free(filename);
 }
 
-int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
-				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
-				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtype, 
+            		void *recvbuf, const int recvcount, MPI_Datatype recvtype, MPI_Comm comm)
 {
 	int comm_size;
 	int i, j;
@@ -1170,7 +1169,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		double t_start = MPI_Wtime();
 #endif // ENABLE_A2A_TIMING
 
-		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+		ret = PMPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 
 #if ENABLE_A2A_TIMING
 		double t_end = MPI_Wtime();
@@ -1182,8 +1181,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
 		// Gather a bunch of counters
-		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
-		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+		// TODO cature counts data, instead of the next two commented out lines - may not need Gather
+		//MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
+		//MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
 
 #if ENABLE_A2A_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
@@ -1256,7 +1256,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	else
 	{
 		// No need to profile that call but we still count the number of alltoallv calls
-		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+		ret = PMPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 	}
 
 #if SYNC
@@ -1288,15 +1288,14 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	return ret;
 }
 
-int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
-				  MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
-				  const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+int MPI_Alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, const int recvcount, MPI_Datatype recvtype, MPI_Comm comm)
 {
-	return _mpi_alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+	return _mpi_alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 }
 
-void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fint *sendtype,
-					void *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
+void mpi_alltoall_(void *sendbuf, MPI_Fint sendcount,  MPI_Fint *sendtype,
+					void *recvbuf, MPI_Fint recvcount,  MPI_Fint *recvtype,
 					MPI_Fint *comm, MPI_Fint *ierr)
 {
 	int c_ierr;
@@ -1311,13 +1310,11 @@ void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_F
 	sendbuf = (char *)OMPI_F2C_BOTTOM(sendbuf);
 	recvbuf = (char *)OMPI_F2C_BOTTOM(recvbuf);
 
-	c_ierr = MPI_Alltoallv(sendbuf,
-						   (int *)OMPI_FINT_2_INT(sendcount),
-						   (int *)OMPI_FINT_2_INT(sdispls),
+	c_ierr = MPI_Alltoall(sendbuf,
+						   (int)OMPI_FINT_2_INT(sendcount),
 						   c_sendtype,
 						   recvbuf,
-						   (int *)OMPI_FINT_2_INT(recvcount),
-						   (int *)OMPI_FINT_2_INT(rdispls),
+						   (int)OMPI_FINT_2_INT(recvcount),
 						   c_recvtype, c_comm);
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
