@@ -4,8 +4,8 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#ifndef ALLTOALLV_PROFILER_H
-#define ALLTOALLV_PROFILER_H
+#ifndef ALLTOALL_PROFILER_H
+#define ALLTOALL_PROFILER_H
 
 #include <stdbool.h>
 #include <assert.h>
@@ -190,4 +190,4 @@ get_remainder(int n, int d)
         }                                                           \
     } while (0)
 
-#endif // ALLTOALLV_PROFILER_H
+#endif // ALLTOALL_PROFILER_H

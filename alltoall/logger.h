@@ -11,7 +11,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 
 #ifndef LOGGER_H
 #define LOGGER_H

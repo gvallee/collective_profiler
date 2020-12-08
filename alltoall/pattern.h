@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 
 #ifndef PATTERN_H
 #define PATTERN_H

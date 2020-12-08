@@ -5,7 +5,7 @@
  ************************************************************************/
 
 #include "logger.h"
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 #include "grouping.h"
 
 static char *ctx_to_string(int ctx)

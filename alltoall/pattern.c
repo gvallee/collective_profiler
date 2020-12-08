@@ -5,7 +5,7 @@
  ************************************************************************/
 
 #include "pattern.h"
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 
 static avPattern_t *new_pattern(int num_ranks, int num_peers)
 {

@@ -4,7 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 
 #define GROUPING_DEBUG (0)
 #define DEBUG_GROUPING(fmt, ...)               \

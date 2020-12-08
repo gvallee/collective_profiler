@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <mpi.h>
 
-#include "alltoallv_profiler.h"
+#include "alltoall_profiler.h"
 #include "logger.h"
 #include "grouping.h"
 #include "pattern.h"
