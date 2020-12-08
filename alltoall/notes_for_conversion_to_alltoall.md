@@ -36,3 +36,34 @@ MPI_ALLTOALL(SENDBUF, SENDCOUNT, SENDTYPE, RECVBUF, RECVCOUNT,
 
 # Meaning of sendcout/recvcount
 Study openmpi manual:
+
+Stick with assuming sencount is the same across ranks
+
+# Functions to save counts
+_mpi_alltoall  
+  if COMAPACT_FORMAT  -- this var indicates to buffer in memory  
+  insert_sendrecv_data  
+    same_call_counters  
+      lookupRankSendCounters  
+        lookup_rank_counters (logger.c)
+      lookupRankRecvCounters
+        lookup_rank_counters (logger.c)
+    compareAndSaveSendCounters
+    compareAndSaveRecvCounters
+  -- there will be a writing of this data at MPI_Finalize
+  MPI_Finalize
+    _commit_data
+      log_profiling_data (logger.c)
+       log_data (logger.c)
+         _log_data (logger.c)
+           compress_int_array
+           lookupRankCounters
+	_finalize_profiling
+      logger_fini (logger.c)
+      _release_profiling_resources
+
+
+  if !COMAPACT_FORMAT
+    save_counts - writes one file per call - maybe have not seen this file yet! (more combinations of macro values)
+
+checkout data structures as well
