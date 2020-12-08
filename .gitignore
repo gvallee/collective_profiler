@@ -68,11 +68,9 @@ tools/cmd/getcounters/getcounters
 tools/cmd/profile/profile
 tools/cmd/webui/webui
 tools/cmd/validate/validate
-.gitignore
 alltoall/compress_array_test
 alltoall/grouping_test
 alltoall/patterns_detection_test
-.gitignore
 alltoallv/compress_array_test
 alltoallv/grouping_test
 alltoallv/patterns_detection_test
