@@ -29,8 +29,8 @@
 #define A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR "A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT"
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
-#define DEFAULT_LIMIT_ALLTOALLV_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
-#define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALLV_CALLS says when we stop profiling
+#define DEFAULT_LIMIT_ALLTOALL_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
+#define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALL_CALLS says when we stop profiling
 #define DEFAULT_TRACKED_CALLS (10)
 
 // A few switches to enable/disable a bunch of capabilities
@@ -82,10 +82,10 @@
 #define VALIDATION_THRESHOLD (1) // The lower, the less validation data
 
 #if DEBUG
-#define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
+#define DEBUG_ALLTOALL_PROFILING(fmt, ...) \
     fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
 #else
-#define DEBUG_ALLTOALLV_PROFILING(fmt, ...) \
+#define DEBUG_ALLTOALL_PROFILING(fmt, ...) \
     do                                      \
     {                                       \
     } while (0)
