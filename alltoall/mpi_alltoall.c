@@ -724,7 +724,7 @@ int _mpi_init(int *argc, char ***argv)
 		_num_call_start_profiling = atoi(num_call_envvar);
 	}
 
-	char *limit_a2a_calls = getenv(LIMIT_ALLTOALLV_CALLS_ENVVAR);
+	char *limit_a2a_calls = getenv(LIMIT_ALLTOALL_CALLS_ENVVAR);
 	if (limit_a2a_calls != NULL)
 	{
 		_limit_av_calls = atoi(limit_a2a_calls);
