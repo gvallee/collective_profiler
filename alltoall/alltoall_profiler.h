@@ -3,6 +3,11 @@
  *
  * See LICENSE.txt for license information
  ************************************************************************/
+/******************************************************************************************************
+ * Copyright (c) 2020, University College London and Mellanox Technolgies Limited. All rights reserved.
+ * - for further contributions 
+ ******************************************************************************************************/
+
 
 #ifndef ALLTOALL_PROFILER_H
 #define ALLTOALL_PROFILER_H
