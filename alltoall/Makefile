@@ -2,6 +2,10 @@
 # Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 # See LICENSE.txt for license information
 #
+# ******************************************************************************************************
+# * Copyright (c) 2020, University College London and Mellanox Technolgies Limited. All rights reserved.
+# * - for further contributions 
+# ******************************************************************************************************/
 
 all: liballtoall.so liballtoall_location.so liballtoall_counts.so liballtoall_late_arrival.so liballtoall_a2a_timings.so liballtoall_backtrace.so grouping_test compress_array_test patterns_detection_test
 
