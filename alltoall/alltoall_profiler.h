@@ -18,7 +18,7 @@
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
 #define MAX_STRING_LEN (64)
-#define SYNC 0 // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
+#define SYNC 0 // Force the ranks to sync after each alltoall operations to ensure rank 0 does not artifically fall behind
 
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
@@ -29,7 +29,7 @@
 #define A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR "A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT"
 
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
-#define DEFAULT_LIMIT_ALLTOALL_CALLS (-1) // Maximum number of alltoallv calls that we profile (-1 means no limit)
+#define DEFAULT_LIMIT_ALLTOALL_CALLS (-1) // Maximum number of alltoall calls that we profile (-1 means no limit)
 #define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALL_CALLS says when we stop profiling
 #define DEFAULT_TRACKED_CALLS (10)
 
@@ -37,7 +37,7 @@
 
 // Note that we check whether it is already set so we can define it while compiling and potentially generate multiple shared libraries
 
-// Switch to enable/disable getting the backtrace safely to get data about the alltoallv caller
+// Switch to enable/disable getting the backtrace safely to get data about the alltoall caller
 #ifndef ENABLE_BACKTRACE
 #define ENABLE_BACKTRACE (0)
 #endif // ENABLE_BACKTRACE
@@ -52,7 +52,7 @@
 #define ENABLE_COMPACT_FORMAT (1)
 #endif // ENABLE_COMPACT_FORMAT
 
-// Switch to enable/disable timing of alltoallv operations
+// Switch to enable/disable timing of alltoall operations
 #ifndef ENABLE_A2A_TIMING
 #define ENABLE_A2A_TIMING (0)
 #endif // ENABLE_A2A_TIMING
@@ -98,7 +98,7 @@ enum
     RECV_CTX
 };
 
-// Compact way to save send/recv counts of ranks within a single alltoallv call
+// Compact way to save send/recv counts of ranks within a single alltoall call
 typedef struct counts_data
 {
     int *counters; // the actual counters (i.e., send/recv counts)
@@ -107,7 +107,7 @@ typedef struct counts_data
     int *ranks;    // The list of ranks having that series of counters
 } counts_data_t;
 
-// Data type for storing comm size, alltoallv counts, send/recv count, etc
+// Data type for storing comm size, alltoall counts, send/recv count, etc
 typedef struct avSRCountNode
 {
     int size;
@@ -129,7 +129,7 @@ typedef struct avSRCountNode
 typedef struct avTimingsNode
 {
     int size;
-    double *timings; // Time spent in the alltoallv function
+    double *timings; // Time spent in the alltoall function
     struct avTimingsNode *next;
 } avTimingsNode_t;
 
@@ -138,7 +138,7 @@ typedef struct avPattern
     // <n_ranks> ranks send to or receive from <n_peers> other ranks
     int n_ranks;
     int n_peers;
-    int n_calls;   // How many alltoallv calls have that pattern
+    int n_calls;   // How many alltoall calls have that pattern
     int comm_size; // Size of the communicator for which the pattern was detected. Not always used.
     struct avPattern *next;
 } avPattern_t;

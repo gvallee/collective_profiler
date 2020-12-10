@@ -25,16 +25,16 @@ static caller_info_t *callers_tail = NULL;
 
 static int world_size = -1;
 static int world_rank = -1;
-static uint64_t avCalls = 0;	   // Total number of alltoallv calls that we went through (indexed on 0, not 1)
-static uint64_t avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
-static uint64_t avCallStart = -1;  // Number of alltoallv call during which we started to gather data
+static uint64_t avCalls = 0;	   // Total number of alltoall calls that we went through (indexed on 0, not 1)
+static uint64_t avCallsLogged = 0; // Total number of alltoall calls for which we gathered data
+static uint64_t avCallStart = -1;  // Number of alltoall call during which we started to gather data
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
 static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
 static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALL_CALLS;
 
-// Buffers used to store data through all alltoallv calls
+// Buffers used to store data through all alltoall calls
 int *sbuf = NULL;
 int *rbuf = NULL;
 double *op_exec_times = NULL;
@@ -408,7 +408,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	struct avSRCountNode *newNode = NULL;
 	struct avSRCountNode *temp;
 
-	DEBUG_ALLTOALL_PROFILING("Insert data for a new alltoallv call...\n");
+	DEBUG_ALLTOALL_PROFILING("Insert data for a new alltoall call...\n");
 
 	assert(sbuf);
 	assert(rbuf);
@@ -506,7 +506,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
 #endif
 
-	DEBUG_ALLTOALL_PROFILING("Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
+	DEBUG_ALLTOALL_PROFILING("Data for the new alltoall call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
 	if (head == NULL)
 	{
@@ -561,9 +561,9 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 	while (ptr != NULL)
 	{
 #if COMMSIZE_BASED_PATTERNS || TRACK_PATTERNS_ON_CALL_BASIS
-		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
+		fprintf(fh, "During %d alltoall calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
 #else
-		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
+		fprintf(fh, "During %d alltoall calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
 #endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
@@ -735,12 +735,12 @@ int _mpi_init(int *argc, char ***argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	// We do not know what rank will gather alltoallv data since alltoallv can
+	// We do not know what rank will gather alltoall data since alltoall can
 	// be called on any communicator
 	logger = logger_init(world_rank, world_size);
 	assert(logger);
 
-	// Allocate buffers reused between alltoallv calls
+	// Allocate buffers reused between alltoall calls
 	// Note the buffer may be used on a communicator that is not comm_world
 	// but in any case, it will be smaller or of the same size than comm_world.
 	// So we allocate the biggest buffers possible but reuse them during the
@@ -1255,7 +1255,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 	}
 	else
 	{
-		// No need to profile that call but we still count the number of alltoallv calls
+		// No need to profile that call but we still count the number of alltoall calls
 		ret = PMPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 	}
 

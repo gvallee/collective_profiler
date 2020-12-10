@@ -71,7 +71,7 @@ static char *get_full_filename(int ctxt, char *id, int world_rank)
     {
         if (id == NULL)
         {
-            _asprintf(filename, size, "profile_alltoallv_job%d.rank%d.md", jobid, world_rank);
+            _asprintf(filename, size, "profile_alltoall_job%d.rank%d.md", jobid, world_rank);
             assert(size > 0);
         }
         else
@@ -411,7 +411,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Datatype size: %d\n", type_size);
-    fprintf(fh, "Alltoallv calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
+    fprintf(fh, "Alltoall calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
     char *calls_str = compress_int_array(calls, count);
     fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
     fprintf(fh, "\n\nBEGINNING DATA\n");
@@ -594,7 +594,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
         logger->timing_fh = fopen(logger->timing_filename, "w");
     }
 
-    fprintf(logger->timing_fh, "Alltoallv call #%d\n", num_call);
+    fprintf(logger->timing_fh, "Alltoall call #%d\n", num_call);
     for (j = 0; j < size; j++)
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
@@ -617,14 +617,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
             logger->f = fopen(logger->main_filename, "w");
         }
         assert(logger->f);
-        fprintf(logger->f, "# Send/recv counts for alltoallv operations:\n");
+        fprintf(logger->f, "# Send/recv counts for alltoall operations:\n");
         uint64_t count = 0;
         while (srCountPtr != NULL)
         {
             fprintf(logger->f, "\n## Data set #%" PRIu64 "\n\n", count);
-            fprintf(logger->f, "comm size = %d; alltoallv calls = %" PRIu64 "\n\n", srCountPtr->size, srCountPtr->count);
+            fprintf(logger->f, "comm size = %d; alltoall calls = %" PRIu64 "\n\n", srCountPtr->size, srCountPtr->count);
 
-            DEBUG_ALLTOALL_PROFILING("Logging alltoallv call %" PRIu64 "\n", srCountPtr->count);
+            DEBUG_ALLTOALL_PROFILING("Logging alltoall call %" PRIu64 "\n", srCountPtr->count);
             DEBUG_ALLTOALL_PROFILING("Logging send counts\n");
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
@@ -639,7 +639,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
-            DEBUG_ALLTOALL_PROFILING("alltoallv call %" PRIu64 " logged\n", srCountPtr->count);
+            DEBUG_ALLTOALL_PROFILING("alltoall call %" PRIu64 " logged\n", srCountPtr->count);
             srCountPtr = srCountPtr->next;
             count++;
         }
@@ -752,8 +752,8 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
         }
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "COMM_WORLD size: %d\n", logger->world_size);
-        fprintf(logger->f, "Total number of alltoallv calls = %" PRIu64 " (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALL_CALLS);
-        //fprintf(logger->f, "Alltoallv call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
+        fprintf(logger->f, "Total number of alltoall calls = %" PRIu64 " (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALL_CALLS);
+        //fprintf(logger->f, "Alltoall call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
     }
 }
