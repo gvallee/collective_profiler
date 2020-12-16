@@ -17,6 +17,7 @@
 #include <inttypes.h>
 
 #include "alltoall_profiler.h"
+#include "common_types.h"
 
 #ifndef LOGGER_H
 #define LOGGER_H

@@ -1,13 +1,20 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+#
+# See LICENSE.txt for license information
+#
+
 all: alltoallv libraries examples tools tests doc
 
 .PHONY: libraries alltoallv examples tools check tests
 
 alltoallv:
-	cd alltoallv && make
+	cd src && make alltoallv
 
-libraries: alltoallv
+libraries: 
+	cd src && make
 
-examples: alltoallv
+examples: libraries
 	cd examples && make
 
 GOCMD := $(shell command -v go 2>/dev/null)
@@ -19,8 +26,8 @@ tools:
 	cd tools && make;
 endif
 
-check: alltoallv
-	cd alltoallv && make check
+check: libraries
+	cd src && make check
 	cd tools && make check
 
 tests:
@@ -31,7 +38,7 @@ doc:
 
 clean:
 	cd examples && make clean
-	cd alltoallv && make clean
+	cd src && make clean
 	cd tools && make clean
 	cd tests && make clean
 	cd doc && make clean

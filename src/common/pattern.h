@@ -3,22 +3,30 @@
  *
  * See LICENSE.txt for license information
  ************************************************************************/
-/******************************************************************************************************
- * Copyright (c) 2020, University College London and Mellanox Technolgies Limited. All rights reserved.
- * - for further contributions 
- ******************************************************************************************************/
-
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
 
-#include "alltoall_profiler.h"
+#include "collective_profiler_config.h"
+#include "common_types.h"
 
 #ifndef PATTERN_H
 #define PATTERN_H
+
+#define ENABLE_PATTERN_DEBUGING (0)
+#if ENABLE_PATTERN_DEBUGING
+#define DEBUG_PATTERN(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+#else
+#define DEBUG_PATTERN(fmt, ...) \
+    do                         \
+    {                          \
+    } while (0)
+#endif // ENABLE_PATTERN_DEBUGING
 
 extern avPattern_t *add_pattern(avPattern_t *patterns, int num_ranks, int num_peers);
 extern avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_counts, int size);

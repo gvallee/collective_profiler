@@ -11,10 +11,22 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "alltoallv_profiler.h"
+#include "collective_profiler_config.h"
+#include "common_types.h"
 
 #ifndef LOGGER_H
 #define LOGGER_H
+
+#define ENABLE_LOGGER_DEBUGING (0)
+#if ENABLE_LOGGER_DEBUGING
+#define DEBUG_LOGGER(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+#else
+#define DEBUG_LOGGER(fmt, ...) \
+    do                         \
+    {                          \
+    } while (0)
+#endif // ENABLE_LOGGER_DEBUGGING
 
 typedef struct logger
 {

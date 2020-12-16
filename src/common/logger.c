@@ -5,54 +5,7 @@
  ************************************************************************/
 
 #include "logger.h"
-#include "alltoallv_profiler.h"
 #include "grouping.h"
-
-static char *ctx_to_string(int ctx)
-{
-    char *context;
-    switch (ctx)
-    {
-    case MAIN_CTX:
-        context = "main";
-        break;
-
-    case SEND_CTX:
-        context = "send";
-        break;
-
-    case RECV_CTX:
-        context = "recv";
-        break;
-
-    default:
-        context = "main";
-        break;
-    }
-    return context;
-}
-
-static int get_job_id()
-{
-    char *jobid = NULL;
-    if (getenv("SLURM_JOB_ID"))
-    {
-        jobid = getenv("SLURM_JOB_ID");
-    }
-    else
-    {
-        if (getenv("LSB_JOBID"))
-        {
-            jobid = getenv("LSB_JOBID");
-        }
-        else
-        {
-            jobid = "0";
-        }
-    }
-
-    return atoi(jobid);
-}
 
 static char *get_full_filename(int ctxt, char *id, int world_rank)
 {
@@ -148,23 +101,23 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 {
     assert(data);
-    DEBUG_ALLTOALLV_PROFILING("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
+    DEBUG_LOGGER("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
     int i, j;
     for (i = 0; i < data_size; i++)
     {
         assert(data[i]);
-        DEBUG_ALLTOALLV_PROFILING("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
+        DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
         for (j = 0; j < data[i]->num_ranks; j++)
         {
             assert(data[i]->ranks);
-            DEBUG_ALLTOALLV_PROFILING("Scan previous counts for rank %d\n", data[i]->ranks[j]);
+            DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
             if (rank == data[i]->ranks[j])
             {
                 return data[i]->counters;
             }
         }
     }
-    DEBUG_ALLTOALLV_PROFILING("Could not find data for rank %d\n", rank);
+    DEBUG_LOGGER("Could not find data for rank %d\n", rank);
     return NULL;
 }
 
@@ -415,12 +368,12 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     char *calls_str = compress_int_array(calls, count);
     fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
     fprintf(fh, "\n\nBEGINNING DATA\n");
-    DEBUG_ALLTOALLV_PROFILING("Saving counts...\n");
+    DEBUG_LOGGER("Saving counts...\n");
     // Save the compressed version of the data
     int count_data_number, _num_ranks, n;
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
-        DEBUG_ALLTOALLV_PROFILING("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
+        DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
 
         char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks);
         fprintf(fh, "Rank(s) %s: ", str);
@@ -436,7 +389,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         }
         fprintf(fh, "\n");
     }
-    DEBUG_ALLTOALLV_PROFILING("Counts saved\n");
+    DEBUG_LOGGER("Counts saved\n");
     fprintf(fh, "END DATA\n");
 #endif
 
@@ -624,22 +577,22 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
             fprintf(logger->f, "\n## Data set #%" PRIu64 "\n\n", count);
             fprintf(logger->f, "comm size = %d; alltoallv calls = %" PRIu64 "\n\n", srCountPtr->size, srCountPtr->count);
 
-            DEBUG_ALLTOALLV_PROFILING("Logging alltoallv call %" PRIu64 "\n", srCountPtr->count);
-            DEBUG_ALLTOALLV_PROFILING("Logging send counts\n");
+            DEBUG_LOGGER("Logging alltoallv call %" PRIu64 "\n", srCountPtr->count);
+            DEBUG_LOGGER("Logging send counts\n");
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 
-            DEBUG_ALLTOALLV_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
+            DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
-            DEBUG_ALLTOALLV_PROFILING("alltoallv call %" PRIu64 " logged\n", srCountPtr->count);
+            DEBUG_LOGGER("alltoallv call %" PRIu64 " logged\n", srCountPtr->count);
             srCountPtr = srCountPtr->next;
             count++;
         }
