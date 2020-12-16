@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+#
+# See LICENSE.txt for license information
+#
+
+all: alltoallv alltoall common
+
+.PHONY: alltoall alltoallv common
+
+common:
+	cd common && make
+
+alltoallv: common
+	cd alltoallv && make
+
+alltoall: common
+	cd alltoall && make
+
+check:
+	cd alltoall && make check
+	cd alltoallv && make check
+
+clean:
+	cd alltoall && make clean
+	cd alltoallv && make clean
+	cd common && make clean

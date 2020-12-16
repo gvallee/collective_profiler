@@ -1,0 +1,54 @@
+/*************************************************************************
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * See LICENSE.txt for license information
+ ************************************************************************/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <assert.h>
+#include <string.h>
+#include <inttypes.h>
+
+#include "collective_profiler_config.h"
+#include "common_types.h"
+
+#ifndef LOGGER_H
+#define LOGGER_H
+
+#define ENABLE_LOGGER_DEBUGING (0)
+#if ENABLE_LOGGER_DEBUGING
+#define DEBUG_LOGGER(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+#else
+#define DEBUG_LOGGER(fmt, ...) \
+    do                         \
+    {                          \
+    } while (0)
+#endif // ENABLE_LOGGER_DEBUGGING
+
+typedef struct logger
+{
+    int world_size;            // COMM_WORLD size
+    int rank;                  // Rank that is handling the current logger.
+    char *main_filename;       // Path to the main profile file.
+    FILE *f;                   // File handle to save general profile data. Other files are created for specific data.
+    char *sendcounts_filename; // Path of the send counts profile.
+    FILE *sendcounters_fh;     // File handle used to save send counters.
+    char *recvcounts_filename; // Path of the receive counts profile.
+    FILE *recvcounters_fh;     // File handle used to save recv counters.
+    char *sums_filename;       // Path of the sums profiles.
+    FILE *sums_fh;             // File handle used to save data related to amount of data exchanged.
+    char *timing_filename;     // Path of the timing profile.
+    FILE *timing_fh;           // File handle used to save data related to timing of operations.
+} logger_t;
+
+extern logger_t *logger_init();
+extern void logger_fini(logger_t **l);
+extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
+extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
+extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
+extern char *compress_int_array(int *array, int size);
+
+#endif // LOGGER_H
