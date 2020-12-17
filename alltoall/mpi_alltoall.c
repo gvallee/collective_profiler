@@ -789,7 +789,7 @@ int _mpi_init(int *argc, char ***argv)
 	// be called on any communicator
 	logger_config_t alltoall_logger_cfg;
 	alltoall_logger_cfg.get_full_filename = &alltoall_get_full_filename;
-	alltoall_logger_cfg.collective_name = "alltoall";
+	alltoall_logger_cfg.collective_name = "Alltoall";
 	alltoall_logger_cfg.limit_number_calls = DEFAULT_LIMIT_ALLTOALL_CALLS;
 	logger = logger_init(world_rank, world_size, &alltoall_logger_cfg);
 	assert(logger);
