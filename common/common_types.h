@@ -72,6 +72,15 @@ typedef struct caller_info
     struct caller_info *next;
 } caller_info_t;
 
+typedef char* (*get_full_filename_fn_t)(int, char *, int);
+
+typedef struct logger_config
+{
+    get_full_filename_fn_t get_full_filename;
+    char *collective_name;
+    uint64_t limit_number_calls;
+} logger_config_t;
+
 enum
 {
     MAIN_CTX = 0,

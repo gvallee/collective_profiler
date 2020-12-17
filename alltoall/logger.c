@@ -16,54 +16,6 @@
 #include "common_types.h"
 #include "collective_profiler_config.h"
 
-static char *get_full_filename(int ctxt, char *id, int world_rank)
-{
-    char *filename = NULL;
-    char *dir = NULL;
-    int size;
-
-    int jobid = get_job_id();
-
-    if (getenv(OUTPUT_DIR_ENVVAR))
-    {
-        dir = getenv(OUTPUT_DIR_ENVVAR);
-    }
-
-    if (ctxt == MAIN_CTX)
-    {
-        if (id == NULL)
-        {
-            _asprintf(filename, size, "profile_alltoall_job%d.rank%d.md", jobid, world_rank);
-            assert(size > 0);
-        }
-        else
-        {
-            _asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
-            assert(size > 0);
-        }
-    }
-    else
-    {
-        char *context = ctx_to_string(ctxt);
-        _asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
-        assert(size > 0);
-    }
-
-    if (dir != NULL)
-    {
-        char *path = NULL;
-        _asprintf(path, size, "%s/%s", dir, filename);
-        assert(size > 0);
-        free(filename);
-        return path;
-    }
-
-    return filename;
-}
-
-
-
-
 
 static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
 {
@@ -387,8 +339,6 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
     }
 #endif // ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
 }
-
-
 
 void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {

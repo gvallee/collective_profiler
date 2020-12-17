@@ -36,6 +36,7 @@ typedef struct logger
     FILE *sums_fh;             // File handle used to save data related to amount of data exchanged.
     char *timing_filename;     // Path of the timing profile.
     FILE *timing_fh;           // File handle used to save data related to timing of operations.
+    get_full_filename_fn_t get_full_filename;
 } logger_t;
 
 extern logger_t *logger_init();
