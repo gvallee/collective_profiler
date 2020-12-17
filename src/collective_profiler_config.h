@@ -8,7 +8,7 @@
 #define MAX_FILENAME_LEN (32)
 #define MAX_PATH_LEN (128)
 #define MAX_STRING_LEN (64)
-#define SYNC 0 // Force the ranks to sync after each alltoallv operations to ensure rank 0 does not artifically fall behind
+#define SYNC 0 // Force the ranks to sync after each collective operations to ensure rank 0 does not artifically fall behind
 #define DEFAULT_MSG_SIZE_THRESHOLD 200     // The default threshold between small and big messages
 
 // A few environment variables to control a few things at runtime
@@ -19,7 +19,7 @@
 
 // Note that we check whether it is already set so we can define it while compiling and potentially generate multiple shared libraries
 
-// Switch to enable/disable getting the backtrace safely to get data about the alltoall caller
+// Switch to enable/disable getting the backtrace safely to get data about the collective caller
 #ifndef ENABLE_BACKTRACE
 #define ENABLE_BACKTRACE (0)
 #endif // ENABLE_BACKTRACE
@@ -34,9 +34,9 @@
 #define ENABLE_COMPACT_FORMAT (1)
 #endif // ENABLE_COMPACT_FORMAT
 
-// Switch to enable/disable timing of alltoall operations
-#ifndef ENABLE_A2A_TIMING
-#define ENABLE_A2A_TIMING (0)
+// Switch to enable/disable timing of collective operations
+#ifndef ENABLE_EXEC_TIMING
+#define ENABLE_EXEC_TIMING (0)
 #endif // ENABLE_A2A_TIMING
 
 // Switch to enable/disable timing of late arrivals

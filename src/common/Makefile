@@ -3,10 +3,25 @@
 # See LICENSE.txt for license information
 #
 
-all: logger.o pattern.o grouping.o grouping_test compress_array_test patterns_detection_test
+all: logger.o logger_counts.o logger_exec_timings.o logger_late_arrival_timings.o logger_backtrace.o logger_location.o pattern.o grouping.o grouping_test compress_array_test patterns_detection_test
 
 logger.o: logger.c logger.h 
 	$(CC) -I../ -fPIC -c logger.c
+
+logger_counts.o: logger.c logger.h 
+	$(CC) -I../ -fPIC -DENABLE_RAW_DATA=1 -c logger.c -o logger_counts.o
+
+logger_exec_timings.o: logger.c logger.h 
+	$(CC) -I../ -fPIC -DENABLE_EXEC_TIMING=1 -c logger.c -o logger_exec_timings.o
+
+logger_late_arrival_timings.o: logger.c logger.h 
+	$(CC) -I../ -fPIC -DENABLE_LATE_ARRIVAL_TIMING=1 -c logger.c -o logger_late_arrival_timings.o
+
+logger_backtrace.o: logger.c logger.h 
+	$(CC) -I../ -fPIC -DENABLE_BACKTRACE=1 -c logger.c -o logger_backtrace.o
+
+logger_location.o: logger.c logger.h 
+	$(CC) -I../ -fPIC -DENABLE_LOCATION_TRACKING=1 -c logger.c -o logger_location.o
 
 pattern.o: pattern.c pattern.h
 	$(CC) -I../ -fPIC -c pattern.c
