@@ -28,7 +28,7 @@ const (
 	sharedLibBacktrace   = "liballtoallv_backtrace.so"
 	sharedLibLocation    = "liballtoallv_location.so"
 	sharedLibLateArrival = "liballtoallv_late_arrival.so"
-	sharedLibA2ATime     = "liballtoallv_a2a_timings.so"
+	sharedLibA2ATime     = "liballtoallv_exec_timings.so"
 
 	exampleFileC          = "alltoallv.c"
 	exampleFileF          = "alltoallv.f90"
@@ -170,7 +170,7 @@ func validateProfiler() error {
 	// Compile both the profiler libraries and the example
 	log.Println("Building libraries and tests...")
 	cmd := exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(basedir, "alltoallv")
+	cmd.Dir = filepath.Join(basedir, "src", "alltoallv")
 	err = cmd.Run()
 	if err != nil {
 		return err
@@ -189,11 +189,10 @@ func validateProfiler() error {
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(tempDir)
 
 		// Run the profiler
 		for _, lib := range sharedLibraries {
-			pathToLib := filepath.Join(basedir, "alltoallv", lib)
+			pathToLib := filepath.Join(basedir, "src", "alltoallv", lib)
 			fmt.Printf("Running MPI application and gathering profiles with %s...\n", pathToLib)
 			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(basedir, "examples", tt.binary))
 			cmd.Env = append(os.Environ(),
@@ -211,6 +210,9 @@ func validateProfiler() error {
 		if err != nil {
 			return err
 		}
+
+		// We clean up *only* when tests are successful
+		os.RemoveAll(tempDir)
 	}
 
 	return nil
