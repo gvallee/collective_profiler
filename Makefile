@@ -4,12 +4,15 @@
 # See LICENSE.txt for license information
 #
 
-all: alltoallv libraries examples tools tests doc
+all: libraries examples tools tests doc
 
-.PHONY: libraries alltoallv examples tools check tests
+.PHONY: libraries alltoallv alltoall examples tools check tests
 
 alltoallv:
 	cd src && make alltoallv
+
+alltoall:
+	cd src && make alltoall
 
 libraries: 
 	cd src && make
