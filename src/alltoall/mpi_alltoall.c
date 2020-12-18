@@ -233,6 +233,51 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 	return 0;
 }
 
+char *alltoall_get_full_filename(int ctxt, char *id, int world_rank)
+{
+    char *filename = NULL;
+    char *dir = NULL;
+    int size;
+
+    int jobid = get_job_id();
+
+    if (getenv(OUTPUT_DIR_ENVVAR))
+    {
+        dir = getenv(OUTPUT_DIR_ENVVAR);
+    }
+
+    if (ctxt == MAIN_CTX)
+    {
+        if (id == NULL)
+        {
+            _asprintf(filename, size, "profile_alltoall_job%d.rank%d.md", jobid, world_rank);
+            assert(size > 0);
+        }
+        else
+        {
+            _asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
+            assert(size > 0);
+        }
+    }
+    else
+    {
+        char *context = ctx_to_string(ctxt);
+        _asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
+        assert(size > 0);
+    }
+
+    if (dir != NULL)
+    {
+        char *path = NULL;
+        _asprintf(path, size, "%s/%s", dir, filename);
+        assert(size > 0);
+        free(filename);
+        return path;
+    }
+
+    return filename;
+}
+
 int extract_call_patterns_from_counts(int callID, int *send_counts, int *recv_counts, int size)
 {
 	avCallPattern_t *cp = extract_call_patterns(callID, send_counts, recv_counts, size);
@@ -742,7 +787,11 @@ int _mpi_init(int *argc, char ***argv)
 
 	// We do not know what rank will gather alltoall data since alltoall can
 	// be called on any communicator
-	logger = logger_init(world_rank, world_size);
+	logger_config_t alltoall_logger_cfg;
+	alltoall_logger_cfg.get_full_filename = &alltoall_get_full_filename;
+	alltoall_logger_cfg.collective_name = "Alltoall";
+	alltoall_logger_cfg.limit_number_calls = DEFAULT_LIMIT_ALLTOALL_CALLS;
+	logger = logger_init(world_rank, world_size, &alltoall_logger_cfg);
 	assert(logger);
 
 	// Allocate buffers reused between alltoall calls

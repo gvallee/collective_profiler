@@ -4,7 +4,10 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "alltoallv_profiler.h"
+#include "common_utils.h"
+
+#ifndef COLLECTIVE_PROFILER_GROUPING_H
+#define COLLECTIVE_PROFILER_GROUPING_H
 
 #define GROUPING_DEBUG (0)
 #define DEBUG_GROUPING(fmt, ...)               \
@@ -58,3 +61,5 @@ extern int get_groups(grouping_engine_t *e, group_t **gps, int *num_group);
 extern int grouping_init(grouping_engine_t **e);
 extern int grouping_fini(grouping_engine_t **e);
 extern int get_remainder(int n, int d);
+
+#endif // COLLECTIVE_PROFILER_GROUPING_H

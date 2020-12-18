@@ -122,7 +122,7 @@ export A2A_PROFILING_OUTPUT_DIR=/shared/data/profiling/osu/alltoallv/traces1
 COUNTSFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_counts.so"
 MAPFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_location.so"
 BACKTRACEFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_backtrace.so"
-A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_a2a_timings.so"
+A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_exec_timings.so"
 LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
 
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "

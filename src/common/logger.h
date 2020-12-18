@@ -11,14 +11,27 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "alltoallv_profiler.h"
+#include "collective_profiler_config.h"
+#include "common_types.h"
 
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#define ENABLE_LOGGER_DEBUGING (0)
+#if ENABLE_LOGGER_DEBUGING
+#define DEBUG_LOGGER(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+#else
+#define DEBUG_LOGGER(fmt, ...) \
+    do                         \
+    {                          \
+    } while (0)
+#endif // ENABLE_LOGGER_DEBUGGING
+
 typedef struct logger
 {
-    int world_size;            // COMM_WORLD size
+    char *collective_name;     // Name of the collective, mainly used to enable nice output text.
+    int world_size;            // COMM_WORLD size.
     int rank;                  // Rank that is handling the current logger.
     char *main_filename;       // Path to the main profile file.
     FILE *f;                   // File handle to save general profile data. Other files are created for specific data.
@@ -30,6 +43,8 @@ typedef struct logger
     FILE *sums_fh;             // File handle used to save data related to amount of data exchanged.
     char *timing_filename;     // Path of the timing profile.
     FILE *timing_fh;           // File handle used to save data related to timing of operations.
+    get_full_filename_fn_t get_full_filename;
+    uint64_t limit_number_calls;
 } logger_t;
 
 extern logger_t *logger_init();

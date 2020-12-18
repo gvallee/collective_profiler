@@ -3,106 +3,10 @@
  *
  * See LICENSE.txt for license information
  ************************************************************************/
-/******************************************************************************************************
- * Copyright (c) 2020, University College London and Mellanox Technolgies Limited. All rights reserved.
- * - for further contributions 
- ******************************************************************************************************/
-
 
 #include "logger.h"
-#include "alltoall_profiler.h"
 #include "grouping.h"
 
-static char *ctx_to_string(int ctx)
-{
-    char *context;
-    switch (ctx)
-    {
-    case MAIN_CTX:
-        context = "main";
-        break;
-
-    case SEND_CTX:
-        context = "send";
-        break;
-
-    case RECV_CTX:
-        context = "recv";
-        break;
-
-    default:
-        context = "main";
-        break;
-    }
-    return context;
-}
-
-static int get_job_id()
-{
-    char *jobid = NULL;
-    if (getenv("SLURM_JOB_ID"))
-    {
-        jobid = getenv("SLURM_JOB_ID");
-    }
-    else
-    {
-        if (getenv("LSB_JOBID"))
-        {
-            jobid = getenv("LSB_JOBID");
-        }
-        else
-        {
-            jobid = "0";
-        }
-    }
-
-    return atoi(jobid);
-}
-
-static char *get_full_filename(int ctxt, char *id, int world_rank)
-{
-    char *filename = NULL;
-    char *dir = NULL;
-    int size;
-
-    int jobid = get_job_id();
-
-    if (getenv(OUTPUT_DIR_ENVVAR))
-    {
-        dir = getenv(OUTPUT_DIR_ENVVAR);
-    }
-
-    if (ctxt == MAIN_CTX)
-    {
-        if (id == NULL)
-        {
-            _asprintf(filename, size, "profile_alltoall_job%d.rank%d.md", jobid, world_rank);
-            assert(size > 0);
-        }
-        else
-        {
-            _asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
-            assert(size > 0);
-        }
-    }
-    else
-    {
-        char *context = ctx_to_string(ctxt);
-        _asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
-        assert(size > 0);
-    }
-
-    if (dir != NULL)
-    {
-        char *path = NULL;
-        _asprintf(path, size, "%s/%s", dir, filename);
-        assert(size > 0);
-        free(filename);
-        return path;
-    }
-
-    return filename;
-}
 
 void log_groups(logger_t *logger, group_t *gps, int num_gps)
 {
@@ -139,7 +43,7 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 
     if (logger->sums_fh == NULL)
     {
-        logger->sums_filename = get_full_filename(MAIN_CTX, "sums", logger->rank);
+        logger->sums_filename = logger->get_full_filename(MAIN_CTX, "sums", logger->rank);
         logger->sums_fh = fopen(logger->sums_filename, "w");
     }
 
@@ -153,23 +57,23 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 {
     assert(data);
-    DEBUG_ALLTOALL_PROFILING("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
+    DEBUG_LOGGER("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
     int i, j;
     for (i = 0; i < data_size; i++)
     {
         assert(data[i]);
-        DEBUG_ALLTOALL_PROFILING("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
+        DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
         for (j = 0; j < data[i]->num_ranks; j++)
         {
             assert(data[i]->ranks);
-            DEBUG_ALLTOALL_PROFILING("Scan previous counts for rank %d\n", data[i]->ranks[j]);
+            DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
             if (rank == data[i]->ranks[j])
             {
                 return data[i]->counters;
             }
         }
     }
-    DEBUG_ALLTOALL_PROFILING("Could not find data for rank %d\n", rank);
+    DEBUG_LOGGER("Could not find data for rank %d\n", rank);
     return NULL;
 }
 
@@ -381,7 +285,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
 
     if (logger->f == NULL)
     {
-        logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+        logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
         logger->f = fopen(logger->main_filename, "w");
     }
     assert(logger->f);
@@ -392,7 +296,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     case RECV_CTX:
         if (logger->recvcounters_fh == NULL)
         {
-            logger->recvcounts_filename = get_full_filename(RECV_CTX, "counters", logger->rank);
+            logger->recvcounts_filename = logger->get_full_filename(RECV_CTX, "counters", logger->rank);
             logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
         }
         fh = logger->recvcounters_fh;
@@ -401,7 +305,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     case SEND_CTX:
         if (logger->sendcounters_fh == NULL)
         {
-            logger->sendcounts_filename = get_full_filename(SEND_CTX, "counters", logger->rank);
+            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->rank);
             logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
         }
         fh = logger->sendcounters_fh;
@@ -416,16 +320,16 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Datatype size: %d\n", type_size);
-    fprintf(fh, "Alltoall calls %d-%d\n", startcall, endcall - 1); // endcall is one ahead so we substract 1
+    fprintf(fh, "%s calls %d-%d\n", logger->collective_name, startcall, endcall - 1); // endcall is one ahead so we substract 1
     char *calls_str = compress_int_array(calls, count);
     fprintf(fh, "Count: %d calls - %s\n", count, calls_str);
     fprintf(fh, "\n\nBEGINNING DATA\n");
-    DEBUG_ALLTOALL_PROFILING("Saving counts...\n");
+    DEBUG_LOGGER("Saving counts...\n");
     // Save the compressed version of the data
     int count_data_number, _num_ranks, n;
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
-        DEBUG_ALLTOALL_PROFILING("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
+        DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
 
         char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks);
         fprintf(fh, "Rank(s) %s: ", str);
@@ -441,7 +345,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
         }
         fprintf(fh, "\n");
     }
-    DEBUG_ALLTOALL_PROFILING("Counts saved\n");
+    DEBUG_LOGGER("Counts saved\n");
     fprintf(fh, "END DATA\n");
 #endif
 
@@ -589,17 +493,17 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     if (logger->timing_fh == NULL)
     {
         // Default filename that we overwrite based on enabled features
-        logger->timing_filename = get_full_filename(MAIN_CTX, "timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "timings", logger->rank);
 #if ENABLE_A2A_TIMING
-        logger->timing_filename = get_full_filename(MAIN_CTX, "a2a-timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "a2a-timings", logger->rank);
 #endif // ENABLE_A2A_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
-        logger->timing_filename = get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->rank);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
         logger->timing_fh = fopen(logger->timing_filename, "w");
     }
 
-    fprintf(logger->timing_fh, "Alltoall call #%d\n", num_call);
+    fprintf(logger->timing_fh, "%s call #%d\n", logger->collective_name, num_call);
     for (j = 0; j < size; j++)
     {
         fprintf(logger->timing_fh, "Rank %d: %f\n", j, timings[j]);
@@ -618,33 +522,37 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
         avSRCountNode_t *srCountPtr = counters_list;
         if (logger->f == NULL)
         {
-            logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
             logger->f = fopen(logger->main_filename, "w");
         }
         assert(logger->f);
-        fprintf(logger->f, "# Send/recv counts for alltoall operations:\n");
+        fprintf(logger->f, "# Send/recv counts for %s operations:\n", logger->collective_name);
         uint64_t count = 0;
         while (srCountPtr != NULL)
         {
             fprintf(logger->f, "\n## Data set #%" PRIu64 "\n\n", count);
-            fprintf(logger->f, "comm size = %d; alltoall calls = %" PRIu64 "\n\n", srCountPtr->size, srCountPtr->count);
+            fprintf(logger->f,
+                    "comm size = %d; %s calls = %" PRIu64 "\n\n",
+                    srCountPtr->size,
+                    logger->collective_name,
+                    srCountPtr->count);
 
-            DEBUG_ALLTOALL_PROFILING("Logging alltoall call %" PRIu64 "\n", srCountPtr->count);
-            DEBUG_ALLTOALL_PROFILING("Logging send counts\n");
+            DEBUG_LOGGER("Logging %s call %" PRIu64 "\n", logger->collective_name, srCountPtr->count);
+            DEBUG_LOGGER("Logging send counts\n");
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 
-            DEBUG_ALLTOALL_PROFILING("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
+            DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
 
-            DEBUG_ALLTOALL_PROFILING("alltoall call %" PRIu64 " logged\n", srCountPtr->count);
+            DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
             srCountPtr = srCountPtr->next;
             count++;
         }
@@ -667,8 +575,20 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
 #endif // ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
 }
 
-logger_t *logger_init(int world_rank, int world_size)
+logger_t *logger_init(int world_rank, int world_size, logger_config_t *cfg)
 {
+    if (cfg == NULL)
+    {
+        fprintf(stderr, "logger configuration is undefined\n");
+        return NULL;
+    }
+
+    if (cfg->get_full_filename == NULL || strlen(cfg->collective_name) == 0)
+    {
+        fprintf(stderr, "invalid logger configuration\n");
+        return NULL;
+    }
+
     char filename[128];
     logger_t *l = calloc(1, sizeof(logger_t));
     if (l == NULL)
@@ -688,6 +608,9 @@ logger_t *logger_init(int world_rank, int world_size)
     l->sums_filename = NULL;
     l->timing_fh = NULL;
     l->timing_filename = NULL;
+
+    l->get_full_filename = cfg->get_full_filename;
+    l->collective_name = strdup(cfg->collective_name);
 
     return l;
 }
@@ -718,6 +641,8 @@ void logger_fini(logger_t **l)
                 fclose((*l)->sums_fh);
             if ((*l)->sums_filename)
                 free((*l)->sums_filename);
+            if ((*l)->collective_name)
+                free((*l)->collective_name);
             free(*l);
             *l = NULL;
         }
@@ -752,13 +677,17 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
     {
         if (logger->f == NULL)
         {
-            logger->main_filename = get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
             logger->f = fopen(logger->main_filename, "w");
         }
         fprintf(logger->f, "# Summary\n");
         fprintf(logger->f, "COMM_WORLD size: %d\n", logger->world_size);
-        fprintf(logger->f, "Total number of alltoall calls = %" PRIu64 " (limit is %d; -1 means no limit)\n", avCalls, DEFAULT_LIMIT_ALLTOALL_CALLS);
-        //fprintf(logger->f, "Alltoall call range: [%d-%d]\n\n", avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
+        fprintf(logger->f, 
+            "Total number of %s calls = %" PRIu64 " (limit is %" PRIu64 "; -1 means no limit)\n", 
+            logger->collective_name,
+            avCalls,
+            logger->limit_number_calls);
+        //fprintf(logger->f, "%s call range: [%d-%d]\n\n", logger->collective_name, avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
     }
 }
