@@ -4,7 +4,8 @@
 module purge
 module load gcc/4.8.5 hpcx/2.7.0
 
-cd /global/home/users/cyrusl/placement/expt0063/alltoall_profiling/alltoall
+PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling
+cd $PROJECT_ROOT
 make clean
 make
 
