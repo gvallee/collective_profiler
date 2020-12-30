@@ -19,4 +19,7 @@
 #define NUM_CALL_START_PROFILING (0)       // During which call do we start profiling? By default, the very first one. Note that once started, DEFAULT_LIMIT_ALLTOALL_CALLS says when we stop profiling
 #define DEFAULT_TRACKED_CALLS (10)
 
+#define ASSUME_COUNTS_EQUAL_ALL_RANKS (1) // MPI_Alltoall can use different send (or recv) counts on different nodes if send (or recv) type is different, subject to same amount of data sent per rank pair
+                                          // but his arrangement is not likely, so assume sendcounts equal on all nodes for performance reasons
+
 #endif // _COLLECTIVE_PROFILER_ALLTOALL_CONFIG_H

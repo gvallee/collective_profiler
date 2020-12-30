@@ -799,9 +799,10 @@ int _mpi_init(int *argc, char ***argv)
 	// but in any case, it will be smaller or of the same size than comm_world.
 	// So we allocate the biggest buffers possible but reuse them during the
 	// entire execution of the application.
-	sbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
+    // for alltoall the buffer size is smaller than for alltoallv because each rank has 1x int sendcount, not sendcounts[world_size]
+	sbuf = (int *)malloc(world_size * (sizeof(int)));
 	assert(sbuf);
-	rbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
+	rbuf = (int *)malloc(world_size * (sizeof(int)));
 	assert(rbuf);
 #if ENABLE_A2A_TIMING
 	op_exec_times = (double *)malloc(world_size * sizeof(double));
@@ -1102,29 +1103,29 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 
 	int idx = 0;
 	fprintf(f, "Send counts\n");
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	for (i = 0; i < comm_size; i++)
 	{
-		int j;
-		for (j = 0; j < comm_size; j++)
-		{
-			fprintf(f, "%d ", sendcounts[idx]);
-			idx++;
-		}
-		fprintf(f, "\n");
+		fprintf(f, "%d ", sendcounts[idx]);
+		idx++;
 	}
+	fprintf(f, "\n");
+#else
+	fprintf(f, "%d\n", sendcounts[0]);
+#endif
 
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	fprintf(f, "\n\nRecv counts\n");
 	idx = 0;
 	for (i = 0; i < comm_size; i++)
 	{
-		int j;
-		for (j = 0; j < comm_size; j++)
-		{
 			fprintf(f, "%d ", recvcounts[idx]);
 			idx++;
-		}
-		fprintf(f, "\n");
 	}
+	fprintf(f, "\n");
+#else
+	fprintf(f, "%d\n", recvcounts[0]);
+#endif
 
 	fclose(f);
 	free(filename);
@@ -1234,10 +1235,15 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 		double t_arrival = t_barrier_end - t_barrier_start;
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 		// Gather a bunch of counters
 		// TODO cature counts data, instead of the next two commented out lines - may not need Gather
-		//MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
-		//MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+		MPI_Gather(&sendcount, 1, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
+		MPI_Gather(&recvcount, 1, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+#else 
+        sbuf[0] = sendcount;  // so this assumes all ranks have used the same count, and records that value just once.
+		rbuf[0] = recvcount;
+#endif
 
 #if ENABLE_A2A_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
