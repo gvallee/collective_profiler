@@ -84,7 +84,7 @@ static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
 }
 
 // Compare if two arrays are identical.
-static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)
+static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)  // size = size of communicator
 {
 	int num = 0;
 	int rank, count_num;
@@ -452,7 +452,7 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
-static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
+static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)  // size = size of communicator
 {
 	int i, j, num = 0;
 	struct avSRCountNode *newNode = NULL;
@@ -513,7 +513,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	newNode->list_calls = (int *)malloc(DEFAULT_TRACKED_CALLS * sizeof(int));
 	assert(newNode->list_calls);
 	newNode->max_calls = DEFAULT_TRACKED_CALLS;
-	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
+	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used  //TODO adapt to counts for alltoall (cf alltoallv)
 	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
 	assert(newNode->send_data);
 	newNode->send_data_size = 0;
