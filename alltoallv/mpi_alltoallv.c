@@ -485,7 +485,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 			if (temp->count >= temp->max_calls)
 			{
 				temp->max_calls = temp->max_calls * 2;
-				temp->list_calls = (int *)realloc(temp->list_calls, temp->max_calls * sizeof(int));
+				temp->list_calls = (uint64_t *)realloc(temp->list_calls, temp->max_calls * sizeof(uint64_t));
 				assert(temp->list_calls);
 			}
 			temp->list_calls[temp->count] = avCalls; // Note: count starts at 1, not 0
@@ -506,7 +506,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	newNode->size = size;
 	newNode->count = 1;
-	newNode->list_calls = (int *)malloc(DEFAULT_TRACKED_CALLS * sizeof(int));
+	newNode->list_calls = (uint64_t *)malloc(DEFAULT_TRACKED_CALLS * sizeof(uint64_t));
 	assert(newNode->list_calls);
 	newNode->max_calls = DEFAULT_TRACKED_CALLS;
 	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
@@ -607,9 +607,9 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 	while (ptr != NULL)
 	{
 #if COMMSIZE_BASED_PATTERNS || TRACK_PATTERNS_ON_CALL_BASIS
-		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
+		fprintf(fh, "During %"PRIu64" alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
 #else
-		fprintf(fh, "During %d alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
+		fprintf(fh, "During %"PRIu64" alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
 #endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
@@ -638,7 +638,7 @@ static void save_call_patterns(int uniqueID)
 	avCallPattern_t *ptr = call_patterns;
 	while (ptr != NULL)
 	{
-		fprintf(fh, "For %d call(s):\n", ptr->n_calls);
+		fprintf(fh, "For %"PRIu64" call(s):\n", ptr->n_calls);
 		_save_patterns(fh, ptr->spatterns, "sent to");
 		_save_patterns(fh, ptr->rpatterns, "recv'd from");
 		ptr = ptr->next;
@@ -685,18 +685,18 @@ static void save_patterns(int world_rank)
 	free(rpatterns_filename);
 }
 
-static void save_counters_for_validation(int myrank, int avCalls, int size, const int *sendcounts, const int *recvcounts)
+static void save_counters_for_validation(int myrank, uint64_t avCalls, int size, const int *sendcounts, const int *recvcounts)
 {
 	char *filename;
 	int rc;
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/validation_data-rank%d-call%d.txt", getenv(OUTPUT_DIR_ENVVAR), myrank, avCalls);
+		_asprintf(filename, rc, "%s/validation_data-rank%d-call%"PRIu64".txt", getenv(OUTPUT_DIR_ENVVAR), myrank, avCalls);
 	}
 	else
 	{
-		_asprintf(filename, rc, "validation_data-rank%d-call%d.txt", myrank, avCalls);
+		_asprintf(filename, rc, "validation_data-rank%d-call%"PRIu64".txt", myrank, avCalls);
 	}
 	assert(rc < MAX_PATH_LEN);
 
@@ -978,7 +978,7 @@ static int _commit_data()
 	return 0;
 }
 
-static caller_info_t *create_new_caller_info(char *caller, int n_call)
+static caller_info_t *create_new_caller_info(char *caller, uint64_t n_call)
 {
 	caller_info_t *new_info = malloc(sizeof(caller_info_t));
 	assert(new_info);
@@ -991,7 +991,7 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 	return new_info;
 }
 
-static int insert_caller_data(char **trace, size_t size, int n_call, int world_rank)
+static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int world_rank)
 {
 	char *filename = NULL;
 	char *target_dir = NULL;
@@ -1005,7 +1005,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	{
 		target_dir = strdup("backtraces");
 	}
-	_asprintf(filename, rc, "%s/backtrace_rank%d_call%d.md", target_dir, world_rank, n_call);
+	_asprintf(filename, rc, "%s/backtrace_rank%d_call%"PRIu64".md", target_dir, world_rank, n_call);
 	assert(rc > 0);
 
 	// Make sure the target directory exists
@@ -1032,7 +1032,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
-static void save_times(double *times, int comm_size, int n_call)
+static void save_times(double *times, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
 	int i;
@@ -1041,7 +1041,7 @@ static void save_times(double *times, int comm_size, int n_call)
 #ifdef ENABLE_A2A_TIMINGS
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
@@ -1052,11 +1052,11 @@ static void save_times(double *times, int comm_size, int n_call)
 #ifdef ENABLE_LATE_ARRIVAL_TIMING
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "late_arrival_times.rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "late_arrival_times.rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 	assert(rc > 0);
@@ -1073,7 +1073,7 @@ static void save_times(double *times, int comm_size, int n_call)
 	free(filename);
 }
 
-static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call)
+static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
 	int i;
@@ -1081,11 +1081,11 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/counts.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/counts.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "counts.rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "counts.rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
 	assert(rc > 0);
 
@@ -1126,7 +1126,7 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 	free(filename);
 }
 
-static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, int n_call)
+static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
 	int i;
@@ -1134,11 +1134,11 @@ static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/locations_rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/locations_rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "locations_rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "locations_rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
 	assert(rc > 0);
 
