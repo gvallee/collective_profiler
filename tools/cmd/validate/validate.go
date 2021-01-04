@@ -33,10 +33,12 @@ const (
 	exampleFileC          = "alltoallv.c"
 	exampleFileF          = "alltoallv.f90"
 	exampleFileMulticommC = "alltoallv_multicomms.c"
+	exampleFileBigCountsC = "alltoallv_bigcounts.c"
 
 	exampleBinaryC          = "alltoallv_c"
 	exampleBinaryF          = "alltoallv_f"
 	exampleBinaryMulticommC = "alltoallv_multicomms_c"
+	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 )
 
 type Test struct {
@@ -150,6 +152,17 @@ func validateProfiler() error {
 			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
+		{
+			np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
+			source:                         exampleFileBigCountsC,
+			binary:                         exampleBinaryBigCountsC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{},
+			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+		},
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
@@ -193,7 +206,7 @@ func validateProfiler() error {
 		// Run the profiler
 		for _, lib := range sharedLibraries {
 			pathToLib := filepath.Join(basedir, "src", "alltoallv", lib)
-			fmt.Printf("Running MPI application and gathering profiles with %s...\n", pathToLib)
+			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
 			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(basedir, "examples", tt.binary))
 			cmd.Env = append(os.Environ(),
 				"LD_PRELOAD="+pathToLib,
