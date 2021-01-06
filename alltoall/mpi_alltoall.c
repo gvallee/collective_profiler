@@ -75,15 +75,16 @@ void print_trace(FILE *f)
 
 static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
 {
-	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
+	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);  //TODO alltoallv coversion: send_data_size will =1 if it, where is that set?
 }
 
 static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
 {
-	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank);
+	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank); //TODO alltoallv coversion: send_data_size will =1?, where is that set?
 }
 
 // Compare if two arrays are identical.
+// Called with same_call_counters(temp, sbuf, rbuf, size) where temp is current CountNode in the linked list being worked through
 static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)  // size = size of communicator
 {
 	int num = 0;
@@ -95,9 +96,9 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	// First compare the send counts
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankSendCounters(call_data, rank);
+		int *_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
 		assert(_counts);
-		for (count_num = 0; count_num < size; count_num++)
+		for (count_num = 0; count_num < size; count_num++) // TODO conversion from alltoallv: no need to loop since only one value for the rank
 		{
 			if (_counts[count_num] != send_counts[num])
 			{
@@ -114,8 +115,8 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	num = 0;
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankRecvCounters(call_data, rank);
-		for (count_num = 0; count_num < size; count_num++)
+		int *_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+		for (count_num = 0; count_num < size; count_num++) //// TODO conversion from alltoallv: no need to loop since only one value for the rank
 		{
 			if (_counts[count_num] != recv_counts[num])
 			{
@@ -130,12 +131,16 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	return true;
 }
 
+// called with lookupCounters(call_data->size, call_data->send_data_size --> num, call_data->send_data, counts);
+// call_data is a avSRCountNode_t and size is the comm size, send_data_size is "Size of the array of unique series of send counters", send_data is counts_data_t ** the just said array 
+// and counts is &(rbuf[num * size])
+// returns list[i] where count[j] != list[i]->counters[j], list[i] is the counts_data argument, which is call_data->send_data, which is NewNode->senddata and if j == size, i.e. if they match 
 static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, int *count)
 {
 	int i, j;
-	for (i = 0; i < num; i++)
+	for (i = 0; i < num; i++)  // i counts to num, so this is a loop over counts_data ** send_data
 	{
-		for (j = 0; j < size; j++)
+		for (j = 0; j < size; j++)  // and this is a loop over ranks? (Size= communicator size)
 		{
 			if (count[j] != list[i]->counters[j])
 			{
@@ -143,7 +148,7 @@ static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, in
 			}
 		}
 
-		if (j == size)
+		if (j == size)  // i.e. if j loop completed without a difference being found by the if
 		{
 			return list[i];
 		}
@@ -309,6 +314,7 @@ int extract_call_patterns_from_counts(int callID, int *send_counts, int *recv_co
 	return 0;
 }
 
+// called with commit_pattern_from_counts(avCalls, sbuf, rbuf, size)
 static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_counts, int size)
 {
 #if TRACK_PATTERNS_ON_CALL_BASIS
@@ -328,7 +334,7 @@ static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data
 	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
 }
 
-static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)
+static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)  // TODO - no alltoall mods here - adding rank records not counts.
 {
 	if (counters_data->num_ranks >= counters_data->max_ranks)
 	{
@@ -371,17 +377,17 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 	new_data->ranks = (int *)malloc(new_data->max_ranks * sizeof(int));
 	assert(new_data->ranks);
 
-	for (i = 0; i < size; i++)
-	{
-		new_data->counters[i] = counts[i];
-	}
+    // alltoall mod here is to write only one count (so loop removed cf alltoallv)
+	new_data->counters[0] = counts[0];
+
 	new_data->ranks[new_data->num_ranks] = rank;
 	new_data->num_ranks++;
 
 	return new_data;
 }
 
-static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+// called with add_new_send_counters_to_counters_data(call_data, rank, counts), which are the newnode?, the rank and the relevant section of sbuf?
+static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)  //TODO alltoall mods fro alltoallv
 {
 	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
 	call_data->send_data[call_data->send_data_size] = new_data;
@@ -399,6 +405,8 @@ static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, in
 	return 0;
 }
 
+// called with compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode) in alltoallv
+// for alltoall called with compareAndSaveSendCounters(_rank, &(sbuf[num]), newNode) or compareAndSaveSendCounters(_rank, &(sbuf[0]), newNode)
 static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *call_data)
 {
 	counts_data_t *ptr = lookupSendCounters(counts, call_data);
@@ -452,6 +460,7 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
+// called with insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype))
 static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)  // size = size of communicator
 {
 	int i, j, num = 0;
@@ -505,7 +514,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 #if DEBUG
 	fprintf(logger->f, "no data: %d \n", size);
 #endif
-	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));
+	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));  // TODO Anaylse data structure written from here onwards 
 	assert(newNode);
 
 	newNode->size = size;
@@ -528,19 +537,27 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	DEBUG_ALLTOALL_PROFILING("handling send counts...\n");
 	for (_rank = 0; _rank < size; _rank++)
 	{
-		if (compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode))
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
+		if (compareAndSaveSendCounters(_rank, &(sbuf[num]), newNode))  //portion of sbuf selected is just one count, for the rank, for alltoall
+#else
+		if (compareAndSaveSendCounters(_rank, &(sbuf[0]), newNode))  //portion of sbuf selected is just one count, for all ranks, for alltoall , [0] because assuming it is the same for all ranks
+#endif
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add send counters\n", __FILE__, __LINE__);
 			return -1;
 		}
-		num++;
+		num++;  // so num always = _rank   - but why?
 	}
 
 	DEBUG_ALLTOALL_PROFILING("handling recv counts...\n");
 	num = 0;
 	for (_rank = 0; _rank < size; _rank++)
 	{
-		if (compareAndSaveRecvCounters(_rank, &(rbuf[num * size]), newNode))
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
+		if (compareAndSaveRecvCounters(_rank, &(rbuf[num]), newNode))
+#else
+		if (compareAndSaveRecvCounters(_rank, &(rbuf[0]), newNode))
+#endif
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add recv counters\n", __FILE__, __LINE__);
 			return -1;

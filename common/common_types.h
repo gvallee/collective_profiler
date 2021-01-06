@@ -55,7 +55,7 @@ typedef struct avPattern
     struct avPattern *next;
 } avPattern_t;
 
-typedef struct avCallPattern
+typedef struct avCallPattern  // TODO is this anything to do with counts? What is an av_Pattern? See next def above. So this pattern is to do with rank patterns.
 {
     int n_calls;
     int *calls;

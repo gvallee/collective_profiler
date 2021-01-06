@@ -63,7 +63,7 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
     {
         assert(data[i]);
         DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
-        for (j = 0; j < data[i]->num_ranks; j++)
+        for (j = 0; j < data[i]->num_ranks; j++)  //TDO need to understand how these are inserted orignally
         {
             assert(data[i]->ranks);
             DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
