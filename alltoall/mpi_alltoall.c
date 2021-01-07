@@ -94,38 +94,55 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	DEBUG_ALLTOALL_PROFILING("Comparing data with existing data...\n");
 	DEBUG_ALLTOALL_PROFILING("-> Comparing send counts...\n");
 	// First compare the send counts
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+		_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
 		assert(_counts);
-		for (count_num = 0; count_num < size; count_num++) // TODO conversion from alltoallv: no need to loop since only one value for the rank
+		count_num = 0; //  conversion from alltoallv: no need to loop since only one value for the rank
+		if (_counts[count_num] != send_counts[num])
 		{
-			if (_counts[count_num] != send_counts[num])
-			{
-				DEBUG_ALLTOALL_PROFILING("Data differs\n");
-				return false;
-			}
-			num++;
+			DEBUG_ALLTOALL_PROFILING("Data differs\n");
+			return false;
 		}
 	}
+#else
+	rank = 0;
+	_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+	assert(_counts);
+	count_num = 0;  // conversion from alltoallv: no need to loop since only one value for the rank
+	if (_counts[count_num] != send_counts[num])
+	{
+		DEBUG_ALLTOALL_PROFILING("Data differs\n");
+		return false;
+	}
+#endif
 	DEBUG_ALLTOALL_PROFILING("-> Send counts are the same\n");
 
 	// Then the receive counts
 	DEBUG_ALLTOALL_PROFILING("-> Comparing recv counts...\n");
 	num = 0;
+#if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
-		for (count_num = 0; count_num < size; count_num++) //// TODO conversion from alltoallv: no need to loop since only one value for the rank
+		_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+		count_num = 0;  //  conversion from alltoallv: no need to loop since only one value for the rank
+		if (_counts[count_num] != recv_counts[num])
 		{
-			if (_counts[count_num] != recv_counts[num])
-			{
-				DEBUG_ALLTOALL_PROFILING("Data differs\n");
-				return false;
-			}
-			num++;
+			DEBUG_ALLTOALL_PROFILING("Data differs\n");
+			return false;
 		}
 	}
+#else
+	rank = 0;
+	_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+	count_num = 0;  // TODO conversion from alltoallv: no need to loop since only one value for the rank
+	if (_counts[count_num] != recv_counts[num])
+	{
+		DEBUG_ALLTOALL_PROFILING("Data differs\n");
+		return false;
+	}
+#endif
 
 	DEBUG_ALLTOALL_PROFILING("Data is the same\n");
 	return true;
