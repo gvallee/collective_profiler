@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -127,7 +128,58 @@ func checkOutput(basedir string, tempDir string, tt Test) error {
 	return nil
 }
 
-func validateProfiler() error {
+func validateTestPostmortemResults(testName string, dir string) error {
+	toolName := "srcountsanalyzer"
+	_, filename, _, _ := runtime.Caller(0)
+	basedir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+
+	toolDir := filepath.Join(basedir, "tools", "cmd", toolName)
+	toolBin := filepath.Join(toolDir, toolName)
+	if !util.FileExists(toolBin) {
+		return fmt.Errorf("%s does not exist", toolBin)
+	}
+
+	fmt.Printf("Running mostmortem analysis for %s in %s\n", testName, dir)
+	cmd := exec.Command(toolBin, "-dir", dir, "-output-dir", dir, "-jobid", "0", "-rank", "0")
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	expectedFiles := []string{"profile_alltoallv_job0.rank0.md",
+		"stats-job0-rank0.md",
+		//"patterns-job0-rank0.md", we remove patterns for now: the output ordering is not the same from one run to another. :(
+		"patterns-summary-job0-rank0.md"}
+	expectedOutputDir := filepath.Join(basedir, "tests", testName, "expectedOutput")
+	err = checkOutputFiles(expectedOutputDir, dir, expectedFiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePostmortemAnalysisTools(profilerResults map[string]string) error {
+	for source, dir := range profilerResults {
+		err := validateTestPostmortemResults(source, dir)
+		if err != nil {
+			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, dir)
+			return err
+		}
+	}
+
+	// If successful, we can then delete all the directory that were created
+	for _, dir := range profilerResults {
+		os.RemoveAll(dir)
+	}
+
+	return nil
+}
+
+// validateProfiler runs the profiler against examples and compare the resuls to the results output.
+// If keepResults is set to true, the results are *not* removed after execution. They can then be used
+// later on to validate postmortem analysis.
+func validateProfiler(keepResults bool) (map[string]string, error) {
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
 		{
@@ -145,6 +197,17 @@ func validateProfiler() error {
 			np:                             3,
 			source:                         exampleFileF,
 			binary:                         exampleBinaryF,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{},
+			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+		},
+		{
+			np:                             4,
+			source:                         exampleFileMulticommC,
+			binary:                         exampleBinaryMulticommC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
@@ -171,13 +234,13 @@ func validateProfiler() error {
 	// Find MPI
 	mpiBin, err := exec.LookPath("mpirun")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Find make
 	makeBin, err := exec.LookPath("make")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Compile both the profiler libraries and the example
@@ -186,24 +249,36 @@ func validateProfiler() error {
 	cmd.Dir = filepath.Join(basedir, "src", "alltoallv")
 	err = cmd.Run()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd = exec.Command(makeBin, "clean", "all")
 	cmd.Dir = filepath.Join(basedir, "examples")
 	err = cmd.Run()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	// Create a map to store the data about all the directories where
+	// results are created when the results need to be kept
+	var results map[string]string
+	if keepResults {
+		results = make(map[string]string)
 	}
 
 	for _, tt := range validationTests {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
 		if err != nil {
-			return err
+			return nil, err
+		}
+
+		if keepResults {
+			results[tt.binary] = tempDir
 		}
 
 		// Run the profiler
+		var stdout, stderr bytes.Buffer
 		for _, lib := range sharedLibraries {
 			pathToLib := filepath.Join(basedir, "src", "alltoallv", lib)
 			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
@@ -212,29 +287,42 @@ func validateProfiler() error {
 				"LD_PRELOAD="+pathToLib,
 				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
 			cmd.Dir = tempDir
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
 			err = cmd.Run()
 			if err != nil {
-				return err
+				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s\n", stdout.String(), stderr.String())
 			}
 		}
 
 		// Check the results
 		err = checkOutput(basedir, tempDir, tt)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		// We clean up *only* when tests are successful
-		os.RemoveAll(tempDir)
+		// We clean up *only* when tests are successful and
+		// if results do not need to be kept
+		if !keepResults {
+			os.RemoveAll(tempDir)
+		}
 	}
 
-	return nil
+	// Return the map describing the data resulting from the tests only
+	// when the results need to be kept to later on validate postmortem
+	// analysis
+	if keepResults {
+		return results, nil
+	}
+
+	return nil, nil
 }
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	counts := flag.Bool("counts", false, "Validate the count data generated during the validation run of the profiler with an MPI application. Requires the following additional options: -dir, -job, -id.")
 	profiler := flag.Bool("profiler", false, "Perform a validation of the profiler itself running various tests. Requires MPI. Does not require any additional option.")
+	postmortem := flag.Bool("postmortem", false, "Perform a validation of the postmortem analysis tools.")
 	dir := flag.String("dir", "", "Where all the data is")
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
@@ -259,7 +347,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	if !*counts && !*profiler {
+	if !*counts && !*profiler && !*postmortem {
 		fmt.Println("No validate option select, run '-h' for more details")
 		os.Exit(1)
 	}
@@ -272,10 +360,35 @@ func main() {
 		}
 	}
 
-	if *profiler {
-		err := validateProfiler()
+	if *profiler && !*postmortem {
+		_, err := validateProfiler(false)
 		if err != nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if *postmortem {
+		var err error
+		profilerValidationResults := make(map[string]string)
+
+		profilerValidationResults, err = validateProfiler(true)
+		if err != nil || profilerValidationResults == nil {
+			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
+			os.Exit(1)
+		}
+
+		err = validatePostmortemAnalysisTools(profilerValidationResults)
+		if err != nil {
+			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if *counts {
+		err := validateCountProfiles(*dir, *jobid, *id)
+		if err != nil {
+			fmt.Printf("Validation of the count data failed")
 			os.Exit(1)
 		}
 	}

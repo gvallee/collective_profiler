@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 #
 # See LICENSE.txt for license information
 #
@@ -46,5 +46,6 @@ clean:
 	cd tests && make clean
 	cd doc && make clean
 
-validate: tools tests
-	cd tools/cmd/validate; ./validate -profiler
+validate: clean all
+	# postmortem validates both the profiler's capabilities and postmortem analysis
+	cd tools/cmd/validate; ./validate -postmortem

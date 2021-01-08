@@ -26,7 +26,7 @@ analyzebacktraces:
 analyzetimings:
 	cd cmd/analyzetimings; go build analyzetimings.go
 
-validate: all
+validate:
 	cd cmd/validate; go build validate.go
 
 getcounters:
