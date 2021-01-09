@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 )
@@ -317,14 +318,19 @@ func (d *Data) addPattern(callNum int, sendPatterns map[int]int, recvPatterns ma
 }
 
 func writeDataToFile(fd *os.File, cd *CallData) error {
-	for nDest, nSrc := range cd.Send {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n\n", nSrc, nDest))
+
+	// Transform maps into arrays and sort the arrays so that the output is always in the same order.
+	// This is necessary to have a predictable output during validation.
+	skv := format.ConvertIntMapToOrderedArrayByValue(cd.Send)
+	for _, keyval := range skv {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks sent to %d other ranks\n\n", keyval.Val, keyval.Key))
 		if err != nil {
 			return err
 		}
 	}
-	for key, val := range cd.Recv {
-		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n\n", val, key))
+	rkv := format.ConvertIntMapToOrderedArrayByValue(cd.Recv)
+	for _, keyval := range rkv {
+		_, err := fd.WriteString(fmt.Sprintf("%d ranks recv'd from %d other ranks\n\n", keyval.Val, keyval.Key))
 		if err != nil {
 			return err
 		}

@@ -80,7 +80,7 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 		}
 		if hashRefFile != hashResultFile {
 			fmt.Println(" failed")
-			return fmt.Errorf("Invalid output, send counters do not match")
+			return fmt.Errorf("Invalid output, send counters do not match (%s vs. %s)", resultFile, referenceFile)
 		}
 		fmt.Println(" ok")
 	}
@@ -148,7 +148,7 @@ func validateTestPostmortemResults(testName string, dir string) error {
 
 	expectedFiles := []string{"profile_alltoallv_job0.rank0.md",
 		"stats-job0-rank0.md",
-		//"patterns-job0-rank0.md", we remove patterns for now: the output ordering is not the same from one run to another. :(
+		"patterns-job0-rank0.md",
 		"patterns-summary-job0-rank0.md"}
 	expectedOutputDir := filepath.Join(basedir, "tests", testName, "expectedOutput")
 	err = checkOutputFiles(expectedOutputDir, dir, expectedFiles)

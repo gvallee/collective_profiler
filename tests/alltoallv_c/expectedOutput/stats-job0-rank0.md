@@ -22,8 +22,14 @@ Total number of alltoallv calls: 1
 
 # Min/max
 1/1 calls have a send count min of 0
+
 1/1 calls have a recv count min of 0
+
 1/1 calls have a send count min of 0 (excluding zero)
+
 1/1 calls have a recv count min of 0 (excluding zero)
+
 1/1 calls have a send count max of 3
+
 1/1 calls have a recv count max of 3
+

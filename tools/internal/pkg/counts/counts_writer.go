@@ -9,6 +9,8 @@ package counts
 import (
 	"fmt"
 	"os"
+
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 )
 
 func WriteDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, datatypesRecv map[int]int) error {
@@ -77,14 +79,18 @@ func WriteCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs Send
 	if err != nil {
 		return err
 	}
-	for numZeros, nCalls := range cs.CallSendSparsity {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", nCalls, numCalls, numZeros))
+	sSparsityKV := format.ConvertIntMapToOrderedArrayByValue(cs.CallSendSparsity)
+	//for numZeros, nCalls := range cs.CallSendSparsity {
+	for _, keyval := range sSparsityKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d send counts equals to zero\n", keyval.Val, numCalls, keyval.Key))
 		if err != nil {
 			return err
 		}
 	}
-	for numZeros, nCalls := range cs.CallRecvSparsity {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", nCalls, numCalls, numZeros))
+	rSparsityKV := format.ConvertIntMapToOrderedArrayByValue(cs.CallRecvSparsity)
+	//for numZeros, nCalls := range cs.CallRecvSparsity {
+	for _, keyval := range rSparsityKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d of all calls have %d recv counts equals to zero\n", keyval.Val, numCalls, keyval.Key))
 		if err != nil {
 			return err
 		}
@@ -94,43 +100,88 @@ func WriteCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs Send
 	if err != nil {
 		return err
 	}
-	for mins, n := range cs.SendMins {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", n, numCalls, mins))
-		if err != nil {
-			return err
-		}
-	}
-	for mins, n := range cs.RecvMins {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", n, numCalls, mins))
-		if err != nil {
-			return err
-		}
-	}
-
-	for mins, n := range cs.SendNotZeroMins {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", n, numCalls, mins))
-		if err != nil {
-			return err
-		}
-	}
-	for mins, n := range cs.RecvNotZeroMins {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", n, numCalls, mins))
+	sMinsKV := format.ConvertIntMapToOrderedArrayByValue(cs.SendMins)
+	//for mins, n := range cs.SendMins {
+	for _, keyval := range sMinsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d\n", keyval.Val, numCalls, keyval.Key))
 		if err != nil {
 			return err
 		}
 	}
 
-	for maxs, n := range cs.SendMaxs {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", n, numCalls, maxs))
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	rMinsKV := format.ConvertIntMapToOrderedArrayByValue(cs.RecvMins)
+	//for mins, n := range cs.RecvMins {
+	for _, keyval := range rMinsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d\n", keyval.Val, numCalls, keyval.Key))
 		if err != nil {
 			return err
 		}
 	}
-	for maxs, n := range cs.RecvMaxs {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", n, numCalls, maxs))
+
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	sendNotZeroMinsKV := format.ConvertIntMapToOrderedArrayByValue(cs.SendNotZeroMins)
+	//for mins, n := range cs.SendNotZeroMins {
+	for _, keyval := range sendNotZeroMinsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count min of %d (excluding zero)\n", keyval.Val, numCalls, keyval.Key))
 		if err != nil {
 			return err
 		}
+	}
+
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	recvNotZeroMinsKV := format.ConvertIntMapToOrderedArrayByValue(cs.RecvNotZeroMins)
+	//for mins, n := range cs.RecvNotZeroMins {
+	for _, keyval := range recvNotZeroMinsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count min of %d (excluding zero)\n", keyval.Val, numCalls, keyval.Key))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	sendMaxsKV := format.ConvertIntMapToOrderedArrayByValue(cs.SendMaxs)
+	//for maxs, n := range cs.SendMaxs {
+	for _, keyval := range sendMaxsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a send count max of %d\n", keyval.Val, numCalls, keyval.Key))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	recvMaxsKV := format.ConvertIntMapToOrderedArrayByValue(cs.RecvMaxs)
+	//for maxs, n := range cs.RecvMaxs {
+	for _, keyval := range recvMaxsKV {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls have a recv count max of %d\n", keyval.Val, numCalls, keyval.Key))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fd.WriteString("\n")
+	if err != nil {
+		return err
 	}
 
 	return nil

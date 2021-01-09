@@ -22,8 +22,14 @@ Total number of alltoallv calls: 1000000
 
 # Min/max
 1000000/1000000 calls have a send count min of 0
+
 1000000/1000000 calls have a recv count min of 0
+
 1000000/1000000 calls have a send count min of 0 (excluding zero)
+
 1000000/1000000 calls have a recv count min of 0 (excluding zero)
+
 1000000/1000000 calls have a send count max of 3
+
 1000000/1000000 calls have a recv count max of 3
+
