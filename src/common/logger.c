@@ -63,7 +63,7 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
     {
         assert(data[i]);
         DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
-        for (j = 0; j < data[i]->num_ranks; j++)  //TDO need to understand how these are inserted orignally
+        for (j = 0; j < data[i]->num_ranks; j++)
         {
             assert(data[i]->ranks);
             DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
@@ -247,7 +247,9 @@ char *compress_int_array(int *array, int size)
 #endif // DEBUG
     return compressedRep;
 }
-
+// called with _log_data(logger, startcall, endcall,
+//                      SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
+//                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
 static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
 {
     int i, j, num = 0;
@@ -510,7 +512,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     }
     fprintf(logger->timing_fh, "\n");
 }
-
+// called with log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
 static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);
@@ -664,7 +666,7 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
         i++;
     }
 }
-
+// called with log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head); so counters_list = head, which is global var in mpi_alltoall.c
 void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     // We log the data most of the time right before unloading our shared
