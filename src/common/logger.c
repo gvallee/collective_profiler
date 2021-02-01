@@ -250,7 +250,7 @@ char *compress_int_array(int *array, int size)
 // called with _log_data(logger, startcall, endcall,
 //                      SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
 //                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
-static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int type_size)
+static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int count, int *calls, int num_counts_data, counts_data_t **counters, int size, int rank_vec_len, int type_size)
 {
     int i, j, num = 0;
     FILE *fh = NULL;
@@ -341,7 +341,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
             str = NULL;
         }
 
-        for (n = 0; n < size; n++)
+        for (n = 0; n < rank_vec_len; n++)
         {
             fprintf(fh, "%d ", (counters[count_data_number])->counters[n]);
         }
@@ -350,7 +350,7 @@ static void _log_data(logger_t *logger, int startcall, int endcall, int ctx, int
     DEBUG_LOGGER("Counts saved\n");
     fprintf(fh, "END DATA\n");
 #endif
-
+//TO DO check the rest of this function for alltoallv to alltoall conversion
 #if ENABLE_PER_RANK_STATS || ENABLE_MSG_SIZE_ANALYSIS
     // Go through the data to gather some stats
     int rank;
@@ -545,14 +545,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->sendtype_size);
 
             DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->recvtype_size);
 
             DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
             srCountPtr = srCountPtr->next;
