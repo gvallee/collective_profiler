@@ -7,6 +7,7 @@ all: liballtoallv.so liballtoallv_location.so liballtoallv_counts.so liballtoall
 
 liballtoallv_counts.so: ../common/logger_counts.o ../common/grouping.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_RAW_DATA=1 ../common/logger_counts.o ../common/grouping.o mpi_alltoallv.c -o liballtoallv_counts.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 ../common/logger_counts.o ../common/grouping.o mpi_alltoallv.c -o liballtoallv_counts_notcompact.so
 
 liballtoallv_exec_timings.so: ../common/logger_exec_timings.o ../common/grouping.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_A2A_TIMING=1 ../common/logger_exec_timings.o ../common/grouping.o mpi_alltoallv.c -o liballtoallv_exec_timings.so

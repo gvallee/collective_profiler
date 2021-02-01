@@ -94,7 +94,7 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	DEBUG_ALLTOALL_PROFILING("Comparing data with existing data...\n");
 	DEBUG_ALLTOALL_PROFILING("-> Comparing send counts...\n");
 	// First compare the send counts
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
+// #if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
 	for (rank = 0; rank < size; rank++)
 	{
 		_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
@@ -106,23 +106,23 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 			return false;
 		}
 	}
-#else
-	rank = 0;
-	_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
-	assert(_counts);
-	count_num = 0;  // conversion from alltoallv: no need to loop since only one value for the rank
-	if (_counts[count_num] != send_counts[num])
-	{
-		DEBUG_ALLTOALL_PROFILING("Data differs\n");
-		return false;
-	}
-#endif
+// #else
+// 	rank = 0;
+// 	_counts = lookupRankSendCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+// 	assert(_counts);
+// 	count_num = 0;  // conversion from alltoallv: no need to loop since only one value for the rank
+// 	if (_counts[count_num] != send_counts[num])
+// 	{
+// 		DEBUG_ALLTOALL_PROFILING("Data differs\n");
+// 		return false;
+// 	}
+// #endif
 	DEBUG_ALLTOALL_PROFILING("-> Send counts are the same\n");
 
 	// Then the receive counts
 	DEBUG_ALLTOALL_PROFILING("-> Comparing recv counts...\n");
 	num = 0;
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
+// #if ASSUME_COUNTS_EQUAL_ALL_RANKS !=1
 	for (rank = 0; rank < size; rank++)
 	{
 		_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
@@ -133,16 +133,16 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 			return false;
 		}
 	}
-#else
-	rank = 0;
-	_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
-	count_num = 0;  // TODO conversion from alltoallv: no need to loop since only one value for the rank
-	if (_counts[count_num] != recv_counts[num])
-	{
-		DEBUG_ALLTOALL_PROFILING("Data differs\n");
-		return false;
-	}
-#endif
+// #else
+// 	rank = 0;
+// 	_counts = lookupRankRecvCounters(call_data, rank);  // TODO conversion from alltoallv: return just the singe counter value for that rank
+// 	count_num = 0;  // TODO conversion from alltoallv: no need to loop since only one value for the rank
+// 	if (_counts[count_num] != recv_counts[num])
+// 	{
+// 		DEBUG_ALLTOALL_PROFILING("Data differs\n");
+// 		return false;
+// 	}
+// #endif
 
 	DEBUG_ALLTOALL_PROFILING("Data is the same\n");
 	return true;
@@ -351,7 +351,7 @@ static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data
 	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
 }
 
-static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)  // TODO - no alltoall mods here - adding rank records not counts.
+static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)  // TODO - DONE no alltoall mods here - adding rank records not counts.
 {
 	if (counters_data->num_ranks >= counters_data->max_ranks)
 	{
@@ -387,14 +387,14 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 	int i;
 	counts_data_t *new_data = (counts_data_t *)malloc(sizeof(counts_data_t));
 	assert(new_data);
-	new_data->counters = (int *)malloc(size * sizeof(int));
+	new_data->counters = (int *)malloc(sizeof(int)); // was malloc(size * sizeof(int)) for alltoallv but only one count per rank for alltoall
 	assert(new_data->counters);
 	new_data->num_ranks = 0;
 	new_data->max_ranks = MAX_TRACKED_RANKS;
 	new_data->ranks = (int *)malloc(new_data->max_ranks * sizeof(int));
 	assert(new_data->ranks);
 
-    // alltoall mod here is to write only one count (so loop removed cf alltoallv)
+    // alltoall mod here is to write only one count (so loop removed cf alltoallv) 
 	new_data->counters[0] = counts[0];
 
 	new_data->ranks[new_data->num_ranks] = rank;
@@ -554,11 +554,11 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	DEBUG_ALLTOALL_PROFILING("handling send counts...\n");
 	for (_rank = 0; _rank < size; _rank++)
 	{
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
+//#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
 		if (compareAndSaveSendCounters(_rank, &(sbuf[num]), newNode))  //portion of sbuf selected is just one count, for the rank, for alltoall
-#else
-		if (compareAndSaveSendCounters(_rank, &(sbuf[0]), newNode))  //portion of sbuf selected is just one count, for all ranks, for alltoall , [0] because assuming it is the same for all ranks
-#endif
+// #else
+// 		if (compareAndSaveSendCounters(_rank, &(sbuf[0]), newNode))  //portion of sbuf selected is just one count, for all ranks, for alltoall , [0] because assuming it is the same for all ranks
+// #endif
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add send counters\n", __FILE__, __LINE__);
 			return -1;
@@ -570,11 +570,11 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	num = 0;
 	for (_rank = 0; _rank < size; _rank++)
 	{
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
+//#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1 	
 		if (compareAndSaveRecvCounters(_rank, &(rbuf[num]), newNode))
-#else
-		if (compareAndSaveRecvCounters(_rank, &(rbuf[0]), newNode))
-#endif
+// #else
+// 		if (compareAndSaveRecvCounters(_rank, &(rbuf[0]), newNode))
+// #endif
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add recv counters\n", __FILE__, __LINE__);
 			return -1;
@@ -1137,29 +1137,29 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 
 	int idx = 0;
 	fprintf(f, "Send counts\n");
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
+// #if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	for (i = 0; i < comm_size; i++)
 	{
 		fprintf(f, "%d ", sendcounts[idx]);
 		idx++;
+		fprintf(f, "\n");
 	}
-	fprintf(f, "\n");
-#else
-	fprintf(f, "%d\n", sendcounts[0]);
-#endif
+// #else
+	// fprintf(f, "%d\n", sendcounts[0]);
+// #endif
 
-#if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	fprintf(f, "\n\nRecv counts\n");
+// #if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	idx = 0;
 	for (i = 0; i < comm_size; i++)
 	{
 			fprintf(f, "%d ", recvcounts[idx]);
 			idx++;
+			fprintf(f, "\n");
 	}
-	fprintf(f, "\n");
-#else
-	fprintf(f, "%d\n", recvcounts[0]);
-#endif
+// #else
+// 	fprintf(f, "%d\n", recvcounts[0]);
+// #endif
 
 	fclose(f);
 	free(filename);
@@ -1257,7 +1257,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #if ENABLE_A2A_TIMING
 		double t_start = MPI_Wtime();
 #endif // ENABLE_A2A_TIMING
-
+        DEBUG_ALLTOALL_PROFILING("DEBUG sampler prog: send type value, %i\n", sendtype );
 		ret = PMPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 
 #if ENABLE_A2A_TIMING
@@ -1271,13 +1271,31 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 
 #if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 		// Gather a bunch of counters
-		// TODO cature counts data, instead of the next two commented out lines - may not need Gather
-		MPI_Gather(&sendcount, 1, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
-		MPI_Gather(&recvcount, 1, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
-#else 
-        sbuf[0] = sendcount;  // so this assumes all ranks have used the same count, and records that value just once.
-		rbuf[0] = recvcount;
+		// TODO this gather is to rank 0, but which rank does the noting and reporting. 
+		// insert_sendrecv_data is called within if my_comm_rank==0
+		// parameters are int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+		// void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
+		// MPI_Comm comm)
+		MPI_Gather(&sendcount, 1, MPI_INT, sbuf, 1, MPI_INT, 0, comm);
+		MPI_Gather(&recvcount, 1, MPI_INT, rbuf, 1, MPI_INT, 0, comm);
+#if DEBUG
+		printf("DEBUG: sendcounts just after gather\n");
+		for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", sbuf[_rank]);
+		printf("\n");
+		printf("DEBUG: recvcounts just after gather\n");
+		for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", rbuf[_rank]);
+		printf("\n");
+		fflush(stdout);
 #endif
+#else 
+		for (int _rank=0; _rank<comm_size; _rank++){
+			// sbuf[0] = sendcount;  // so this assumes all ranks have used the same count, and records that value just once.
+			// rbuf[0] = recvcount;
+			sbuf[_rank] = sendcount;
+			rbuf[_rank] = recvcount;
+		}
+#endif
+
 
 #if ENABLE_A2A_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
@@ -1314,7 +1332,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
-			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype)))
+			if (insert_sendrecv_data(sbuf, rbuf, 1, sizeof(sendtype), sizeof(recvtype)))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
@@ -1322,7 +1340,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
-			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);
+			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);  // perhaps comm_size = 1 here???
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
 
 #if ENABLE_PATTERN_DETECTION
@@ -1345,8 +1363,8 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			save_times(late_arrival_timings, comm_size, avCalls);
 #endif // ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT
 			avCallsLogged++;
-		}
-	}
+		} // end of: if (my_comm_rank == 0)
+	} // end of: if (need_profile)
 	else
 	{
 		// No need to profile that call but we still count the number of alltoall calls
