@@ -23,6 +23,7 @@ typedef struct counts_data
 typedef struct avSRCountNode
 {
     int size;
+    int rank_vec_len; // =1 for alltoall, = comm_size for alltoallv
     uint64_t count; // How many time we detected the pattern; also size of list_calls
     uint64_t max_calls;
     int *list_calls; // Which calls produced the pattern
