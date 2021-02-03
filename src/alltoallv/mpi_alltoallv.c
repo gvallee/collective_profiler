@@ -799,10 +799,10 @@ int _mpi_init(int *argc, char ***argv)
 	assert(sbuf);
 	rbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
 	assert(rbuf);
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 	op_exec_times = (double *)malloc(world_size * sizeof(double));
 	assert(op_exec_times);
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
 	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
 	assert(late_arrival_timings);
@@ -1038,18 +1038,18 @@ static void save_times(double *times, int comm_size, uint64_t n_call)
 	int i;
 	int rc;
 
-#ifdef ENABLE_A2A_TIMINGS
+#if ENABLE_EXEC_TIMING
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
 		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
-#endif // ENABLE_A2A_TIMINGS
+#endif // ENABLE_EXEC_TIMING
 
-#ifdef ENABLE_LATE_ARRIVAL_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
 		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
@@ -1216,16 +1216,16 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		double t_barrier_end = MPI_Wtime();
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		double t_start = MPI_Wtime();
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
 		double t_arrival = t_barrier_end - t_barrier_start;
@@ -1235,9 +1235,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
 		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
@@ -1285,13 +1285,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
 
-#if (ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT)
+#if (ENABLE_EXEC_TIMING && ENABLE_COMPACT_FORMAT)
 			insert_op_exec_times_data(op_exec_times, comm_size);
-#endif // ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT
+#endif // ENABLE_EXEC_TIMING && ENABLE_COMPACT_FORMAT
 
-#if (ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT)
+#if (ENABLE_EXEC_TIMING && !ENABLE_COMPACT_FORMAT)
 			save_times(op_exec_times, comm_size, avCalls);
-#endif // ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT
+#endif // ENABLE_EXEC_TIMING && !ENABLE_COMPACT_FORMAT
 
 #if (ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT)
 			insert_op_exec_times_data(late_arrival_timings, comm_size);

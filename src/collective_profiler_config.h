@@ -37,7 +37,7 @@
 // Switch to enable/disable timing of collective operations
 #ifndef ENABLE_EXEC_TIMING
 #define ENABLE_EXEC_TIMING (0)
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 // Switch to enable/disable timing of late arrivals
 #ifndef ENABLE_LATE_ARRIVAL_TIMING
