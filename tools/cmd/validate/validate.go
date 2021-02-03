@@ -189,7 +189,7 @@ func validatePostmortemAnalysisTools(profilerResults map[string]string) error {
 // validateProfiler runs the profiler against examples and compare the resuls to the results output.
 // If keepResults is set to true, the results are *not* removed after execution. They can then be used
 // later on to validate postmortem analysis.
-func validateProfiler(keepResults bool) (map[string]string, error) {
+func validateProfiler(keepResults bool, fullValidation bool) (map[string]string, error) {
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
 		{
@@ -225,17 +225,23 @@ func validateProfiler(keepResults bool) (map[string]string, error) {
 			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
-		{
-			np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
-			source:                         exampleFileBigCountsC,
-			binary:                         exampleBinaryBigCountsC,
-			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
-			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
-			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
-		},
+	}
+
+	if fullValidation {
+		extaTests := []Test{
+			{
+				np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
+				source:                         exampleFileBigCountsC,
+				binary:                         exampleBinaryBigCountsC,
+				expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+				expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+				// todo: expectedCountsFiles
+				expectedLocationFiles:    []string{},
+				expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+				expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+			},
+		}
+		validationTests = append(validationTests, extaTests...)
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
@@ -333,6 +339,7 @@ func main() {
 	counts := flag.Bool("counts", false, "Validate the count data generated during the validation run of the profiler with an MPI application. Requires the following additional options: -dir, -job, -id.")
 	profiler := flag.Bool("profiler", false, "Perform a validation of the profiler itself running various tests. Requires MPI. Does not require any additional option.")
 	postmortem := flag.Bool("postmortem", false, "Perform a validation of the postmortem analysis tools.")
+	full := flag.Bool("full", false, "Run the full validation. WARNING! This may generate a huge amount of files and create file system issues!")
 	dir := flag.String("dir", "", "Where all the data is")
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
@@ -371,7 +378,7 @@ func main() {
 	}
 
 	if *profiler && !*postmortem {
-		_, err := validateProfiler(false)
+		_, err := validateProfiler(false, *full)
 		if err != nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
@@ -382,7 +389,7 @@ func main() {
 		var err error
 		profilerValidationResults := make(map[string]string)
 
-		profilerValidationResults, err = validateProfiler(true)
+		profilerValidationResults, err = validateProfiler(true, *full)
 		if err != nil || profilerValidationResults == nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
