@@ -49,6 +49,7 @@ func main() {
 	help := flag.Bool("h", false, "Help message")
 	sizeThreshold := flag.Int("size-threshold", 200, "Size to differentiate small and big messages")
 	binThresholds := flag.String("bins", "200,1024,2048,4096", "Comma-separated list of thresholds to use for the creation of bins")
+	requestPlots := flag.Bool("plot", false, "Enable generation of plots")
 
 	flag.Parse()
 
@@ -72,6 +73,9 @@ func main() {
 	listBins := bins.GetFromInputDescr(*binThresholds)
 
 	totalNumSteps := 5
+	if !*requestPlots {
+		totalNumSteps = 4
+	}
 	currentStep := 1
 	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
 	t := timer.Start()
@@ -129,19 +133,20 @@ func main() {
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
-	fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to plot data: %s", err)
-		os.Exit(1)
+	if *requestPlots {
+		fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+		t = timer.Start()
+		err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
+		duration = t.Stop()
+		if err != nil {
+			fmt.Printf("ERROR: unable to plot data: %s", err)
+			os.Exit(1)
+		}
+		err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
+		if err != nil {
+			fmt.Printf("ERROR: unable to plot average data: %s", err)
+		}
+		fmt.Printf("Step completed in %s\n", duration)
+		currentStep++
 	}
-	err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
-	if err != nil {
-		fmt.Printf("ERROR: unable to plot average data: %s", err)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
 }
