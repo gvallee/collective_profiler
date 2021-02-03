@@ -42,6 +42,7 @@ const (
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 )
 
+// Test gathers all the information required to run a specific test
 type Test struct {
 	np                             int
 	source                         string
@@ -67,7 +68,7 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 	for _, expectedOutputFile := range expectedFiles {
 		referenceFile := filepath.Join(expectedOutputDir, expectedOutputFile)
 		resultFile := filepath.Join(tempDir, expectedOutputFile)
-		fmt.Printf("Comparing %s and %s...", referenceFile, resultFile)
+		fmt.Printf("- Comparing %s and %s...", referenceFile, resultFile)
 		hashResultFile, err := hash.File(resultFile)
 		if err != nil {
 			fmt.Println(" failed")
@@ -91,39 +92,43 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 func checkOutput(basedir string, tempDir string, tt Test) error {
 	expectedOutputDir := filepath.Join(basedir, "tests", tt.binary, "expectedOutput")
 
+	fmt.Printf("Checking if %s exists...\n", tt.expectedSendCompactCountsFiles)
 	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Checking if %s exists...\n", tt.expectedRecvCompactCountsFiles)
 	err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedRecvCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
-	/*
-		fixme: timings and locations are specific to a run. So we need to check how
-		many calls and how many files rather than the content if exactly the same
-
-		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedA2ATimeFiles)
-		if err != nil {
-			return err
+	// For the other files, we do not at the moment check the content (we could check its
+	// format), we just check if the files were correctly generated
+	fmt.Printf("Checking if %s exists...\n", tt.expectedA2ATimeFiles)
+	for _, file := range tt.expectedA2ATimeFiles {
+		execTimingFile := filepath.Join(tempDir, file)
+		if !util.FileExists(execTimingFile) {
+			return fmt.Errorf("%s is missing", execTimingFile)
 		}
+	}
 
-		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedLateArrivalFiles)
-		if err != nil {
-			return err
+	fmt.Printf("Checking if %s exists...\n", tt.expectedLateArrivalFiles)
+	for _, file := range tt.expectedLateArrivalFiles {
+		lateArrivalFile := filepath.Join(tempDir, file)
+		if !util.FileExists(lateArrivalFile) {
+			return fmt.Errorf("%s is missing", lateArrivalFile)
 		}
+	}
 
-		err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedLocationFiles)
-		if err != nil {
-			return err
-		}
+	/* todo
+	fmt.Printf("Checking if %s exists...\n", tt.expectedLocationFiles[0])
+	locationFile := filepath.Join(tempDir, tt.expectedLocationFiles[0])
+	if !util.FileExists(locationFile) {
+		return fmt.Errorf("%s is missing", locationFile)
+	}
 	*/
-
-	// We do not check backtraces yet because the format of the file changes based
-	// on the system on which we run the test. We still need to check how many files
-	// are created and later on the result of the analysis
 
 	return nil
 }
@@ -150,6 +155,11 @@ func validateTestPostmortemResults(testName string, dir string) error {
 		"stats-job0-rank0.md",
 		"patterns-job0-rank0.md",
 		"patterns-summary-job0-rank0.md"}
+	/* todo:
+		"a2a-timings.job0.rank0.md",           // We do not have a good way to check the content but the file should be there
+		"late-arrivals-timings.job0.rank0.md", // We do not have a good way to check the content but the file should be there
+	}
+	*/
 	expectedOutputDir := filepath.Join(basedir, "tests", testName, "expectedOutput")
 	err = checkOutputFiles(expectedOutputDir, dir, expectedFiles)
 	if err != nil {
@@ -291,7 +301,7 @@ func validateProfiler(keepResults bool) (map[string]string, error) {
 			cmd.Stderr = &stderr
 			err = cmd.Run()
 			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s\n", stdout.String(), stderr.String())
+				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
 			}
 		}
 
