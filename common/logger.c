@@ -673,9 +673,9 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     {
         // Default filename that we overwrite based on enabled features
         logger->timing_filename = logger->get_full_filename(MAIN_CTX, "timings", logger->rank);
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
         logger->timing_filename = logger->get_full_filename(MAIN_CTX, "a2a-timings", logger->rank);
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
         logger->timing_filename = logger->get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->rank);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
@@ -738,7 +738,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
     }
 #endif
 
-#if ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
+#if ENABLE_EXEC_TIMING || ENABLE_LATE_ARRIVAL_TIMING
     // Handle the timing data
     if (times_list != NULL)
     {
@@ -751,7 +751,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
             i++;
         }
     }
-#endif // ENABLE_A2A_TIMING || ENABLE_LATE_ARRIVAL_TIMING
+#endif // ENABLE_EXEC_TIMING || ENABLE_LATE_ARRIVAL_TIMING
 }
 
 logger_t *logger_init(int world_rank, int world_size, logger_config_t *cfg)
