@@ -6,7 +6,7 @@
 
 all: libraries examples tools tests doc
 
-.PHONY: libraries alltoallv alltoall examples tools check tests
+.PHONY: libraries alltoallv alltoall examples tools check tests check_gnuplot
 
 alltoallv:
 	cd src && make alltoallv
@@ -19,6 +19,16 @@ libraries:
 
 examples: libraries
 	cd examples && make
+
+GNUPLOTCMD := $(shell command -v gnuplot 2>/dev/null)
+ifndef GNUPLOTCMD
+check_gnuplot:
+	@echo "gnuplot is not installed; please install"
+	@exit 1
+else
+check_gnuplot:
+	@echo "gnuplot available: ${GNUPLOTCMD}"
+endif
 
 GOCMD := $(shell command -v go 2>/dev/null)
 ifndef GOCMD
@@ -46,6 +56,6 @@ clean:
 	cd tests && make clean
 	cd doc && make clean
 
-validate: clean all
+validate: clean check_gnuplot all
 	# postmortem validates both the profiler's capabilities and postmortem analysis
 	cd tools/cmd/validate; ./validate -postmortem
