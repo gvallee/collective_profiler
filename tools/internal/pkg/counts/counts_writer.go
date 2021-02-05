@@ -38,13 +38,16 @@ func WriteDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, d
 	return nil
 }
 
+// WriteCommunicatorSizesToFile save to a file the data about communicator sizes
 func WriteCommunicatorSizesToFile(fd *os.File, numCalls int, commSizes map[int]int) error {
 	_, err := fd.WriteString("# Communicator size(s)\n\n")
 	if err != nil {
 		return err
 	}
-	for commSize, n := range commSizes {
-		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", n, numCalls, commSize))
+
+	kvList := format.ConvertIntMapToOrderedArrayByValue(commSizes)
+	for _, elt := range kvList {
+		_, err = fd.WriteString(fmt.Sprintf("%d/%d calls use a communicator size of %d\n", elt.Val, numCalls, elt.Key))
 		if err != nil {
 			return err
 		}
@@ -56,6 +59,7 @@ func WriteCommunicatorSizesToFile(fd *os.File, numCalls int, commSizes map[int]i
 	return nil
 }
 
+// WriteCountStatsToFile writes all the stats to a file
 func WriteCountStatsToFile(fd *os.File, numCalls int, sizeThreshold int, cs SendRecvStats) error {
 	_, err := fd.WriteString("# Message sizes\n\n")
 	if err != nil {
