@@ -1280,7 +1280,10 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
-			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype)))
+			int s_dt_size, r_dt_size;
+			MPI_Type_size(sendtype, &s_dt_size);
+			MPI_Type_size(recvtype, &r_dt_size);
+			if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
@@ -1288,7 +1291,10 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
-			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);
+			int s_dt_size, r_dt_size;
+			MPI_Type_size(sendtype, &s_dt_size);
+			MPI_Type_size(recvtype, &r_dt_size);
+			save_counts(sbuf, rbuf, s_dt_size, r_dt_size, comm_size, avCalls);
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
 
 #if ENABLE_PATTERN_DETECTION
