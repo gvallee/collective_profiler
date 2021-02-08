@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+#
+# See LICENSE.txt for license information
+#
+
 all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c
 
 alltoallv_c: alltoallv.c
