@@ -32,6 +32,7 @@ const (
 	sharedLibA2ATime     = "liballtoallv_exec_timings.so"
 
 	exampleFileC          = "alltoallv.c"
+	exampleFileDatatypeC  = "alltoallv_dt.c"
 	exampleFileF          = "alltoallv.f90"
 	exampleFileMulticommC = "alltoallv_multicomms.c"
 	exampleFileBigCountsC = "alltoallv_bigcounts.c"
@@ -40,6 +41,7 @@ const (
 	exampleBinaryF          = "alltoallv_f"
 	exampleBinaryMulticommC = "alltoallv_multicomms_c"
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
+	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 )
 
 // Test gathers all the information required to run a specific test
@@ -218,6 +220,17 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			np:                             4,
 			source:                         exampleFileMulticommC,
 			binary:                         exampleBinaryMulticommC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{},
+			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+		},
+		{
+			np:                             4,
+			source:                         exampleFileDatatypeC,
+			binary:                         exampleBinaryDatatypeC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
