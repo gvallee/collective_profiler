@@ -9,23 +9,44 @@ package counts
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 )
 
+// WriteDatatypeToFile save datatype stats to a file
 func WriteDatatypeToFile(fd *os.File, numCalls int, datatypesSend map[int]int, datatypesRecv map[int]int) error {
+	// Sort by datatype size first so we have a predictable output
+	sKeys := make([]int, len(datatypesSend))
+	i := 0
+	for key := range datatypesSend {
+		sKeys[i] = key
+		i++
+	}
+	sort.Ints(sKeys)
+
+	rKeys := make([]int, len(datatypesRecv))
+	i = 0
+	for key := range datatypesRecv {
+		rKeys[i] = key
+		i++
+	}
+	sort.Ints(rKeys)
+
 	_, err := fd.WriteString("# Datatypes\n\n")
 	if err != nil {
 		return err
 	}
-	for datatypeSize, n := range datatypesSend {
-		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", n, numCalls, datatypeSize))
+	//for datatypeSize, n := range datatypesSend {
+	for _, size := range sKeys {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while sending data\n", datatypesSend[size], numCalls, size))
 		if err != nil {
 			return err
 		}
 	}
-	for datatypeSize, n := range datatypesRecv {
-		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", n, numCalls, datatypeSize))
+	//for datatypeSize, n := range datatypesRecv {
+	for _, size := range rKeys {
+		_, err := fd.WriteString(fmt.Sprintf("%d/%d calls use a datatype of size %d while receiving data\n", datatypesRecv[size], numCalls, size))
 		if err != nil {
 			return err
 		}

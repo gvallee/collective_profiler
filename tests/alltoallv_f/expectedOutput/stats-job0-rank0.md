@@ -2,8 +2,8 @@ Total number of alltoallv calls: 2
 
 # Datatypes
 
-2/2 calls use a datatype of size 8 while sending data
-2/2 calls use a datatype of size 8 while receiving data
+2/2 calls use a datatype of size 4 while sending data
+2/2 calls use a datatype of size 4 while receiving data
 
 # Communicator size(s)
 
