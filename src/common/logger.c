@@ -91,7 +91,7 @@ static char *add_range_uint64(char *str, uint64_t start, uint64_t end)
 
     if (str == NULL)
     {
-        str = (char *)malloc(size * sizeof(char));
+        str = (char *)malloc((size + 1) * sizeof(char));
         assert(str);
         while (ret >= size)
         {
@@ -105,7 +105,7 @@ static char *add_range_uint64(char *str, uint64_t start, uint64_t end)
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                str = (char *)realloc(str, size);
+                str = (char *)realloc(str, size + 1);
                 assert(str);
             }
         }
@@ -119,14 +119,14 @@ static char *add_range_uint64(char *str, uint64_t start, uint64_t end)
         {
             if (s == NULL)
             {
-                s = (char *)malloc(size * sizeof(char));
+                s = (char *)malloc((size + 1) * sizeof(char));
                 assert(s);
             }
             else
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                s = (char *)realloc(s, size);
+                s = (char *)realloc(s, size + 1);
                 assert(s);
             }
             ret = snprintf(s, size, "%s, %" PRIu64 "-%" PRIu64, str, start, end);
@@ -299,7 +299,7 @@ static char *add_singleton(char *str, int n)
     int ret = size;
     if (str == NULL)
     {
-        str = (char *)malloc(size * sizeof(char));
+        str = (char *)malloc((size + 1) * sizeof(char));
         assert(str);
         rc = sprintf(str, "%d", n);
         assert(rc <= size);
@@ -312,14 +312,14 @@ static char *add_singleton(char *str, int n)
     {
         if (s == NULL)
         {
-            s = (char *)malloc(size * sizeof(char));
+            s = (char *)malloc((size + 1) * sizeof(char));
             assert(s);
         }
         else
         {
             // truncated result, increasing the size of the buffer and trying again
             size = size * 2;
-            s = (char *)realloc(s, size);
+            s = (char *)realloc(s, size + 1);
             assert(s);
         }
         ret = snprintf(s, size, "%s, %d", str, n);
@@ -342,7 +342,7 @@ static char *add_singleton(char *str, int n)
     return str;
 }
 
-char *compress_uint64_array(uint64_t *array, size_t size)
+static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size)
 {
     size_t i, start;
     char *compressedRep = NULL;
@@ -351,15 +351,15 @@ char *compress_uint64_array(uint64_t *array, size_t size)
     fprintf(stderr, "Compressing:");
     for (i = 0; i < size; i++)
     {
-        fprintf(stderr, " %" PRIu64, array[i]);
+        fprintf(stderr, " %d", array[i]);
     }
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = 0; i < size; i++)
+    for (i = start_idx; i < start_idx + size; i++)
     {
         start = i;
-        while (i + 1 < size && array[i] + 1 == array[i + 1])
+        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -380,7 +380,39 @@ char *compress_uint64_array(uint64_t *array, size_t size)
     return compressedRep;
 }
 
-char *compress_int_array(int *array, int size)
+// compress_uint64_array compresses a matrix or a vector of uint64_t
+// The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
+char *compress_uint64_array(uint64_t *array, size_t xsize,  size_t ysize)
+{
+    int rc;
+    size_t idx;
+    char *compressedRep = NULL;
+    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    {
+        char *compressed_line = _compress_uint64_vec(array, idx, xsize);
+        if (compressedRep == NULL) {
+            compressedRep = strdup(compressed_line);
+        }
+        else
+        {
+            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            size_t n;
+            size_t copy_idx = strlen(compressedRep);
+            compressedRep[copy_idx] = '\n';
+            copy_idx++;
+            for (n = 0; n < strlen(compressed_line); n++)
+            {
+                compressedRep[copy_idx] = compressed_line[n];
+                copy_idx++;
+            }
+            compressedRep[copy_idx] = '\0';
+        }
+        free(compressed_line);
+    }
+    return compressedRep;
+}
+
+static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
 {
     int i, start;
     char *compressedRep = NULL;
@@ -394,10 +426,10 @@ char *compress_int_array(int *array, int size)
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = 0; i < size; i++)
+    for (i = start_idx; i < start_idx + size; i++)
     {
         start = i;
-        while (i + 1 < size && array[i] + 1 == array[i + 1])
+        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -417,6 +449,39 @@ char *compress_int_array(int *array, int size)
 #endif // DEBUG
     return compressedRep;
 }
+
+// compress_int_array compresses a matrix or a vector of int.
+// The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
+char *compress_int_array(int *array, int xsize,  int ysize)
+{
+    int rc;
+    size_t idx;
+    char *compressedRep = NULL;
+    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    {
+        char *compressed_line = _compress_int_vec(array, idx, xsize);
+        if (compressedRep == NULL) {
+            compressedRep = strdup(compressed_line);
+        }
+        else
+        {
+            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            size_t n;
+            size_t copy_idx = strlen(compressedRep);
+            compressedRep[copy_idx] = '\n';
+            copy_idx++;
+            for (n = 0; n < strlen(compressed_line); n++)
+            {
+                compressedRep[copy_idx] = compressed_line[n];
+                copy_idx++;
+            }
+            compressedRep[copy_idx] = '\0';
+        }
+        free(compressed_line);
+    }
+    return compressedRep;
+}
+
 
 static void _log_data(logger_t *logger,
                       uint64_t startcall,
@@ -500,17 +565,17 @@ static void _log_data(logger_t *logger,
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Datatype size: %d\n", type_size);
     fprintf(fh, "%s calls %"PRIu64"-%"PRIu64"\n", logger->collective_name, startcall, endcall - 1); // endcall is one ahead so we substract 1
-    char *calls_str = compress_uint64_array(calls, count);
+    char *calls_str = compress_uint64_array(calls, count, 1);
     fprintf(fh, "Count: %"PRIu64" calls - %s\n", count, calls_str);
     fprintf(fh, "\n\nBEGINNING DATA\n");
-    DEBUG_LOGGER("Saving counts...\n");
+    DEBUG_LOGGER_NOARGS("Saving counts...\n");
     // Save the compressed version of the data
     int count_data_number, _num_ranks, n;
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
         DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
 
-        char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks);
+        char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks, 1);
         fprintf(fh, "Rank(s) %s: ", str);
         if (str != NULL)
         {
@@ -524,7 +589,7 @@ static void _log_data(logger_t *logger,
         }
         fprintf(fh, "\n");
     }
-    DEBUG_LOGGER("Counts saved\n");
+    DEBUG_LOGGER_NOARGS("Counts saved\n");
     fprintf(fh, "END DATA\n");
 #endif
 
@@ -717,7 +782,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
                     srCountPtr->count);
 
             DEBUG_LOGGER("Logging %s call %" PRIu64 "\n", logger->collective_name, srCountPtr->count);
-            DEBUG_LOGGER("Logging send counts\n");
+            DEBUG_LOGGER_NOARGS("Logging send counts\n");
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
