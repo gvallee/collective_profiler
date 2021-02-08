@@ -17,7 +17,7 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#define ENABLE_LOGGER_DEBUGING (1)
+#define ENABLE_LOGGER_DEBUGING (0)
 
 #if ENABLE_LOGGER_DEBUGING
 #define DEBUG_LOGGER(fmt, ...) \
