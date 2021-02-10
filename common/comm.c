@@ -12,7 +12,7 @@ comm_data_t *comm_data_head = NULL;
 comm_data_t *comm_data_tail = NULL;
 uint32_t next_id = 0;
 
-int lookup_comm(MPI_Comm comm, uint32_t *id) 
+int lookup_comm(MPI_Comm comm, uint32_t *id)
 {
     comm_data_t *data = comm_data_head;
     while (data != NULL)
@@ -27,7 +27,7 @@ int lookup_comm(MPI_Comm comm, uint32_t *id)
     return 1;
 }
 
-int add_comm(MPI_Comm comm) 
+int add_comm(MPI_Comm comm, uint32_t *id)
 {
     if (comm_data_head == NULL)
     {
@@ -48,6 +48,7 @@ int add_comm(MPI_Comm comm)
         comm_data_tail->next = new_data;
         comm_data_tail = new_data;
     }
+    *id = next_id;
     next_id++;
     return 0;
 }
