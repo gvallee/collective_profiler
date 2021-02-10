@@ -1,9 +1,20 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 # See LICENSE.txt for license information
 #
 
-all: logger.o logger_counts.o logger_exec_timings.o logger_late_arrival_timings.o logger_backtrace.o logger_location.o pattern.o grouping.o grouping_test compress_array_test patterns_detection_test
+all: logger.o                     \
+	logger_counts.o               \
+	logger_exec_timings.o         \
+	logger_late_arrival_timings.o \
+	logger_backtrace.o            \
+	logger_location.o             \
+	pattern.o                     \
+	grouping.o                    \
+	comm.o                        \
+	grouping_test                 \
+	compress_array_test           \
+	patterns_detection_test
 
 logger.o: logger.c logger.h 
 	$(CC) -I../ -fPIC -c logger.c
@@ -27,7 +38,10 @@ pattern.o: pattern.c pattern.h
 	$(CC) -I../ -fPIC -c pattern.c
 
 grouping.o: grouping.c grouping.h
-	$(CC) -I../ -fPIC -c grouping.c 
+	$(CC) -I../ -fPIC -c grouping.c
+
+comm.o: comm.c
+	mpicc -I../ -fPIC -c comm.c
 
 grouping_test: grouping.o grouping_test.c
 	$(CC) -I../ -fPIC grouping.o grouping_test.c -o grouping_test
