@@ -7,8 +7,8 @@
 #ifndef COLLECTIVE_PROFILER_COMM_H
 #define COLLECTIVE_PROFILER_COMM_H
 
+#include <inttypes.h>
 #include "mpi.h"
-#include <stdint.h>
 
 typedef struct comm_data
 {
@@ -19,7 +19,7 @@ typedef struct comm_data
 } comm_data_t;
 
 int lookup_comm(MPI_Comm comm, uint32_t *id);
-int add_comm(MPI_Comm comm);
+int add_comm(MPI_Comm comm, uint32_t *id);
 int release_comm_data();
 
 #endif // COLLECTIVE_PROFILER_COMM_H

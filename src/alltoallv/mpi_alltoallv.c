@@ -13,6 +13,7 @@
 #include "grouping.h"
 #include "pattern.h"
 #include "execinfo.h"
+#include "timings.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -567,6 +568,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	return 0;
 }
 
+// DEPRECATED?
 static void insert_op_exec_times_data(double *timings, int size)
 {
 	assert(timings);
@@ -1033,12 +1035,17 @@ static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int wo
 	free(filename);
 }
 
+#if 0
+// fixme:
+// - move to common code?
+// - do NOT create one file per call but one file per communicator: keep the fd open and write as we go (with flush at the end of each operation)
 static void save_times(double *times, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
 	int i;
 	int rc;
 
+// fixme: decouple init and writing to keep the file open -> move to a separate file.
 #if ENABLE_EXEC_TIMING
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
@@ -1073,6 +1080,7 @@ static void save_times(double *times, int comm_size, uint64_t n_call)
 	fclose(f);
 	free(filename);
 }
+#endif
 
 static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, uint64_t n_call)
 {
@@ -1173,9 +1181,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int ret;
 	bool need_profile = true;
 	int my_comm_rank;
+	int my_world_rank;
+	char *collective_name = "alltoallv";
 
 	MPI_Comm_size(comm, &comm_size);
 	MPI_Comm_rank(comm, &my_comm_rank);
+	MPI_Comm_rank(MPI_COMM_WORLD, &my_world_rank);
 
 #if ENABLE_BACKTRACE
 	if (my_comm_rank == 0)
@@ -1292,21 +1303,22 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
 
-#if (ENABLE_EXEC_TIMING && ENABLE_COMPACT_FORMAT)
-			insert_op_exec_times_data(op_exec_times, comm_size);
-#endif // ENABLE_EXEC_TIMING && ENABLE_COMPACT_FORMAT
+#if ENABLE_EXEC_TIMING
+			int rc = commit_timings(comm, collective_name, my_world_rank, op_exec_times, comm_size, avCalls);
+			if (rc)
+			{
+				fprintf(stderr, "rc: %d\n", rc);
+				_exit(42);
+			}
+#endif // ENABLE_EXEC_TIMING
 
-#if (ENABLE_EXEC_TIMING && !ENABLE_COMPACT_FORMAT)
-			save_times(op_exec_times, comm_size, avCalls);
-#endif // ENABLE_EXEC_TIMING && !ENABLE_COMPACT_FORMAT
-
-#if (ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT)
-			insert_op_exec_times_data(late_arrival_timings, comm_size);
-#endif // ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT
-
-#if (ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT)
-			save_times(late_arrival_timings, comm_size, avCalls);
-#endif // ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT
+#if ENABLE_LATE_ARRIVAL_TIMING
+			int rc = commit_timings(comm, collective_name, my_world_rank, op_exec_times, comm_size, avCalls);
+			if (rc)
+			{
+				_exit(42);
+			}
+#endif // ENABLE_LATE_ARRIVAL_TIMING 
 			avCallsLogged++;
 		}
 	}

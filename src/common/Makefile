@@ -3,6 +3,8 @@
 # See LICENSE.txt for license information
 #
 
+FORMATVERSION := `cat ../../FORMAT_VERSION`
+
 all: logger.o                     \
 	logger_counts.o               \
 	logger_exec_timings.o         \
@@ -12,9 +14,20 @@ all: logger.o                     \
 	pattern.o                     \
 	grouping.o                    \
 	comm.o                        \
+	exec_timings.o                \
+	late_arrival_timings.o        \
 	grouping_test                 \
 	compress_array_test           \
 	patterns_detection_test
+
+comm.o: comm.c comm.h
+	mpicc -I../ -fPIC -c comm.c
+
+exec_timings.o: timings.c timings.h comm.o
+	mpicc -I../ -fPIC -DENABLE_EXEC_TIMING=1  -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o exec_timings.o
+
+late_arrival_timings.o: timings.c timings.h comm.o
+	mpicc -I../ -fPIC -DENABLE_LATE_ARRIVAL_TIMING=1 -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o late_arrival_timings.o
 
 logger.o: logger.c logger.h 
 	$(CC) -I../ -fPIC -c logger.c
@@ -39,9 +52,6 @@ pattern.o: pattern.c pattern.h
 
 grouping.o: grouping.c grouping.h
 	$(CC) -I../ -fPIC -c grouping.c
-
-comm.o: comm.c
-	mpicc -I../ -fPIC -c comm.c
 
 grouping_test: grouping.o grouping_test.c
 	$(CC) -I../ -fPIC grouping.o grouping_test.c -o grouping_test
