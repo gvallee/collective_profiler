@@ -42,7 +42,7 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
 
     if (logger->sums_fh == NULL)
     {
-        logger->sums_filename = logger->get_full_filename(MAIN_CTX, "sums", logger->rank);
+        logger->sums_filename = logger->get_full_filename(MAIN_CTX, "sums", logger->jobid, logger->rank);
         logger->sums_fh = fopen(logger->sums_filename, "w");
     }
 
@@ -530,7 +530,7 @@ static void _log_data(logger_t *logger,
 
     if (logger->f == NULL)
     {
-        logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
+        logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->jobid, logger->rank);
         logger->f = fopen(logger->main_filename, "w");
     }
     assert(logger->f);
@@ -541,7 +541,7 @@ static void _log_data(logger_t *logger,
     case RECV_CTX:
         if (logger->recvcounters_fh == NULL)
         {
-            logger->recvcounts_filename = logger->get_full_filename(RECV_CTX, "counters", logger->rank);
+            logger->recvcounts_filename = logger->get_full_filename(RECV_CTX, "counters", logger->jobid, logger->rank);
             logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
         }
         fh = logger->recvcounters_fh;
@@ -550,7 +550,7 @@ static void _log_data(logger_t *logger,
     case SEND_CTX:
         if (logger->sendcounters_fh == NULL)
         {
-            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->rank);
+            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->jobid, logger->rank);
             logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
         }
         fh = logger->sendcounters_fh;
@@ -738,12 +738,12 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     if (logger->timing_fh == NULL)
     {
         // Default filename that we overwrite based on enabled features
-        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "timings", logger->jobid, logger->rank);
 #if ENABLE_EXEC_TIMING
-        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "a2a-timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "a2a-timings", logger->jobid, logger->rank);
 #endif // ENABLE_EXEC_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
-        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->rank);
+        logger->timing_filename = logger->get_full_filename(MAIN_CTX, "late-arrivals-timings", logger->jobid, logger->rank);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
         logger->timing_fh = fopen(logger->timing_filename, "w");
     }
@@ -767,7 +767,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
         avSRCountNode_t *srCountPtr = counters_list;
         if (logger->f == NULL)
         {
-            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->jobid, logger->rank);
             logger->f = fopen(logger->main_filename, "w");
         }
         assert(logger->f);
@@ -820,7 +820,7 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
 #endif // ENABLE_EXEC_TIMING || ENABLE_LATE_ARRIVAL_TIMING
 }
 
-logger_t *logger_init(int world_rank, int world_size, logger_config_t *cfg)
+logger_t *logger_init(int jobid, int world_rank, int world_size, logger_config_t *cfg)
 {
     if (cfg == NULL)
     {
@@ -922,7 +922,7 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
     {
         if (logger->f == NULL)
         {
-            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->rank);
+            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->jobid, logger->rank);
             logger->f = fopen(logger->main_filename, "w");
         }
         fprintf(logger->f, "# Summary\n");

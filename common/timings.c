@@ -15,7 +15,7 @@
 comm_timing_logger_t *timing_loggers_head = NULL;
 comm_timing_logger_t *timing_loggers_tail = NULL;
 
-int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, comm_timing_logger_t **logger)
+int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int jobid, comm_timing_logger_t **logger)
 {
     int i;
     int rc;
@@ -41,26 +41,26 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, com
 #if ENABLE_EXEC_TIMING
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(new_logger->filename, rc, "%s/%s_execution_times.rank%d_comm%" PRIu32 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, world_rank, comm_id);
+        _asprintf(new_logger->filename, rc, "%s/%s_execution_times.rank%d_comm%" PRIu32 "_job%d.md", getenv(OUTPUT_DIR_ENVVAR), collective_name, world_rank, comm_id, jobid);
     }
     else
     {
-        _asprintf(new_logger->filename, rc, "%s_execution_times.rank%d_call%" PRIu32 ".md", collective_name, world_rank, comm_id);
+        _asprintf(new_logger->filename, rc, "%s_execution_times.rank%d_comm%" PRIu32 "_job%d.md", collective_name, world_rank, comm_id, jobid);
     }
 #endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(new_logger->filename, rc, "%s/%s_late_arrival_times.rank%d_comm%" PRIu32 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, world_rank, comm_id);
+        _asprintf(new_logger->filename, rc, "%s/%s_late_arrival_times.rank%d_comm%" PRIu32 "_job%d.md", getenv(OUTPUT_DIR_ENVVAR), collective_name, world_rank, comm_id, jobid);
     }
     else
     {
-        _asprintf(new_logger->filename, rc, "%s_late_arrival_times.rank%d_comm%" PRIu32 ".md", collective_name, world_rank, comm_id);
+        _asprintf(new_logger->filename, rc, "%s_late_arrival_times.rank%d_comm%" PRIu32 "_jobid%d.md", collective_name, world_rank, comm_id, jobid);
     }
 #endif // ENABLE_LATE_ARRIVAL_TIMING
-    fprintf(stderr, "checkme: %s\n", new_logger->filename);
     assert(rc > 0);
+    assert(new_logger->filename);
 
     if (timing_loggers_head == NULL)
     {
@@ -69,7 +69,7 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, com
     else
     {
         timing_loggers_tail->next = new_logger;
-        timing_loggers_tail->prev = timing_loggers_tail;
+        new_logger->prev = timing_loggers_tail;
         timing_loggers_tail = new_logger;
     }
 
@@ -130,8 +130,9 @@ int fini_time_tracking(comm_timing_logger_t **logger)
     return 0;
 }
 
-int commit_timings(MPI_Comm comm, char *collective_name, int rank, double *times, int comm_size, uint64_t n_call)
+int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, double *times, int comm_size, uint64_t n_call)
 {
+    assert(times);
     comm_timing_logger_t *logger;
     int rc = lookup_timing_logger(comm, &logger);
     if (rc || logger == NULL)
@@ -149,7 +150,7 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, double *times
             }
 
             // Now we know the communicator, create a logger for it
-            rc = init_time_tracking(comm, collective_name, rank, &logger);
+            rc = init_time_tracking(comm, collective_name, rank, jobid, &logger);
             if (rc || logger == NULL)
             {
                 fprintf(stderr, "unable to initialize time tracking (rc: %d)\n", rc);
@@ -157,6 +158,8 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, double *times
             }
         }
     }
+    assert(logger);
+    assert(logger->fd);
 
     // We know from here we have a correct logger
     int i;

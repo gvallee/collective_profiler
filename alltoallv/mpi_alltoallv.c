@@ -229,51 +229,49 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 	return 0;
 }
 
-char *alltoallv_get_full_filename(int ctxt, char *id, int world_rank)
+char *alltoallv_get_full_filename(int ctxt, char *id, int jobid, int world_rank)
 {
-    char *filename = NULL;
-    char *dir = NULL;
-    int size;
+	char *filename = NULL;
+	char *dir = NULL;
+	int size;
 
-    int jobid = get_job_id();
+	if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		dir = getenv(OUTPUT_DIR_ENVVAR);
+	}
 
-    if (getenv(OUTPUT_DIR_ENVVAR))
-    {
-        dir = getenv(OUTPUT_DIR_ENVVAR);
-    }
+	if (ctxt == MAIN_CTX)
+	{
+		if (id == NULL)
+		{
+			_asprintf(filename, size, "profile_alltoallv_job%d.rank%d.md", jobid, world_rank);
+			assert(size > 0);
+		}
+		else
+		{
+			_asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
+			assert(size > 0);
+		}
+	}
+	else
+	{
+		char *context = ctx_to_string(ctxt);
+		_asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
+		assert(size > 0);
+	}
+	assert(filename);
 
-    if (ctxt == MAIN_CTX)
-    {
-        if (id == NULL)
-        {
-            _asprintf(filename, size, "profile_alltoallv_job%d.rank%d.md", jobid, world_rank);
-            assert(size > 0);
-        }
-        else
-        {
-            _asprintf(filename, size, "%s.job%d.rank%d.md", id, jobid, world_rank);
-            assert(size > 0);
-        }
-    }
-    else
-    {
-        char *context = ctx_to_string(ctxt);
-        _asprintf(filename, size, "%s-%s.job%d.rank%d.txt", context, id, jobid, world_rank);
-        assert(size > 0);
-    }
+	if (dir != NULL)
+	{
+		char *path = NULL;
+		_asprintf(path, size, "%s/%s", dir, filename);
+		assert(size > 0);
+		free(filename);
+		return path;
+	}
 
-    if (dir != NULL)
-    {
-        char *path = NULL;
-        _asprintf(path, size, "%s/%s", dir, filename);
-        assert(size > 0);
-        free(filename);
-        return path;
-    }
-
-    return filename;
+	return filename;
 }
-
 
 int extract_call_patterns_from_counts(int callID, int *send_counts, int *recv_counts, int size)
 {
@@ -610,9 +608,9 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 	while (ptr != NULL)
 	{
 #if COMMSIZE_BASED_PATTERNS || TRACK_PATTERNS_ON_CALL_BASIS
-		fprintf(fh, "During %"PRIu64" alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
+		fprintf(fh, "During %" PRIu64 " alltoallv calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
 #else
-		fprintf(fh, "During %"PRIu64" alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
+		fprintf(fh, "During %" PRIu64 " alltoallv calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
 #endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
@@ -641,7 +639,7 @@ static void save_call_patterns(int uniqueID)
 	avCallPattern_t *ptr = call_patterns;
 	while (ptr != NULL)
 	{
-		fprintf(fh, "For %"PRIu64" call(s):\n", ptr->n_calls);
+		fprintf(fh, "For %" PRIu64 " call(s):\n", ptr->n_calls);
 		_save_patterns(fh, ptr->spatterns, "sent to");
 		_save_patterns(fh, ptr->rpatterns, "recv'd from");
 		ptr = ptr->next;
@@ -695,11 +693,11 @@ static void save_counters_for_validation(int myrank, uint64_t avCalls, int size,
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/validation_data-rank%d-call%"PRIu64".txt", getenv(OUTPUT_DIR_ENVVAR), myrank, avCalls);
+		_asprintf(filename, rc, "%s/validation_data-rank%d-call%" PRIu64 ".txt", getenv(OUTPUT_DIR_ENVVAR), myrank, avCalls);
 	}
 	else
 	{
-		_asprintf(filename, rc, "validation_data-rank%d-call%"PRIu64".txt", myrank, avCalls);
+		_asprintf(filename, rc, "validation_data-rank%d-call%" PRIu64 ".txt", myrank, avCalls);
 	}
 	assert(rc < MAX_PATH_LEN);
 
@@ -786,11 +784,12 @@ int _mpi_init(int *argc, char ***argv)
 
 	// We do not know what rank will gather alltoallv data since alltoallv can
 	// be called on any communicator
+	int jobid = get_job_id();
 	logger_config_t alltoallv_logger_cfg;
 	alltoallv_logger_cfg.get_full_filename = &alltoallv_get_full_filename;
 	alltoallv_logger_cfg.collective_name = "Alltoallv";
 	alltoallv_logger_cfg.limit_number_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
-	logger = logger_init(world_rank, world_size, &alltoallv_logger_cfg);
+	logger = logger_init(jobid, world_rank, world_size, &alltoallv_logger_cfg);
 	assert(logger);
 
 	// Allocate buffers reused between alltoallv calls
@@ -1008,7 +1007,7 @@ static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int wo
 	{
 		target_dir = strdup("backtraces");
 	}
-	_asprintf(filename, rc, "%s/backtrace_rank%d_call%"PRIu64".md", target_dir, world_rank, n_call);
+	_asprintf(filename, rc, "%s/backtrace_rank%d_call%" PRIu64 ".md", target_dir, world_rank, n_call);
 	assert(rc > 0);
 
 	// Make sure the target directory exists
@@ -1090,11 +1089,11 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/counts.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/counts.rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "counts.rank%d_call%"PRIu64".md", world_rank, n_call);
+		_asprintf(filename, rc, "counts.rank%d_call%" PRIu64 ".md", world_rank, n_call);
 	}
 	assert(rc > 0);
 
@@ -1143,11 +1142,11 @@ static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int
 
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/locations_rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/locations_rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "locations_rank%d_call%"PRIu64".md", world_rank, n_call);
+		_asprintf(filename, rc, "locations_rank%d_call%" PRIu64 ".md", world_rank, n_call);
 	}
 	assert(rc > 0);
 
@@ -1304,7 +1303,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif
 
 #if ENABLE_EXEC_TIMING
-			int rc = commit_timings(comm, collective_name, my_world_rank, op_exec_times, comm_size, avCalls);
+			int jobid = get_job_id();
+			int rc = commit_timings(comm, collective_name, my_world_rank, jobid, op_exec_times, comm_size, avCalls);
 			if (rc)
 			{
 				fprintf(stderr, "rc: %d\n", rc);
@@ -1313,12 +1313,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
-			int rc = commit_timings(comm, collective_name, my_world_rank, op_exec_times, comm_size, avCalls);
+			int jobid = get_job_id();
+			int rc = commit_timings(comm, collective_name, my_world_rank, jobid, late_arrival_timings, comm_size, avCalls);
 			if (rc)
 			{
 				_exit(42);
 			}
-#endif // ENABLE_LATE_ARRIVAL_TIMING 
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 			avCallsLogged++;
 		}
 	}

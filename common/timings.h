@@ -19,8 +19,8 @@ typedef struct comm_timing_logger
     struct comm_timing_logger *prev;
 } comm_timing_logger_t;
 
-int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, comm_timing_logger_t **logger);
+int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int jobid, comm_timing_logger_t **logger);
 int fini_time_tracking(comm_timing_logger_t **logger);
-int commit_timings(MPI_Comm comm, char *collective_name, int rank, double *times, int comm_size, uint64_t n_call);
+int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, double *times, int comm_size, uint64_t n_call);
 
 #endif // COLLECTIVE_PROFILER_TIMINGS_H
