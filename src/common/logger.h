@@ -45,6 +45,7 @@ typedef struct logger
     char *collective_name;     // Name of the collective, mainly used to enable nice output text.
     int world_size;            // COMM_WORLD size.
     int rank;                  // Rank that is handling the current logger.
+    int jobid;                 // Job identifier.
     char *main_filename;       // Path to the main profile file.
     FILE *f;                   // File handle to save general profile data. Other files are created for specific data.
     char *sendcounts_filename; // Path of the send counts profile.
