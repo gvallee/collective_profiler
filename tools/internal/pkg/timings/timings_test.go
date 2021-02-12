@@ -32,19 +32,19 @@ func TestGetLeadRankFromFilename(t *testing.T) {
 			expectedOutput: [3]int{3587, 2452, 5384},
 		},
 		{
-			input:          "alltoallv_late_arrival_times.rank0_comm0_jobid0.md",
+			input:          "alltoallv_late_arrival_times.rank0_comm0_job0.md",
 			expectedOutput: [3]int{0, 0, 0},
 		},
 		{
-			input:          "alltoallv_late_arrival_times.rank1234_comm5423_jobid57645.md",
+			input:          "alltoallv_late_arrival_times.rank1234_comm5423_job57645.md",
 			expectedOutput: [3]int{1234, 5423, 57645},
 		},
 		{
-			input:          "alltoall_late_arrival_times.rank0_comm0_jobid0.md",
+			input:          "alltoall_late_arrival_times.rank0_comm0_job0.md",
 			expectedOutput: [3]int{0, 0, 0},
 		},
 		{
-			input:          "alltoall_late_arrival_times.rank1234_comm5423_jobid57645.md",
+			input:          "alltoall_late_arrival_times.rank1234_comm5423_job57645.md",
 			expectedOutput: [3]int{1234, 5423, 57645},
 		},
 	}
