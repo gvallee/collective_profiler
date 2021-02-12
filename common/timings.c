@@ -56,7 +56,7 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     }
     else
     {
-        _asprintf(new_logger->filename, rc, "%s_late_arrival_times.rank%d_comm%" PRIu32 "_jobid%d.md", collective_name, world_rank, comm_id, jobid);
+        _asprintf(new_logger->filename, rc, "%s_late_arrival_times.rank%d_comm%" PRIu32 "_job%d.md", collective_name, world_rank, comm_id, jobid);
     }
 #endif // ENABLE_LATE_ARRIVAL_TIMING
     assert(rc > 0);
@@ -65,6 +65,7 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     if (timing_loggers_head == NULL)
     {
         timing_loggers_head = new_logger;
+        timing_loggers_tail = new_logger;
     }
     else
     {
