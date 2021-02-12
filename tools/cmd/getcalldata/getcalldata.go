@@ -97,7 +97,10 @@ func main() {
 	calls := flag.String("calls", "", "Calls for which we want to extract data. It can be a comma-separated list of call number as well as ranges in the format X-Y.")
 	dir := flag.String("dir", "", "Where the data files are stored")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
+	// todo: clarify lead rank vs communicator ID to handle data
 	rank := flag.Int("rank", 0, "Rank for which we want to analyse the counters. When using multiple communicators for alltoallv operations, results for multiple ranks are reported.")
+	commid := flag.Int("comm", 0, "Communicator ID that identifies from which communicator we want the data")
+	collectiveName := flag.String("collective", "alltoallv", "Name of the collective operation from which the call data is requested (alltoallv by default)")
 	msgSizeThreshold := flag.Int("msg-size-threshold", format.DefaultMsgSizeThreshold, "Message size threshold to differentiate small messages from large messages.")
 	help := flag.Bool("h", false, "Help message")
 
@@ -157,7 +160,7 @@ func main() {
 
 	var callsInfo []profiler.CallInfo
 	for _, callNum := range listCalls {
-		callInfo, err := profiler.GetCallData(*dir, *jobid, *rank, callNum, *msgSizeThreshold)
+		callInfo, err := profiler.GetCallData(*collectiveName, *dir, *commid, *jobid, *rank, callNum, *msgSizeThreshold)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}

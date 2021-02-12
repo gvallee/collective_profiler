@@ -11,33 +11,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/grouping"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
-)
-
-const (
-	CallDelimiter        = "Alltoallv call #"
-	lateArrivalDelimiter = "# Late arrival timings"
-	executionDelimiter   = "# Execution times of Alltoallv function"
-
-	// FilePrefix is the prefix used for former default timings files
-	SingleProfileFilePrefix = "timings."
-
-	// AlltoallFilePrefix is the prefix used when the profiler is gathering execution times
-	AlltoallFilePrefix = "a2a-timings"
-
-	// AlltoallExecCoupledFilePrefix is the prefix used when the profile generate two separate files: one for a2a execution times and one for late arrivals
-	AlltoallExecCoupledFilePrefix = "alltoallv_timings."
-
-	// LateArrivalFilePrefix is the prefix used when the rofiler is gathering late arrival times
-	LateArrivalFilePrefix = "late-arrivals-timings"
+	"github.com/gvallee/go_util/pkg/util"
 )
 
 const (
@@ -46,8 +29,16 @@ const (
 
 	// singleProfileFile identifies the old format where the profiler generated a single file with all the timings in it
 	singleProfileFile
+
+	// execTimingsFilenameIdentifier is the string to use to identify files that have timing data
+	execTimingsFilenameIdentifier = "_execution_times.rank"
+
+	lateArrivalTimingsFilenameIdentifier = "_late_arrival_times.rank"
+
+	callIDtoken = "# Call "
 )
 
+// Stats is the structure used to save all stats related to timings
 type Stats struct {
 	Timings  string
 	Data     []float64
@@ -57,217 +48,40 @@ type Stats struct {
 	Grouping *grouping.Engine
 }
 
+// CallTimings is the structure used to store all timing data related to a specific collective operation.
 type CallTimings struct {
-	ExecutionTimings    Stats
-	LateArrivalsTimings Stats
+	ExecutionTimings    *Stats
+	LateArrivalsTimings *Stats
 }
 
-func saveLine(file *os.File, callNum string, line string) error {
-	if strings.HasPrefix(line, "Rank") {
-		tokens := strings.Split(line, ": ")
-		line = callNum + "\t" + tokens[1]
-	}
-	_, err := file.WriteString(line)
-	return err
+// Metadata is the metadata from a timing file
+type Metadata struct {
+	formatVersion int
+	numCalls      int
+	numRanks      int
 }
 
-func extractTimingData(reader *bufio.Reader, laf *os.File, a2af *os.File) error {
-	extractingLateArrivalTimings := false
-	extractingAlltoallvExecutionTimings := false
-	currentCall := ""
-
-	for {
-		line, readerErr := reader.ReadString('\n')
-		if readerErr != nil && readerErr != io.EOF {
-			return readerErr
-		}
-
-		if strings.HasPrefix(line, CallDelimiter) {
-			currentCall = strings.TrimRight(line, "\n")
-			currentCall = strings.TrimLeft(currentCall, CallDelimiter)
-			continue
-		}
-
-		if strings.HasPrefix(line, lateArrivalDelimiter) {
-			extractingLateArrivalTimings = true
-			extractingAlltoallvExecutionTimings = false
-			continue
-		}
-
-		if strings.HasPrefix(line, executionDelimiter) {
-			extractingLateArrivalTimings = false
-			extractingAlltoallvExecutionTimings = true
-			continue
-		}
-
-		if extractingAlltoallvExecutionTimings {
-			err := saveLine(a2af, currentCall, line)
-			if err != nil {
-				return err
-			}
-		}
-
-		if extractingLateArrivalTimings {
-			err := saveLine(laf, currentCall, line)
-			if err != nil {
-				return err
-			}
-		}
-
-		if readerErr == io.EOF {
-			break
-		}
-	}
-	return nil
+// CollectiveTimings is the data structure used to store all the timing data for a specific collective (e.g., alltoallv, alltoall)
+type CollectiveTimings struct {
+	execFiles           []string
+	lateArrivalFiles    []string
+	execTimesMetadata   *Metadata
+	lateArrivalMetadata *Metadata
+	// ExecTimes is a hash of a hash of a hash: commID -> callID -> rank
+	ExecTimes        map[int]map[int]map[int]float64
+	LateArrivalTimes map[int]map[int]map[int]float64
+	execStats        Stats
+	lateArrivalStats Stats
 }
 
-func ExtractTimings(inputFile string, lateArrivalFilename string, a2aFilename string) error {
-	inputf, err := os.Open(inputFile)
-	if err != nil {
-		return err
-	}
-	defer inputf.Close()
-	reader := bufio.NewReader(inputf)
-
-	laf, err := os.OpenFile(lateArrivalFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-	defer laf.Close()
-
-	a2af, err := os.OpenFile(a2aFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-	defer a2af.Close()
-
-	return extractTimingData(reader, laf, a2af)
+func getExecTimingsFilePath(collective string, dir string, jobid int, commID int, rank int) string {
+	filename := collective + execTimingsFilenameIdentifier + strconv.Itoa(rank) + "_comm" + strconv.Itoa(commID) + "_job_" + strconv.Itoa(jobid)
+	return filepath.Join(dir, filename)
 }
 
-func getAlltoallvTimingsFilePath(dir string, jobid int, rank int) string {
-	return filepath.Join(dir, fmt.Sprintf("alltoallv_timings.job%d.rank%d.dat", jobid, rank))
-}
-
-func getLateArrivalTimingsFilePath(dir string, jobid int, rank int) string {
-	return filepath.Join(dir, fmt.Sprintf("late_arrival_timings.job%d.rank%d.dat", jobid, rank))
-}
-
-// PreprocessRawDataFile handlees the file generated by the profiler when it uses the format where all the data
-// is generated in a single file
-func PreprocessRawDataFile(filePath string, outputDir string, a2aTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
-	lateArrivalFilename := strings.ReplaceAll(filepath.Base(filePath), "timings", "late_arrival_timings")
-	lateArrivalFilename = strings.ReplaceAll(lateArrivalFilename, ".md", ".dat")
-	a2aFilename := strings.ReplaceAll(filepath.Base(filePath), "timings", "alltoallv_timings")
-	a2aFilename = strings.ReplaceAll(a2aFilename, ".md", ".dat")
-	if outputDir != "" {
-		lateArrivalFilename = filepath.Join(outputDir, lateArrivalFilename)
-		a2aFilename = filepath.Join(outputDir, a2aFilename)
-	}
-
-	err := ExtractTimings(filePath, lateArrivalFilename, a2aFilename)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getCallDataFromFile(path string, numCall int) (Stats, error) {
-	var t Stats
-	t.Max = 0.0
-	t.Min = -1.0
-	t.Timings = ""
-	sum := 0.0
-	num := 0.0
-
-	f, err := os.Open(path)
-	if err != nil {
-		return t, err
-	}
-	defer f.Close()
-
-	reader := bufio.NewReader(f)
-
-	for {
-		line, readerr := reader.ReadString('\n')
-		if readerr != nil && readerr != io.EOF {
-			return t, readerr
-		}
-		if line == "" && readerr == io.EOF {
-			break
-		}
-
-		line = strings.TrimRight(line, "\n")
-		if line == "" {
-			continue
-		}
-
-		// We split the line, the first element is the call number and the second element the actual timing
-		tokens := strings.Split(line, "\t")
-		if len(tokens) != 2 {
-			return t, fmt.Errorf("invalid format: %s", line)
-		}
-		callID, err := strconv.Atoi(tokens[0])
-		if err != nil {
-			return t, fmt.Errorf("unable to parse %s: %s", line, err)
-		}
-
-		if callID < numCall {
-			continue
-		}
-
-		if callID == numCall {
-			timing, err := strconv.ParseFloat(strings.TrimRight(tokens[1], "\n"), 64)
-			if err != nil {
-				return t, err
-			}
-			t.Data = append(t.Data, timing)
-			sum += timing
-
-			if t.Min == -1.0 || t.Min > timing {
-				t.Min = timing
-			}
-			if t.Max < timing {
-				t.Max = timing
-			}
-
-			t.Timings = t.Timings + tokens[1] + "\n"
-			num++
-		}
-
-		if callID > numCall {
-			break
-		}
-	}
-
-	t.Mean = sum / num
-	err = t.groupTimings()
-	if err != nil {
-		return t, err
-	}
-
-	return t, nil
-}
-
-func GetCallData(dir string, jobid int, rank int, numCall int) (CallTimings, error) {
-	var t CallTimings
-	var err error
-
-	a2aTimingsFile := getAlltoallvTimingsFilePath(dir, jobid, rank)
-	lateArrivalTimingsFile := getLateArrivalTimingsFilePath(dir, jobid, rank)
-
-	log.Printf("-> Getting execution timings from %s\n", a2aTimingsFile)
-	t.ExecutionTimings, err = getCallDataFromFile(a2aTimingsFile, numCall)
-	if err != nil {
-		return t, err
-	}
-	log.Printf("-> Getting late arrival timings from %s\n", lateArrivalTimingsFile)
-	t.LateArrivalsTimings, err = getCallDataFromFile(lateArrivalTimingsFile, numCall)
-	if err != nil {
-		return t, err
-	}
-
-	return t, nil
+func getLateArrivalTimingsFilePath(collective string, dir string, jobid int, commID int, rank int) string {
+	filename := collective + lateArrivalTimingsFilenameIdentifier + strconv.Itoa(rank) + "_comm" + strconv.Itoa(commID) + "_job_" + strconv.Itoa(jobid)
+	return filepath.Join(dir, filename)
 }
 
 func (s *Stats) groupTimings() error {
@@ -296,213 +110,401 @@ func (s *Stats) groupTimings() error {
 	return nil
 }
 
-func detectTimingFileFormat(files []string) int {
-	// todo: to the clever thing here
-	// first we should check the latest format
-	// second we have one file per call and per timing type (a2a, late arrivals)
-	// then if we have the preprocessed data based on the old format
-	// last the single file with all timings in it from profiler
-
-	return separateTimingsFiles
-}
-
-func getLeadRankFromFilename(filename string) (int, error) {
+func getMetadataFromFilename(filename string) (int, int, int, error) {
 	idx := strings.LastIndex(filename, "rank")
 	rankStr := filename[idx+4:]
 	rankStr = strings.TrimRight(rankStr, ".md")
 	rankStr = strings.TrimRight(rankStr, ".dat")
-	tokens := strings.Split(rankStr, ".call")
-	if len(tokens) == 2 {
-		rankStr = tokens[0]
+	tokens := strings.Split(rankStr, "_")
+	if len(tokens) != 3 {
+		return -1, -1, -1, fmt.Errorf("unable to parse filename %s", filename)
 	}
+	rankStr = tokens[0]
 	rank, err := strconv.Atoi(rankStr)
 	if err != nil {
-		return -1, fmt.Errorf("unable to parse filename %s: %s", filename, err)
+		return -1, -1, -1, fmt.Errorf("unable to parse filename %s: %s", filename, err)
 	}
-	return rank, nil
+	commIDstr := strings.TrimLeft(tokens[1], "comm")
+	commid, err := strconv.Atoi(commIDstr)
+	if err != nil {
+		return -1, -1, -1, err
+	}
+	jobIDstr := strings.TrimLeft(tokens[2], "job")
+	jobid, err := strconv.Atoi(jobIDstr)
+	if err != nil {
+		return -1, -1, -1, err
+	}
+	return rank, commid, jobid, nil
 }
 
-func LoadCallFile(file string) (map[int]float64, error) {
-	f, err := os.Open(file)
+func readMetaData(reader *bufio.Reader, codeBaseDir string, skipCheckMetadata bool) (*Metadata, error) {
+	// First line must be the format version and it should matches the one used by the
+	// postmortem tool
+	line, err := reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	m := make(map[int]float64)
+	var md *Metadata
+	md = nil
 
-	curRank := 0
-	reader := bufio.NewReader(f)
-	for {
-		line, readerr := reader.ReadString('\n')
-		if readerr != nil && readerr == io.EOF {
-			break
+	if !skipCheckMetadata {
+		line = strings.TrimRight(line, "\n")
+
+		if !strings.HasPrefix(line, format.DataFormatHeader) {
+			return nil, fmt.Errorf("Invalid data format, format version missing")
 		}
-		if readerr != nil && readerr != io.EOF {
+
+		dataFormatVersion, err := strconv.Atoi(strings.TrimLeft(line, format.DataFormatHeader))
+		if err != nil {
 			return nil, err
 		}
-
-		line = strings.TrimRight(line, "\n")
-		if line == "" {
-			continue
-		}
-		value, err := strconv.ParseFloat(line, 64)
+		err = format.CheckDataFormat(dataFormatVersion, codeBaseDir)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse %s: %s", line, err)
+			return nil, err
 		}
-		m[curRank] = value
-		curRank++
+		md = new(Metadata)
+		md.formatVersion = dataFormatVersion
 	}
-	return m, nil
+
+	// Second line must be empty
+	line, err = reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	if line != "\n" {
+		return nil, fmt.Errorf("data format impose an empty line but we have instead %s", line)
+	}
+
+	return md, nil
 }
 
-func extractTimingsFromSeparateTimingFile(file string, totalExecutionTime map[int]float64, callsMaps map[int]maps.CallsDataT, commData map[int]map[int]map[int]float64) error {
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+func getMetaData(reader *bufio.Reader, codeBaseDir string) (*Metadata, error) {
+	return readMetaData(reader, codeBaseDir, true)
+}
 
-	leadRank, err := getLeadRankFromFilename(filepath.Base(file))
-	if err != nil {
-		return err
-	}
-	commData[leadRank] = map[int]map[int]float64{}
+func skipMetaData(reader *bufio.Reader) error {
+	_, err := readMetaData(reader, "", false)
+	return err
+}
 
-	reader := bufio.NewReader(f)
+func getCallID(reader *bufio.Reader) (int, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return -1, err
+	}
+	line = strings.TrimRight(line, "\n")
+
+	if !strings.HasPrefix(line, callIDtoken) {
+		return -1, fmt.Errorf("invalid format %s does not start with %s", line, callIDtoken)
+	}
+
+	callID, err := strconv.Atoi(strings.TrimLeft(line, callIDtoken))
+	if err != nil {
+		return -1, err
+	}
+	return callID, nil
+}
+
+// getCallTimings returns the timings for a specific call in the form of a map where the key is the rank and the value the timing
+func getCallTimings(reader *bufio.Reader) (map[int]float64, error) {
+	rankData := make(map[int]float64)
+	rank := 0
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			// real error
+			return nil, err
+		}
+		if line == "\n" || (err != nil && err == io.EOF) {
+			// end of the call's data
+			return rankData, nil
+		}
+
+		line = strings.TrimRight(line, "\n")
+		timing, err := strconv.ParseFloat(line, 64)
+		if err != nil {
+			return nil, err
+		}
+		rankData[rank] = timing
+		rank++
+	}
+}
+
+func getCallData(reader *bufio.Reader) (*Stats, error) {
+	stats := new(Stats)
+	stats.Max = 0.0
+	stats.Min = -1.0
+	stats.Timings = ""
+	sum := 0.0
+	num := 0.0 // we use a float here to avoid having golang complain about dividing a float by an int
 
 	for {
-		line, readerr := reader.ReadString('\n')
-		if readerr != nil && readerr == io.EOF {
-			break
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			// real error
+			return nil, err
 		}
-		if readerr != nil && readerr != io.EOF {
-			return err
+		if line == "\n" || (err != nil && err == io.EOF) {
+			// end of the call's data, before we exit, we calculate the mean
+			stats.Mean = sum / num
+			return stats, nil
 		}
+
+		stats.Timings += line
 		line = strings.TrimRight(line, "\n")
 
-		if !strings.HasPrefix(line, "Alltoallv call #") {
-			return fmt.Errorf("invalid file format (%s is unexpected)", line)
-		}
-		line = strings.TrimRight(line, "\n")
-		line = strings.TrimLeft(line, "Alltoallv call #")
-		callID, err := strconv.Atoi(line)
+		timing, err := strconv.ParseFloat(line, 64)
 		if err != nil {
-			return fmt.Errorf("unable to parse %s: %s", line, err)
+			return nil, err
+		}
+		stats.Data = append(stats.Data, timing)
+
+		sum += timing
+
+		if stats.Min == -1.0 || stats.Min > timing {
+			stats.Min = timing
+		}
+		if stats.Max < timing {
+			stats.Max = timing
+		}
+		num++
+	}
+}
+
+// ParseTimingFile returns the timings data from a given timing file.
+// The function returns some metadata (e.g., number of calls, number of ranks) as well as the timings for each call,
+// as well as the total time per rank (time map).
+func ParseTimingFile(filePath string, codeBaseDir string) (*Metadata, map[int]map[int]float64, map[int]float64, error) {
+	timingFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer timingFile.Close()
+	r := bufio.NewReader(timingFile)
+
+	md, err := getMetaData(r, codeBaseDir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// map of map: calls -> ranks -> rank's timing
+	callsData := make(map[int]map[int]float64)
+
+	totalTimesPerRank := make(map[int]float64)
+
+	// Now we can read the timing data for all the calls in the file
+	for {
+		callID, err := getCallID(r)
+		if err != nil && err == io.EOF {
+			// we reached the end of the file, we exit with everything we read so far
+			return md, callsData, totalTimesPerRank, nil
+		}
+		if err != nil && err != io.EOF {
+			// this is an actual error
+			return nil, nil, nil, err
 		}
 
-		commData[leadRank][callID] = make(map[int]float64)
+		// We have the header for a new call, we update some metadata
+		md.numCalls++
 
-		for {
-			line, readerr := reader.ReadString('\n')
-			if readerr != nil {
-				return err
-			}
-			line = strings.TrimRight(line, "\n")
-			if line == "" {
-				// We reach the end of the block
-				break
-			}
-			tokens := strings.Split(line, ": ")
-			if len(tokens) != 2 {
-				return fmt.Errorf("Invalid line format: %s", line)
-			}
-			value, err := strconv.ParseFloat(tokens[1], 64)
+		ranksTimings, err := getCallTimings(r)
+		if err != nil {
+			// We should never get an error here since we successfully called getCallID()
+			return nil, nil, nil, err
+		}
+
+		if md.numRanks == 0 {
+			// First call we are parsing, we save some metadata
+			md.numRanks = len(ranksTimings)
+		}
+
+		if md.numRanks != len(ranksTimings) {
+			return nil, nil, nil, fmt.Errorf("inconsistent timing file, call %d has %d ranks instead of %d", callID, len(ranksTimings), md.numRanks)
+		}
+
+		// Update the total time per rank map
+		for rank, time := range ranksTimings {
+			totalTimesPerRank[rank] += time
+		}
+
+		callsData[callID] = ranksTimings
+	}
+}
+
+func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string, dir string, collectiveName string, callsMaps map[int]maps.CallsDataT, totalExecutionTimes map[int]float64, totalLateArrivalTimes map[int]float64) error {
+	// comm-centric maps where the keys are: commID, callID and world rank; the value an array of time
+	collectiveInfo.ExecTimes = make(map[int]map[int]map[int]float64)
+	collectiveInfo.LateArrivalTimes = make(map[int]map[int]map[int]float64)
+
+	numFilesToParse := 0
+	for _, execFile := range collectiveInfo.execFiles {
+		if util.FileExists(execFile) {
+			numFilesToParse++
+		}
+	}
+
+	for _, lateArrivalFile := range collectiveInfo.lateArrivalFiles {
+		if util.FileExists(lateArrivalFile) {
+			numFilesToParse++
+		}
+	}
+
+	bar := progress.NewBar(numFilesToParse, "Analyzing timings files for "+collectiveName)
+	defer progress.EndBar(bar)
+
+	for _, execFile := range collectiveInfo.execFiles {
+		if util.FileExists(execFile) {
+			bar.Increment(1)
+			_, commid, _, err := getMetadataFromFilename(execFile)
 			if err != nil {
 				return err
 			}
-			commRank, err := strconv.Atoi(strings.TrimLeft(tokens[0], "Rank "))
+			execTimesMetadata, execTimes, execRankTimeMap, err := ParseTimingFile(execFile, codeBaseDir)
 			if err != nil {
-				return fmt.Errorf("unable to parse %s: %s", line, err)
+				return err
 			}
-			// Convert commRank to rank on CommWorld
-			commWorldRank := callsMaps[leadRank].RanksMap[callID][commRank]
-			commData[leadRank][callID][commWorldRank] = value
-			totalExecutionTime[commWorldRank] += value
+			collectiveInfo.execTimesMetadata = execTimesMetadata
+			collectiveInfo.ExecTimes[commid] = execTimes
+
+			for rank, time := range execRankTimeMap {
+				totalExecutionTimes[rank] += time
+			}
+		}
+	}
+
+	for _, lateArrivalFile := range collectiveInfo.lateArrivalFiles {
+		if util.FileExists(lateArrivalFile) {
+			bar.Increment(1)
+			_, commid, _, err := getMetadataFromFilename(lateArrivalFile)
+			if err != nil {
+				return err
+			}
+			lateArrivalMetadata, lateTimes, lateArrivalRankTimeMap, err := ParseTimingFile(lateArrivalFile, codeBaseDir)
+			if err != nil {
+				return err
+			}
+			collectiveInfo.lateArrivalMetadata = lateArrivalMetadata
+			collectiveInfo.LateArrivalTimes[commid] = lateTimes
+
+			for rank, time := range lateArrivalRankTimeMap {
+				totalLateArrivalTimes[rank] += time
+			}
 		}
 	}
 
 	return nil
 }
 
-func analyzeTimingsFiles(dir string, files []string, callsMaps map[int]maps.CallsDataT, totalExecutionTimes map[int]float64, totalLateArrivalTimes map[int]float64) (map[int]map[int]map[int]float64, map[int]map[int]map[int]float64, error) {
-	// comm-centric maps where the keys are: leadRank, callID and world rank; the value an array of time
-	a2aTimes := map[int]map[int]map[int]float64{}
-	lateArrivalTimes := map[int]map[int]map[int]float64{}
-
-	format := detectTimingFileFormat(files)
-
-	switch format {
-	case singleProfileFile:
-		// Do we need to pre-process the data or is it already available as is
-		bar := progress.NewBar(len(files), "Pre-processing timings files")
-		defer progress.EndBar(bar)
-		for _, file := range files {
-			bar.Increment(1)
-			// The output directory is where the data is, this tool keeps all the data together
-			if strings.HasPrefix(file, SingleProfileFilePrefix) {
-				err := PreprocessRawDataFile(file, dir, a2aTimes, lateArrivalTimes)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-		}
-
-	case separateTimingsFiles:
-		for _, file := range files {
-			if strings.HasPrefix(filepath.Base(file), AlltoallFilePrefix) {
-				err := extractTimingsFromSeparateTimingFile(file, totalExecutionTimes, callsMaps, a2aTimes)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-
-			if strings.HasPrefix(filepath.Base(file), LateArrivalFilePrefix) {
-				err := extractTimingsFromSeparateTimingFile(file, totalLateArrivalTimes, callsMaps, lateArrivalTimes)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-		}
-	default:
-		return nil, nil, fmt.Errorf("unknown format: %d", format)
-	}
-
-	return a2aTimes, lateArrivalTimes, nil
-}
-
 // HandleTimingFiles is a high-level function that will find all the timings related files
 // generated by the profiler and analyze them
-func HandleTimingFiles(dir string, totalNumCalls int, callsMaps map[int]maps.CallsDataT) (map[int]map[int]map[int]float64, map[int]map[int]map[int]float64, map[int]float64, map[int]float64, error) {
+func HandleTimingFiles(codeBaseDir string, dir string, totalNumCalls int, callsMaps map[int]maps.CallsDataT) (map[string]*CollectiveTimings, map[int]float64, map[int]float64, error) {
 	// Detect all timings file, regardless of their format
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	totalExecutionTimes := make(map[int]float64)
 	totalLateArrivalTimes := make(map[int]float64)
 
-	var files []string
+	data := make(map[string]*CollectiveTimings)
 	for _, file := range f {
-		if strings.HasPrefix(file.Name(), AlltoallFilePrefix) {
-			files = append(files, filepath.Join(dir, file.Name()))
+		// Get collective name from filename
+		filename := file.Name()
+		collectiveName := filename[0:strings.Index(filename, "_")]
+
+		if strings.Contains(filename, execTimingsFilenameIdentifier) {
+			if _, ok := data[collectiveName]; !ok {
+				collectiveData := new(CollectiveTimings)
+				data[collectiveName] = collectiveData
+			}
+			collectiveData := data[collectiveName]
+			collectiveData.execFiles = append(collectiveData.execFiles, filepath.Join(dir, filename))
+			data[collectiveName] = collectiveData
 		}
-		if strings.HasPrefix(file.Name(), LateArrivalFilePrefix) {
-			files = append(files, filepath.Join(dir, file.Name()))
-		}
-		if strings.HasPrefix(file.Name(), SingleProfileFilePrefix) {
-			files = append(files, filepath.Join(dir, file.Name()))
+
+		if strings.Contains(filename, lateArrivalTimingsFilenameIdentifier) {
+			if _, ok := data[collectiveName]; !ok {
+				collectiveData := new(CollectiveTimings)
+				data[collectiveName] = collectiveData
+			}
+			collectiveData := data[collectiveName]
+			collectiveData.lateArrivalFiles = append(collectiveData.lateArrivalFiles, filepath.Join(dir, filename))
+			data[collectiveName] = collectiveData
 		}
 	}
 
 	// Analyze all the files we found
-	a2aExecutionTimes, lateArrivalTimes, err := analyzeTimingsFiles(dir, files, callsMaps, totalExecutionTimes, totalLateArrivalTimes)
-	if err != nil {
-		return nil, nil, nil, nil, err
+	for collectiveName, collectiveData := range data {
+		err := collectiveData.analyzeTimingsFiles(codeBaseDir, dir, collectiveName, callsMaps, totalExecutionTimes, totalLateArrivalTimes)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
-	return a2aExecutionTimes, lateArrivalTimes, totalExecutionTimes, totalLateArrivalTimes, nil
+	return data, totalExecutionTimes, totalLateArrivalTimes, nil
+}
+
+func getCallDataFromFile(filePath string, numCall int) (*Stats, error) {
+	timingFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer timingFile.Close()
+	r := bufio.NewReader(timingFile)
+
+	err = skipMetaData(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now we can read the timing data for all the calls in the file
+	for {
+		callID, err := getCallID(r)
+		if err != nil && err == io.EOF {
+			// we reached the end of the file, we exit with everything we read so far
+			return nil, fmt.Errorf("unable to find call %d from %s", numCall, filePath)
+		}
+		if err != nil && err != io.EOF {
+			// this is an actual error
+			return nil, err
+		}
+
+		if callID < numCall {
+			continue
+		}
+
+		if callID == numCall {
+			stats, err := getCallData(r)
+			if err != nil {
+				// We should never get an error here since we successfully called getCallID()
+				return nil, err
+			}
+
+			return stats, nil
+		}
+	}
+}
+
+// GetCallData returns all the data for a specific call, including raw text
+func GetCallData(collectiveName string, dir string, commID int, jobID int, leadRank int, callID int) (*CallTimings, error) {
+	var err error
+	callData := new(CallTimings)
+
+	execTimingsFilepath := getExecTimingsFilePath(collectiveName, dir, jobID, commID, leadRank)
+	callData.ExecutionTimings, err = getCallDataFromFile(execTimingsFilepath, callID)
+	if err != nil {
+		return nil, err
+	}
+
+	lateArrivalTimingsFilepath := getLateArrivalTimingsFilePath(collectiveName, dir, jobID, commID, leadRank)
+	callData.LateArrivalsTimings, err = getCallDataFromFile(lateArrivalTimingsFilepath, callID)
+	if err != nil {
+		return nil, err
+	}
+
+	return callData, nil
 }
 
 func readBlockFromSingleTimingFile(reader *bufio.Reader) []string {
@@ -526,150 +528,12 @@ func readBlockFromSingleTimingFile(reader *bufio.Reader) []string {
 	return lines
 }
 
-/*
-func ConvertSingleTimingsFile(path string) error {
-	var readerErr error
-
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	for {
-		line, readerErr := reader.ReadString('\n')
-		if readerErr != nil && readerErr != io.EOF {
-			return readerErr
-		}
-		if readerErr != nil && readerErr == io.EOF {
-			break // end of dataset
-		}
-		line = strings.TrimRight(line, "\n")
-
-		// First line is the call header
-		if !strings.HasPrefix(line, "Alltoallv call #") {
-			return fmt.Errorf("invalid format, invalid call header")
-		}
-		callID, err := strconv.Atoi(strings.TrimLeft(line, "Alltoallv call #"))
-		if err != nil {
-			return err
-		}
-
-		// Second line and a generic header, either execution or late arrival time header
-		line, readerErr = reader.ReadString('\n')
-		if readerErr != nil {
-			return readerErr
-		}
-		if !strings.HasPrefix(line, "# Late arrival timings") {
-			return fmt.Errorf("invalid format, invalid late arrival header")
-		}
-
-
-
-		// Then we start to read the late arrival data
-		lateArrivalLines := readBlockFromSingleTimingFile(reader)
-
-		// Then we reach the execution time section for the call
-	}
-
-	return nil
-}
-*/
-
-func saveCallTiming(destFilePath string, values []float64) error {
-	fmt.Printf("Creating %s\n", destFilePath)
-	newFile, err := os.OpenFile(destFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-	defer newFile.Close()
-	for _, val := range values {
-		_, err := newFile.WriteString(fmt.Sprintf("%f\n", val))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+// GetExecTimingFilename returns the expected execution time file name for a given configuration
+func GetExecTimingFilename(collectiveName string, leadRank int, commID int, jobID int) string {
+	return collectiveName + execTimingsFilenameIdentifier + strconv.Itoa(leadRank) + "_comm" + strconv.Itoa(commID) + "_job" + strconv.Itoa(jobID) + ".md"
 }
 
-func convertCoupledTimingFile(srcPath string, destDir string) error {
-	timingsMap := make(map[int][]float64)
-
-	file, err := os.Open(srcPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	leadRank, err := getLeadRankFromFilename(srcPath)
-	if err != nil {
-		return err
-	}
-
-	reader := bufio.NewReader(file)
-	for {
-		line, readerErr := reader.ReadString('\n')
-		if readerErr != nil && readerErr != io.EOF {
-			return readerErr
-		}
-		if readerErr != nil && readerErr == io.EOF {
-			break // end of dataset
-		}
-		line = strings.TrimRight(line, "\n")
-		if line == "" {
-			continue
-		}
-
-		tokens := strings.Split(line, "\t")
-		callID, err := strconv.Atoi(tokens[0])
-		if err != nil {
-			return fmt.Errorf("unable to parse %s: %s", line, err)
-		}
-
-		val, err := strconv.ParseFloat(tokens[1], 64)
-		if err != nil {
-			return err
-		}
-
-		if _, ok := timingsMap[callID]; ok {
-			timingsMap[callID] = append(timingsMap[callID], val)
-		} else {
-			timingsMap[callID] = []float64{val}
-		}
-	}
-
-	for callID, values := range timingsMap {
-		destFilePath := ""
-		if strings.HasPrefix(filepath.Base(srcPath), AlltoallExecCoupledFilePrefix) {
-			destFilePath = filepath.Join(destDir, fmt.Sprintf("%s.job0.rank%d.call%d.md", AlltoallFilePrefix, leadRank, callID))
-		}
-
-		if strings.HasPrefix(filepath.Base(srcPath), LateArrivalFilePrefix) || strings.HasPrefix(filepath.Base(srcPath), "late_arrival_timings.") {
-			destFilePath = filepath.Join(destDir, fmt.Sprintf("%s.job0.rank%d.call%d.md", LateArrivalFilePrefix, leadRank, callID))
-		}
-
-		if destFilePath == "" {
-			return fmt.Errorf("unable to figure out output file")
-		}
-
-		err := saveCallTiming(destFilePath, values)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
-func ConvertCoupledTimingFiles(pathes []string, outputDir string) error {
-	for _, path := range pathes {
-		err := convertCoupledTimingFile(path, outputDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+// GetLateArrivalTimingFilename returns the expected late arrival time file name for a given configuration
+func GetLateArrivalTimingFilename(collectiveName string, leadRank int, commID int, jobID int) string {
+	return collectiveName + lateArrivalTimingsFilenameIdentifier + strconv.Itoa(leadRank) + "_comm" + strconv.Itoa(commID) + "_job" + strconv.Itoa(jobID) + ".md"
 }

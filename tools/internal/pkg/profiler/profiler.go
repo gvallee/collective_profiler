@@ -69,7 +69,7 @@ type CallInfo struct {
 	PatternStr string
 
 	// Timings represent all the timings associated to the alltoallv call (e.g., late arrival and execution timings)
-	Timings timings.CallTimings
+	Timings *timings.CallTimings
 
 	// Backtrace is the string version of the alltoallv call's backtrace
 	Backtrace string
@@ -320,7 +320,7 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 }
 
 // GetCallData extract all the data related to a specific call.
-func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold int) (CallInfo, error) {
+func GetCallData(collectiveName string, dir string, commid int, jobid int, rank int, callNum int, msgSizeThreshold int) (CallInfo, error) {
 	var info CallInfo
 	info.ID = callNum
 
@@ -374,7 +374,8 @@ func GetCallData(dir string, jobid int, rank int, callNum int, msgSizeThreshold 
 	// todo: if the files do not exist, we should get the data from scratch
 
 	log.Printf("Extracting timings for call #%d\n", callNum)
-	info.Timings, err = timings.GetCallData(dir, jobid, rank, callNum)
+
+	info.Timings, err = timings.GetCallData(collectiveName, dir, commid, jobid, rank, callNum)
 	if err != nil {
 		return info, err
 	}
@@ -685,48 +686,7 @@ func FindRawCountFiles(dir string) RawCountsFilesInfoT {
 	return rawCountFilesInfo
 }
 
-func FindSingleFileTimingFile(dir string) string {
-	singleTimingFilePath := ""
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasPrefix(filepath.Base(path), timings.SingleProfileFilePrefix) {
-			singleTimingFilePath = path
-			return nil
-		}
-		return nil
-	})
-	if err != nil {
-		return ""
-	}
-
-	return singleTimingFilePath
-}
-
-func FindCoupledTimingsFiles(dir string) CoupledTimingFilesInfoT {
-	var timingFilesInfo CoupledTimingFilesInfoT
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasPrefix(filepath.Base(path), timings.AlltoallExecCoupledFilePrefix) {
-			timingFilesInfo.A2AExecTimingFiles = append(timingFilesInfo.A2AExecTimingFiles, path)
-		}
-		if strings.HasPrefix(filepath.Base(path), timings.LateArrivalFilePrefix) {
-			timingFilesInfo.LateArrivalTimingFiles = append(timingFilesInfo.LateArrivalTimingFiles, path)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return timingFilesInfo
-	}
-
-	return timingFilesInfo
-}
-
+/* deprecated?
 func ScanDirectories(dirs []string) (ProfileFilesT, error) {
 	var data ProfileFilesT
 	for _, dir := range dirs {
@@ -741,3 +701,4 @@ func ScanDirectories(dirs []string) (ProfileFilesT, error) {
 	}
 	return data, nil
 }
+*/

@@ -202,7 +202,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedA2ATimeFiles:     []string{"alltoallv_execution_times.rank0_call0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
 		{
@@ -213,7 +213,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedA2ATimeFiles:     []string{"alltoallv_execution_times.rank0_call0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
 		{
@@ -224,7 +224,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedA2ATimeFiles:     []string{"alltoallv_execution_times.rank0_call0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
 		{
@@ -235,7 +235,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+			expectedA2ATimeFiles:     []string{"alltoallv_execution_times.rank0_call0.md"},
 			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 		},
 	}
@@ -250,7 +250,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 				// todo: expectedCountsFiles
 				expectedLocationFiles:    []string{},
-				expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
+				expectedA2ATimeFiles:     []string{"alltoallv_execution_times.rank0_call0.md"},
 				expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
 			},
 		}

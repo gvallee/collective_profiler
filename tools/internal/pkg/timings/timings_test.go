@@ -13,33 +13,55 @@ import (
 func TestGetLeadRankFromFilename(t *testing.T) {
 	tests := []struct {
 		input          string
-		expectedOutput int
+		expectedOutput [3]int
 	}{
 		{
-			input:          "a2a-timings.job0.rank0.md",
-			expectedOutput: 0,
+			input:          "alltoallv_execution_times.rank0_comm0_job0.md",
+			expectedOutput: [3]int{0, 0, 0},
 		},
 		{
-			input:          "a2a-timings.job4235245.rank52454.md",
-			expectedOutput: 52454,
+			input:          "alltoallv_execution_times.rank2453463_comm52542_job542.md",
+			expectedOutput: [3]int{2453463, 52542, 542},
 		},
 		{
-			input:          "late-arrivals-timings.job0.rank0.md",
-			expectedOutput: 0,
+			input:          "alltoall_execution_times.rank0_comm0_job0.md",
+			expectedOutput: [3]int{0, 0, 0},
 		},
 		{
-			input:          "late-arrivals-timings.job446546531.rank4434333245.md",
-			expectedOutput: 4434333245,
+			input:          "alltoall_execution_times.rank3587_comm2452_job5384.md",
+			expectedOutput: [3]int{3587, 2452, 5384},
+		},
+		{
+			input:          "alltoallv_late_arrival_times.rank0_comm0_jobid0.md",
+			expectedOutput: [3]int{0, 0, 0},
+		},
+		{
+			input:          "alltoallv_late_arrival_times.rank1234_comm5423_jobid57645.md",
+			expectedOutput: [3]int{1234, 5423, 57645},
+		},
+		{
+			input:          "alltoall_late_arrival_times.rank0_comm0_jobid0.md",
+			expectedOutput: [3]int{0, 0, 0},
+		},
+		{
+			input:          "alltoall_late_arrival_times.rank1234_comm5423_jobid57645.md",
+			expectedOutput: [3]int{1234, 5423, 57645},
 		},
 	}
 
 	for _, tt := range tests {
-		val, err := getLeadRankFromFilename(tt.input)
+		leadRank, commID, jobID, err := getMetadataFromFilename(tt.input)
 		if err != nil {
-			t.Fatalf("getLeadRankFromFilename() failed: %s", err)
+			t.Fatalf("getMetadataFromFilename() failed: %s", err)
 		}
-		if val != tt.expectedOutput {
-			t.Fatalf("getLeadRankFromFilename() returned %d instead of %d", val, tt.expectedOutput)
+		if leadRank != tt.expectedOutput[0] {
+			t.Fatalf("getMetadataFromFilename() returned %d instead of %d", leadRank, tt.expectedOutput[0])
+		}
+		if commID != tt.expectedOutput[1] {
+			t.Fatalf("getMetadataFromFilename() returned %d instead of %d", commID, tt.expectedOutput[1])
+		}
+		if jobID != tt.expectedOutput[2] {
+			t.Fatalf("getMetadataFromFilename() returned %d instead of %d", jobID, tt.expectedOutput[2])
 		}
 	}
 }
