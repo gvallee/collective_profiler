@@ -68,7 +68,8 @@ This requires to have MPI available on the system.
 
 This creates the following shared libraries:
 - `liballtoallv_counts.so`,
-- `liballtoallv_timings.so`,
+- `liballtoallv_exec_timings.so`,
+- `liballtoallv_late_arrival.so`,
 - `liballtoallv_backtrace.so`,
 - `liballtoallv_location.so`,
 - and `alltoallv/liballtoallv.so`.
