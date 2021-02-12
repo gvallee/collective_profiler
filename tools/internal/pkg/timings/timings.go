@@ -40,10 +40,11 @@ const (
 
 // Stats is the structure used to save all stats related to timings
 type Stats struct {
-	Timings  string
-	Data     []float64
-	Max      float64
-	Min      float64
+	Timings string
+	Data    []float64
+	Max     float64
+	Min     float64
+
 	Mean     float64
 	Grouping *grouping.Engine
 }
