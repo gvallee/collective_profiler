@@ -679,7 +679,7 @@ func FindRawCountFiles(dir string) RawCountsFilesInfoT {
 		return rawCountFilesInfo
 	}
 
-	for dir, _ := range rawCountsDirs {
+	for dir := range rawCountsDirs {
 		rawCountFilesInfo.Dirs = append(rawCountFilesInfo.Dirs, dir)
 	}
 

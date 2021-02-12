@@ -58,8 +58,8 @@ type CallTimings struct {
 // Metadata is the metadata from a timing file
 type Metadata struct {
 	formatVersion int
-	numCalls      int
-	numRanks      int
+	NumCalls      int
+	NumRanks      int
 }
 
 // CollectiveTimings is the data structure used to store all the timing data for a specific collective (e.g., alltoallv, alltoall)
@@ -181,11 +181,11 @@ func readMetaData(reader *bufio.Reader, codeBaseDir string, skipCheckMetadata bo
 }
 
 func getMetaData(reader *bufio.Reader, codeBaseDir string) (*Metadata, error) {
-	return readMetaData(reader, codeBaseDir, true)
+	return readMetaData(reader, codeBaseDir, false)
 }
 
 func skipMetaData(reader *bufio.Reader) error {
-	_, err := readMetaData(reader, "", false)
+	_, err := readMetaData(reader, "", true)
 	return err
 }
 
@@ -288,6 +288,9 @@ func ParseTimingFile(filePath string, codeBaseDir string) (*Metadata, map[int]ma
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if md == nil {
+		return nil, nil, nil, fmt.Errorf("metadata for %s is missing", filePath)
+	}
 
 	// map of map: calls -> ranks -> rank's timing
 	callsData := make(map[int]map[int]float64)
@@ -307,7 +310,7 @@ func ParseTimingFile(filePath string, codeBaseDir string) (*Metadata, map[int]ma
 		}
 
 		// We have the header for a new call, we update some metadata
-		md.numCalls++
+		md.NumCalls++
 
 		ranksTimings, err := getCallTimings(r)
 		if err != nil {
@@ -315,13 +318,13 @@ func ParseTimingFile(filePath string, codeBaseDir string) (*Metadata, map[int]ma
 			return nil, nil, nil, err
 		}
 
-		if md.numRanks == 0 {
+		if md.NumRanks == 0 {
 			// First call we are parsing, we save some metadata
-			md.numRanks = len(ranksTimings)
+			md.NumRanks = len(ranksTimings)
 		}
 
-		if md.numRanks != len(ranksTimings) {
-			return nil, nil, nil, fmt.Errorf("inconsistent timing file, call %d has %d ranks instead of %d", callID, len(ranksTimings), md.numRanks)
+		if md.NumRanks != len(ranksTimings) {
+			return nil, nil, nil, fmt.Errorf("inconsistent timing file, call %d has %d ranks instead of %d", callID, len(ranksTimings), md.NumRanks)
 		}
 
 		// Update the total time per rank map
