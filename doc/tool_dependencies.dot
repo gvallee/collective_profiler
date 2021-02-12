@@ -2,8 +2,9 @@ digraph G {
     backtraces_orig [label="Call backtrace files", shape=box, style=filled,color=".7 .3 1.0"];
     send_counts_orig [label="Send counts file", shape=box, style=filled,color=".7 .3 1.0"];
     recv_counts_orig [label="Receive counts file", shape=box, style=filled,color=".7 .3 1.0"];
-    timings_orig [label="Timings file", shape=box, style=filled,color=".7 .3 1.0"];
     location_orig [label="Ranks' location", shape=box, style=filled,color=".7 .3 1.0"];
+    alltoallv_timings [label="Alltoallv timings", shape=box, style=filled,color=".7 .3 1.0"];
+    late_arrivals_timings [label="Late arrivals timings", shape=box, style=filled,color=".7 .3 1.0"];
     backtraces_orig -> analyzebacktrace;
     alltoallv_call_contexts [label="Alltoallv call contexts\n(unique backtraces)", shape=box, style=filled,color=".6 .2 1.0"];
     rank_placement [label="Ranks' placement and maps", shape=box, style=filled,color=".6 .2 1.0"];
@@ -11,6 +12,8 @@ digraph G {
     send_counts_orig -> srcountsanalyzer;
     recv_counts_orig -> srcountsanalyzer;
     location_orig -> profile;
+    alltoallv_timings -> profile;
+    late_arrivals_timings -> profile;
     patterns [shape=box, style=filled,color=".6 .2 1.0"];
     stats [shape=box, style=filled,color=".6 .2 1.0"];
     srcountsanalyzer -> patterns;
@@ -18,13 +21,6 @@ digraph G {
     profile -> patterns;
     profile -> stats;
     profile -> rank_placement;
-    profile -> alltoallv_timings;
-    profile -> late_arrivals_timings;
-    timings_orig -> extracttimings;
-    alltoallv_timings [label="Alltoallv timings", shape=box, style=filled,color=".6 .2 1.0"];
-    late_arrivals_timings [label="Late arrivals timings", shape=box, style=filled,color=".6 .2 1.0"];
-    extracttimings -> alltoallv_timings;
-    extracttimings -> late_arrivals_timings;
     getcalls [label="getcalldata"]
     send_counts_orig -> getcalls;
     recv_counts_orig -> getcalls;
