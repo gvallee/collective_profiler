@@ -1034,53 +1034,6 @@ static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int wo
 	free(filename);
 }
 
-#if 0
-// fixme:
-// - move to common code?
-// - do NOT create one file per call but one file per communicator: keep the fd open and write as we go (with flush at the end of each operation)
-static void save_times(double *times, int comm_size, uint64_t n_call)
-{
-	char *filename = NULL;
-	int i;
-	int rc;
-
-// fixme: decouple init and writing to keep the file open -> move to a separate file.
-#if ENABLE_EXEC_TIMING
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	}
-	else
-	{
-		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%"PRIu64".md", world_rank, n_call);
-	}
-#endif // ENABLE_EXEC_TIMING
-
-#if ENABLE_LATE_ARRIVAL_TIMING
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	}
-	else
-	{
-		_asprintf(filename, rc, "late_arrival_times.rank%d_call%"PRIu64".md", world_rank, n_call);
-	}
-#endif // ENABLE_LATE_ARRIVAL_TIMING
-	assert(rc > 0);
-
-	FILE *f = fopen(filename, "w");
-	assert(f);
-
-	for (i = 0; i < comm_size; i++)
-	{
-		fprintf(f, "%f\n", times[i]);
-	}
-
-	fclose(f);
-	free(filename);
-}
-#endif
-
 static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
