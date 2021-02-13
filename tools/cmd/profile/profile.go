@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -32,7 +32,7 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)
 		leadRank := allCallsData[i].LeadRank
-		for callID, _ := range allCallsData[i].CallData {
+		for callID := range allCallsData[i].CallData {
 			b.Increment(1)
 
 			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])

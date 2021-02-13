@@ -348,6 +348,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		// Run the profiler
+		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
 		var stdout, stderr bytes.Buffer
 		for _, lib := range sharedLibraries {
 			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
