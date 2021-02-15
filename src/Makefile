@@ -16,6 +16,7 @@ alltoallv: common
 
 alltoall: common
 	cd alltoall && make
+	cd alltoall/examples && make
 
 check:
 	cd alltoall && make check

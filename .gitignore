@@ -82,3 +82,5 @@ alltoallv-*.log
 
 # VScode specific stuff
 .vscode/
+src/alltoall/examples/alltoall
+examples/alltoallv_dt_c
