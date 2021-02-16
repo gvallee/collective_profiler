@@ -21,8 +21,14 @@
 #include "config.h"
 
 #if DEBUG
+#if DEBUG_FLUSH
+#define DEBUG_ALLTOALL_PROFILING(fmt, ...) \
+    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__); \
+    fprintf(stdout)
+#else
 #define DEBUG_ALLTOALL_PROFILING(fmt, ...) \
     fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+#endif //DEBUG_FLUSH
 #else
 #define DEBUG_ALLTOALL_PROFILING(fmt, ...) \
     do                                      \

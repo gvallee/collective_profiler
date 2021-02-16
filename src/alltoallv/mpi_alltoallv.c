@@ -505,6 +505,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(newNode);
 
 	newNode->size = size;
+	newNode->rank_vec_len = size;
 	newNode->count = 1;
 	newNode->list_calls = (uint64_t *)malloc(DEFAULT_TRACKED_CALLS * sizeof(uint64_t));
 	assert(newNode->list_calls);

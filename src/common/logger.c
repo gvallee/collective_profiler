@@ -583,7 +583,7 @@ static void _log_data(logger_t *logger,
             str = NULL;
         }
 
-        for (n = 0; n < size; n++)
+        for (n = 0; n < rank_vec_len; n++)
         {
             fprintf(fh, "%d ", (counters[count_data_number])->counters[n]);
         }
@@ -592,7 +592,7 @@ static void _log_data(logger_t *logger,
     DEBUG_LOGGER_NOARGS("Counts saved\n");
     fprintf(fh, "END DATA\n");
 #endif
-
+//TO DO check the rest of this function for alltoallv to alltoall conversion
 #if ENABLE_PER_RANK_STATS || ENABLE_MSG_SIZE_ANALYSIS
     // Go through the data to gather some stats
     int rank;
@@ -754,7 +754,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     }
     fprintf(logger->timing_fh, "\n");
 }
-
+// called with log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
 static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     assert(logger);
@@ -787,14 +787,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->sendtype_size);
+                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->sendtype_size);
 
             DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->recvtype_size);
+                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->recvtype_size);
 
             DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
             srCountPtr = srCountPtr->next;
@@ -908,7 +908,7 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
         i++;
     }
 }
-
+// called with log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head); so counters_list = head, which is global var in mpi_alltoall.c
 void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
     // We log the data most of the time right before unloading our shared
