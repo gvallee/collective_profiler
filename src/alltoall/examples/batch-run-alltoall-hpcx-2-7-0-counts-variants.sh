@@ -28,7 +28,7 @@ THIS_SCRIPT_DIR=$(dirname "$THIS_SCRIPT")
 
 # environment and modules and some paths etc. for the job 
 # /global/home/users/cyrusl/placement/expt0060/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
-export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0066
+export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070
 # TODO - set modulefiles!!?
 module purge
 HNAME=$(hostname)
@@ -43,7 +43,7 @@ HNAME=$(hostname)
 # spack unload --all
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export RESULTS_ROOT=${PROJECT_ROOT}/alltoall_profiling/examples/results/run-at-${JOB_NOW} #-${THIS_SCRIPT_FILENAME}
+export RESULTS_ROOT=${PROJECT_ROOT}/alltoall_profiling/src/alltoall/examples/results/run-at-${JOB_NOW} #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
 # makes the results directory and somewhere to put results of post processing.
@@ -121,13 +121,13 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/examples/alltoall
+export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoall/examples/alltoall
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 
-ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/src/alltoall
+ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoall
 declare -a COUNTSFLAGS
 COUNTSFLAGS[0]="$ALLTOALL_LIB_ROOT/liballtoall_counts.so"
 COUNTSFLAGS[1]="$ALLTOALL_LIB_ROOT/liballtoall_counts_unequal.so"
