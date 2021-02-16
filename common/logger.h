@@ -18,15 +18,27 @@
 #define LOGGER_H
 
 #define ENABLE_LOGGER_DEBUGING (0)
+
 #if ENABLE_LOGGER_DEBUGING
 #define DEBUG_LOGGER(fmt, ...) \
-    fprintf(stdout, "A2A - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
+    fprintf(stdout, "Common - [%s:%d]" fmt, __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define DEBUG_LOGGER(fmt, ...) \
     do                         \
     {                          \
     } while (0)
 #endif // ENABLE_LOGGER_DEBUGGING
+
+#if ENABLE_LOGGER_DEBUGING
+#define DEBUG_LOGGER_NOARGS(str) \
+    fprintf(stdout, "Common - [%s:%d] %s", __FILE__, __LINE__, str)
+#else
+#define DEBUG_LOGGER_NOARGS(str) \
+    do                         \
+    {                          \
+    } while (0)
+#endif // ENABLE_LOGGER_DEBUGGING
+
 
 typedef struct logger
 {
@@ -52,6 +64,6 @@ extern void logger_fini(logger_t **l);
 extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
-extern char *compress_int_array(int *array, int size);
+extern char *compress_int_array(int *array, int xsize, int ysize);
 
 #endif // LOGGER_H
