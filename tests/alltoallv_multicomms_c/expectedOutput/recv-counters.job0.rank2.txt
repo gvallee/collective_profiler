@@ -1,7 +1,7 @@
 # Raw counters
 
 Number of ranks: 2
-Datatype size: 8
+Datatype size: 4
 Alltoallv calls 0-1
 Count: 2 calls - 0, 2
 

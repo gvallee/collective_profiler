@@ -26,7 +26,7 @@ typedef struct avSRCountNode
     int rank_vec_len; // =1 for alltoall, = comm_size for alltoallv
     uint64_t count; // How many time we detected the pattern; also size of list_calls
     uint64_t max_calls;
-    int *list_calls; // Which calls produced the pattern
+    uint64_t *list_calls; // Which calls produced the pattern
     int comm;
     int sendtype_size;
     int recvtype_size;
@@ -51,15 +51,15 @@ typedef struct avPattern
     // <n_ranks> ranks send to or receive from <n_peers> other ranks
     int n_ranks;
     int n_peers;
-    int n_calls;   // How many alltoallv calls have that pattern
+    uint64_t n_calls;   // How many collective calls have that pattern
     int comm_size; // Size of the communicator for which the pattern was detected. Not always used.
     struct avPattern *next;
 } avPattern_t;
 
 typedef struct avCallPattern  // TODO is this anything to do with counts? What is an av_Pattern? See next def above. So this pattern is to do with rank patterns.
 {
-    int n_calls;
-    int *calls;
+    uint64_t n_calls;
+    uint64_t *calls;
     avPattern_t *spatterns;
     avPattern_t *rpatterns;
     struct avCallPattern *next;
@@ -67,8 +67,8 @@ typedef struct avCallPattern  // TODO is this anything to do with counts? What i
 
 typedef struct caller_info
 {
-    int n_calls;
-    int *calls;
+    uint64_t n_calls;
+    uint64_t *calls;
     char *caller;
     struct caller_info *next;
 } caller_info_t;

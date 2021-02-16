@@ -1,11 +1,11 @@
 /*************************************************************************
  * Copyright (c) 2019-2010, Mellanox Technologies, Inc. All rights reserved.
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
 /******************************************************************************************************
- * Copyright (c) 2020, University College London and Mellanox Technolgies Limited. All rights reserved.
+ * Copyright (c) 2020-2021, University College London and Mellanox Technolgies Limited. All rights reserved.
  * - for further contributions 
  ******************************************************************************************************/
 
@@ -515,7 +515,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 			if (temp->count >= temp->max_calls)
 			{
 				temp->max_calls = temp->max_calls * 2;
-				temp->list_calls = (int *)realloc(temp->list_calls, temp->max_calls * sizeof(int));
+				temp->list_calls = (uint64_t *)realloc(temp->list_calls, temp->max_calls * sizeof(uint64_t));
 				assert(temp->list_calls);
 			}
 			temp->list_calls[temp->count] = avCalls; // Note: count starts at 1, not 0
@@ -537,7 +537,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	newNode->size = size;
 	newNode->rank_vec_len = 1;
 	newNode->count = 1;
-	newNode->list_calls = (int *)malloc(DEFAULT_TRACKED_CALLS * sizeof(int));
+	newNode->list_calls = (uint64_t *)malloc(DEFAULT_TRACKED_CALLS * sizeof(uint64_t));
 	assert(newNode->list_calls);
 	newNode->max_calls = DEFAULT_TRACKED_CALLS;
 	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used  //TODO adapt to counts for alltoall (cf alltoallv)
@@ -646,9 +646,9 @@ static void _save_patterns(FILE *fh, avPattern_t *p, char *ctx)
 	while (ptr != NULL)
 	{
 #if COMMSIZE_BASED_PATTERNS || TRACK_PATTERNS_ON_CALL_BASIS
-		fprintf(fh, "During %d alltoall calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
+		fprintf(fh, "During %"PRIu64" alltoall calls, %d ranks %s %d other ranks; comm size: %d\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers, ptr->comm_size);
 #else
-		fprintf(fh, "During %d alltoall calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
+		fprintf(fh, "During %"PRIu64" alltoall calls, %d ranks %s %d other ranks\n", ptr->n_calls, ptr->n_ranks, ctx, ptr->n_peers);
 #endif // COMMSIZE_BASED_PATTERNS
 		ptr = ptr->next;
 	}
@@ -677,7 +677,7 @@ static void save_call_patterns(int uniqueID)
 	avCallPattern_t *ptr = call_patterns;
 	while (ptr != NULL)
 	{
-		fprintf(fh, "For %d call(s):\n", ptr->n_calls);
+		fprintf(fh, "For %"PRIu64" call(s):\n", ptr->n_calls);
 		_save_patterns(fh, ptr->spatterns, "sent to");
 		_save_patterns(fh, ptr->rpatterns, "recv'd from");
 		ptr = ptr->next;
@@ -1018,7 +1018,7 @@ static int _commit_data()
 	return 0;
 }
 
-static caller_info_t *create_new_caller_info(char *caller, int n_call)
+static caller_info_t *create_new_caller_info(char *caller, uint64_t n_call)
 {
 	caller_info_t *new_info = malloc(sizeof(caller_info_t));
 	assert(new_info);
@@ -1031,7 +1031,7 @@ static caller_info_t *create_new_caller_info(char *caller, int n_call)
 	return new_info;
 }
 
-static int insert_caller_data(char **trace, size_t size, int n_call, int world_rank)
+static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int world_rank)
 {
 	char *filename = NULL;
 	char *target_dir = NULL;
@@ -1045,7 +1045,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	{
 		target_dir = strdup("backtraces");
 	}
-	_asprintf(filename, rc, "%s/backtrace_rank%d_call%d.md", target_dir, world_rank, n_call);
+	_asprintf(filename, rc, "%s/backtrace_rank%d_call%"PRIu64".md", target_dir, world_rank, n_call);
 	assert(rc > 0);
 
 	// Make sure the target directory exists
@@ -1072,7 +1072,7 @@ static int insert_caller_data(char **trace, size_t size, int n_call, int world_r
 	free(filename);
 }
 
-static void save_times(double *times, int comm_size, int n_call)
+static void save_times(double *times, int comm_size, uint64_t n_call)
 {
 	char *filename = NULL;
 	int i;
@@ -1081,22 +1081,22 @@ static void save_times(double *times, int comm_size, int n_call)
 #ifdef ENABLE_A2A_TIMINGS
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
 #endif // ENABLE_A2A_TIMINGS
 
 #ifdef ENABLE_LATE_ARRIVAL_TIMING
 	if (getenv(OUTPUT_DIR_ENVVAR))
 	{
-		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
+		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
 	}
 	else
 	{
-		_asprintf(filename, rc, "late_arrival_times.rank%d_call%d.md", world_rank, n_call);
+		_asprintf(filename, rc, "late_arrival_times.rank%d_call%"PRIu64".md", world_rank, n_call);
 	}
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 	assert(rc > 0);
@@ -1333,7 +1333,10 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
-			if (insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype))) // perhaps change comm_size => 1 here??? no
+			int s_dt_size, r_dt_size;
+			MPI_Type_size(sendtype, &s_dt_size);
+			MPI_Type_size(recvtype, &r_dt_size);
+			if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size)) // perhaps change comm_size => 1 here??? no
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
@@ -1341,7 +1344,10 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
-			save_counts(sbuf, rbuf, sizeof(sendtype), sizeof(recvtype), comm_size, avCalls);
+			int s_dt_size, r_dt_size;
+			MPI_Type_size(sendtype, &s_dt_size);
+			MPI_Type_size(recvtype, &r_dt_size);
+			save_counts(sbuf, rbuf, s_dt_size, r_dt_size, comm_size, avCalls);
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
 
 #if ENABLE_PATTERN_DETECTION
