@@ -51,9 +51,6 @@ Mkfile.old
 dkms.conf
 
 # The profiles the tool generates
-profile_alltoallv.*.md
-recv-counters*.txt
-send-counters*.txt
 tools/cmd/recvprofiler/recvprofiler
 tools/cmd/analyzetimings/analyzetimings
 tools/cmd/convert/convert

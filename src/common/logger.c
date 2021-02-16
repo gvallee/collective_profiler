@@ -492,6 +492,7 @@ static void _log_data(logger_t *logger,
                       uint64_t num_counts_data,
                       counts_data_t **counters,
                       int size,
+                      int rank_vec_len,
                       int type_size)
 {
     int i, j, num = 0;
