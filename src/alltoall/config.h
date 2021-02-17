@@ -7,7 +7,7 @@
 #ifndef _COLLECTIVE_PROFILER_ALLTOALL_CONFIG_H
 #define _COLLECTIVE_PROFILER_ALLTOALL_CONFIG_H
 
-#define DEBUG (0)
+#define DEBUG (1)
 
 // A few environment variables to control a few things at runtime
 #define NUM_CALL_START_PROFILING_ENVVAR "A2A_NUM_CALL_START_PROFILING"

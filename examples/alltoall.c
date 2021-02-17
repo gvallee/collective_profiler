@@ -72,7 +72,7 @@ bool is_rank_in_rankset(int rank, rank_set_t* rank_set){
 void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_count){
     DEBUG_ALLTOALL_PROFILING("params for create_communicators: worldsize = %i, ranks_sets_count = %i\n", world_size, rank_sets_count);
     for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("%i ", rank_sets[0].ranks[k]); 
-    DEBUG_ALLTOALL_PROFILING("\n)");
+    DEBUG_ALLTOALL_PROFILING("\n)", NULL);
 
     //MPI_Comm** communicators = (MPI_Comm**) malloc(sizeof(MPI_Comm*) * world_size);
     MPI_Group world_group;
@@ -84,10 +84,10 @@ void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_c
     DEBUG_ALLTOALL_PROFILING("World group size = %i\n", group_size);
 
     for (int rank_set_idx=0; rank_set_idx< rank_sets_count; rank_set_idx++){
-        DEBUG_ALLTOALL_PROFILING("IN LOOP\n");
+        DEBUG_ALLTOALL_PROFILING("IN LOOP\n", NULL);
         rank_set_t* rank_set = &rank_sets[rank_set_idx];
         for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("* %i ", rank_set->ranks[k]); 
-        DEBUG_ALLTOALL_PROFILING("\n");
+        DEBUG_ALLTOALL_PROFILING("\n", NULL);
         // signature: MPI_Group_incl( MPI_Group group , int n , const int ranks[] , MPI_Group* newgroup);
         DEBUG_ALLTOALL_PROFILING("calling MPI_Group_incl rank_set_idx=%i ...\n", rank_set_idx);
         // signature: int MPI_Group_incl(MPI_Group group, int n, const int ranks[], MPI_Group *newgroup)
@@ -148,7 +148,7 @@ void* create_sendbuf(alltoall_test_node_params_t* node_params){
                 DEBUG_ALLTOALL_PROFILING("i=%i ", i);
                 b[i] = i / node_params->sendcount;
             }
-            DEBUG_ALLTOALL_PROFILING("\n");
+            DEBUG_ALLTOALL_PROFILING("\n", NULL);
 #if DEBUG == 1            
             for (int j=0; j<64; j++) DEBUG_ALLTOALL_PROFILING("~~ %i ", b[j]);
 #endif           

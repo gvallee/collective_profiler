@@ -1267,7 +1267,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		if (my_comm_rank == 0)
 		{
 #if DEBUG
-			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
+			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, my_comm_rank, comm_size, localrank);
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
