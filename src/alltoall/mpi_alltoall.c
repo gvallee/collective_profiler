@@ -489,9 +489,6 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(sbuf);
 	assert(rbuf);
 	assert(logger);
-#if DEBUG
-	assert(logger->f);
-#endif
 
 	temp = head;
 	while (temp != NULL)
