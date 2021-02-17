@@ -28,7 +28,7 @@ THIS_SCRIPT_DIR=$(dirname "$THIS_SCRIPT")
 
 # environment and modules and some paths etc. for the job 
 # /global/home/users/cyrusl/placement/expt0060/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
-export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0066
+export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070
 # TODO - set modulefiles!!?
 module purge
 HNAME=$(hostname)
@@ -121,13 +121,13 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/examples/alltoallv_c
+export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoallv_c
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
-ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/src/alltoallv
+ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoallv
 COUNTSFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_counts_notcompact.so"
 MAPFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_location.so"
 BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
