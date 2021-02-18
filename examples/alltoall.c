@@ -148,7 +148,7 @@ void* create_sendbuf(alltoall_test_node_params_t* node_params){
                 DEBUG_ALLTOALL_PROFILING("i=%i ", i);
                 b[i] = i / node_params->sendcount;
             }
-            DEBUG_ALLTOALL_PROFILING("\n");
+            DEBUG_ALLTOALL_PROFILING("\n", NULL);
 #if DEBUG == 1            
             for (int j=0; j<64; j++) DEBUG_ALLTOALL_PROFILING("~~ %i ", b[j]);
 #endif           
