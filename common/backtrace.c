@@ -34,7 +34,6 @@ static inline void _write_backtrace_info(FILE *f)
     fprintf(f, "stack trace for %s pid=%s\n", name_buf, pid_buf);
 }
 
-
 static inline int _open_backtrace_file(char **backtrace_filename, FILE **backtrace_file, int world_rank, uint64_t id)
 {
     char *filename = NULL;
@@ -198,10 +197,12 @@ int init_backtrace_context(MPI_Comm comm, int comm_rank, uint64_t n_call, trace_
 
     trace_context_t *new_ctxt = malloc(sizeof(trace_context_t));
     assert(new_ctxt);
-    new_ctxt->calls = NULL; // allocate some space by default?
+    // At the moment, we hardcode the initial size of the calls array as size of 2.
+    new_ctxt->max_calls = 2;
+    new_ctxt->calls = malloc(new_ctxt->max_calls * sizeof(uint64_t));
+    assert(new_ctxt->calls);
     new_ctxt->calls_count = 0;
-    new_ctxt->comm_id = 0; // fixme
-    new_ctxt->max_calls = 0;
+    new_ctxt->comm_id = comm_id;
     new_ctxt->next = NULL;
     new_ctxt->prev = NULL;
     new_ctxt->rank = comm_rank;
@@ -272,6 +273,7 @@ static inline int _fini_trace_contexts(trace_context_t *ctx)
 
 int fini_backtrace_logger(backtrace_logger_t **logger)
 {
+    _close_backtrace_file((*logger));
     _fini_trace_contexts((*logger)->contexts);
     (*logger)->contexts = NULL;
     (*logger)->num_contexts = 0;
@@ -285,15 +287,17 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
 
     if ((*logger)->filename)
     {
-        free ((*logger)->filename);
+        free((*logger)->filename);
         (*logger)->filename = NULL;
     }
 
     int i;
+    /*
     for (i = 0; i < (*logger)->trace_size; i++)
     {
         free((*logger)->trace[i]);
     }
+    */
 
     if ((*logger)->trace)
     {
@@ -382,7 +386,6 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
 
         if (trace_ctxt)
         {
-            assert(trace_ctxt->calls);
             if (trace_ctxt->calls_count >= trace_ctxt->max_calls)
             {
                 trace_ctxt->max_calls = trace_ctxt->max_calls * 2;
@@ -391,6 +394,23 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
             }
             trace_ctxt->calls[trace_ctxt->calls_count] = n_call;
             trace_ctxt->calls_count++;
+        }
+        else
+        {
+            trace_context_t *new_trace_ctxt = NULL;
+            rc = init_backtrace_context(comm, comm_rank, n_call, &new_trace_ctxt);
+            if (rc)
+            {
+                fprintf(stderr, "init_backtrace_context() failed: %d\n", rc);
+                return 1;
+            }
+
+            assert(trace_logger->contexts);
+            trace_context_t *ptr = trace_logger->contexts;
+            while (ptr->next != NULL)
+                ptr = ptr->next;
+            ptr->next = new_trace_ctxt;
+            trace_logger->num_contexts++;
         }
     }
 }
