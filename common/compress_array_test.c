@@ -5,7 +5,8 @@
  ************************************************************************/
 
 #include <stdio.h>
-#include "logger.h"
+#include <stdlib.h>
+#include "format.h"
 
 #define MAX_ELTS (20)
 #define MAX_STRLEN (128)

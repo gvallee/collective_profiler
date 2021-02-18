@@ -18,6 +18,8 @@
 #include "grouping.h"
 #include "pattern.h"
 #include "execinfo.h"
+#include "timings.h"
+#include "backtrace.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -487,9 +489,6 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(sbuf);
 	assert(rbuf);
 	assert(logger);
-#if DEBUG
-	assert(logger->f);
-#endif
 
 	temp = head;
 	while (temp != NULL)
@@ -601,33 +600,6 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	}
 
 	return 0;
-}
-
-static void insert_op_exec_times_data(double *timings, int size)
-{
-	assert(timings);
-	struct avTimingsNode *newNode = (struct avTimingsNode *)calloc(1, sizeof(struct avTimingsNode));
-	assert(newNode);
-	newNode->timings = (double *)malloc(size * sizeof(double));
-	assert(newNode->timings);
-
-	newNode->size = size;
-	int i;
-	for (i = 0; i < size; i++)
-	{
-		newNode->timings[i] = timings[i];
-	}
-
-	if (op_timing_exec_head == NULL)
-	{
-		op_timing_exec_head = newNode;
-		op_timing_exec_tail = newNode;
-	}
-	else
-	{
-		op_timing_exec_tail->next = newNode;
-		op_timing_exec_tail = newNode;
-	}
 }
 
 static void display_per_host_data(int size)
@@ -1017,101 +989,6 @@ static int _commit_data()
 	return 0;
 }
 
-static caller_info_t *create_new_caller_info(char *caller, uint64_t n_call)
-{
-	caller_info_t *new_info = malloc(sizeof(caller_info_t));
-	assert(new_info);
-	new_info->calls = malloc(10 * sizeof(int));
-	assert(new_info->calls);
-	new_info->caller = strdup(caller);
-	new_info->n_calls = 1;
-	new_info->calls[0] = n_call;
-	new_info->next = NULL;
-	return new_info;
-}
-
-static int insert_caller_data(char **trace, size_t size, uint64_t n_call, int world_rank)
-{
-	char *filename = NULL;
-	char *target_dir = NULL;
-	int rc;
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(target_dir, rc, "%s/backtraces", getenv(OUTPUT_DIR_ENVVAR));
-		assert(rc > 0);
-	}
-	else
-	{
-		target_dir = strdup("backtraces");
-	}
-	_asprintf(filename, rc, "%s/backtrace_rank%d_call%"PRIu64".md", target_dir, world_rank, n_call);
-	assert(rc > 0);
-
-	// Make sure the target directory exists
-	struct stat dir_stat = {0};
-	if (stat(target_dir, &dir_stat) == -1)
-	{
-		if (mkdir(target_dir, 0755))
-		{
-			return -1;
-		}
-	}
-
-	FILE *f = fopen(filename, "w");
-	assert(f);
-	int i;
-	print_trace(f);
-	for (i = 0; i < size; i++)
-	{
-
-		fprintf(f, "%s\n", trace[i]);
-	}
-	fclose(f);
-	free(target_dir);
-	free(filename);
-}
-
-static void save_times(double *times, int comm_size, uint64_t n_call)
-{
-	char *filename = NULL;
-	int i;
-	int rc;
-
-#ifdef ENABLE_A2A_TIMINGS
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(filename, rc, "%s/a2a_execution_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	}
-	else
-	{
-		_asprintf(filename, rc, "a2a_execution_times.rank%d_call%"PRIu64".md", world_rank, n_call);
-	}
-#endif // ENABLE_A2A_TIMINGS
-
-#ifdef ENABLE_LATE_ARRIVAL_TIMING
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(filename, rc, "%s/late_arrival_times.rank%d_call%"PRIu64".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	}
-	else
-	{
-		_asprintf(filename, rc, "late_arrival_times.rank%d_call%"PRIu64".md", world_rank, n_call);
-	}
-#endif // ENABLE_LATE_ARRIVAL_TIMING
-	assert(rc > 0);
-
-	FILE *f = fopen(filename, "w");
-	assert(f);
-
-	for (i = 0; i < comm_size; i++)
-	{
-		fprintf(f, "%f\n", times[i]);
-	}
-
-	fclose(f);
-	free(filename);
-}
-
 static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, int r_datatype_size, int comm_size, int n_call)
 {
 	char *filename = NULL;
@@ -1210,9 +1087,11 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 	int ret;
 	bool need_profile = true;
 	int my_comm_rank;
+	char *collective_name = "alltoall";
 
 	MPI_Comm_size(comm, &comm_size);
 	MPI_Comm_rank(comm, &my_comm_rank);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 #if ENABLE_BACKTRACE
 	if (my_comm_rank == 0)
@@ -1224,7 +1103,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 
 		_s = backtrace(array, 16);
 		strings = backtrace_symbols(array, _s);
-		insert_caller_data(strings, _s, avCalls, world_rank);
+		insert_caller_data(strings, _s, comm, my_comm_rank, world_rank, avCalls);
 	}
 #endif // ENABLE_BACKTRACE
 
@@ -1353,21 +1232,25 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			commit_pattern_from_counts(avCalls, sbuf, rbuf, size);
 #endif
 
-#if (ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT)
-			insert_op_exec_times_data(op_exec_times, comm_size);
-#endif // ENABLE_A2A_TIMING && ENABLE_COMPACT_FORMAT
+#if ENABLE_EXEC_TIMING
+			int jobid = get_job_id();
+			int rc = commit_timings(comm, collective_name, world_rank, jobid, op_exec_times, comm_size, avCalls);
+			if (rc)
+			{
+				fprintf(stderr, "commit_timings() failed: %d\n", rc);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
+#endif // ENABLE_EXEC_TIMING
 
-#if (ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT)
-			save_times(op_exec_times, comm_size, avCalls);
-#endif // ENABLE_A2A_TIMING && !ENABLE_COMPACT_FORMAT
-
-#if (ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT)
-			insert_op_exec_times_data(late_arrival_timings, comm_size);
-#endif // ENABLE_LATE_ARRIVAL_TIMING && ENABLE_COMPACT_FORMAT
-
-#if (ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT)
-			save_times(late_arrival_timings, comm_size, avCalls);
-#endif // ENABLE_LATE_ARRIVAL_TIMING && !ENABLE_COMPACT_FORMAT
+#if ENABLE_LATE_ARRIVAL_TIMING
+			int jobid = get_job_id();
+			int rc = commit_timings(comm, collective_name, world_rank, jobid, late_arrival_timings, comm_size, avCalls);
+			if (rc)
+			{
+				fprintf(stderr, "commit_timings() failed: %d\n", rc);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 			avCallsLogged++;
 		} // end of: if (my_comm_rank == 0)
 	} // end of: if (need_profile)

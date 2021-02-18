@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
-#include <string.h>
 #include <inttypes.h>
 
 #include "collective_profiler_config.h"
@@ -65,6 +64,5 @@ extern void logger_fini(logger_t **l);
 extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
-extern char *compress_int_array(int *array, int xsize, int ysize);
 
 #endif // LOGGER_H

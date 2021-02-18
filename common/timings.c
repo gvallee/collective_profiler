@@ -11,25 +11,17 @@
 #include "comm.h"
 #include "collective_profiler_config.h"
 #include "common_utils.h"
+#include "format.h"
 
 comm_timing_logger_t *timing_loggers_head = NULL;
 comm_timing_logger_t *timing_loggers_tail = NULL;
 
 int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int jobid, comm_timing_logger_t **logger)
 {
-    int i;
     int rc;
+
     uint32_t comm_id;
-    rc = lookup_comm(comm, &comm_id);
-    if (rc)
-    {
-        rc = add_comm(comm, &comm_id);
-        if (rc)
-        {
-            fprintf(stderr, "unable to add communictor to tracking system\n");
-            return 1;
-        }
-    }
+    GET_COMM_LOGGER(comm_id);
 
     comm_timing_logger_t *new_logger = malloc(sizeof(comm_timing_logger_t));
     assert(new_logger);
@@ -77,7 +69,7 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     new_logger->fd = fopen(new_logger->filename, "w");
     assert(new_logger->fd);
     // Write the format version at the begining of the file
-    fprintf(new_logger->fd, "FORMAT_VERSION: %d\n\n", FORMAT_VERSION);
+    FORMAT_VERSION_WRITE(new_logger->fd);
     *logger = new_logger;
 
     return 0;
@@ -128,6 +120,17 @@ int fini_time_tracking(comm_timing_logger_t **logger)
     free((*logger));
     *logger = NULL;
 
+    return 0;
+}
+
+int release_time_loggers()
+{
+    while (timing_loggers_head)
+    {
+        comm_timing_logger_t *ptr = timing_loggers_head->next;
+        free(timing_loggers_head);
+        timing_loggers_head = ptr;
+    }
     return 0;
 }
 
