@@ -1141,7 +1141,7 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 // #if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 	for (i = 0; i < comm_size; i++)
 	{
-		fprintf(f, "%d\n", sendcounts[idx]);
+		fprintf(f, "%d ", sendcounts[idx]);
 		idx++;
 		fprintf(f, "\n");
 	}
@@ -1154,7 +1154,7 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 	idx = 0;
 	for (i = 0; i < comm_size; i++)
 	{
-			fprintf(f, "%d\n", recvcounts[idx]);
+			fprintf(f, "%d ", recvcounts[idx]);
 			idx++;
 			fprintf(f, "\n");
 	}
@@ -1279,9 +1279,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 		// MPI_Comm comm)
 		MPI_Gather(&sendcount, 1, MPI_INT, sbuf, 1, MPI_INT, 0, comm);
 		MPI_Gather(&recvcount, 1, MPI_INT, rbuf, 1, MPI_INT, 0, comm);
-#if DEBUG
-		if (my_comm_rank == 0)
-		{
+//#if DEBUG == 1
 			printf("DEBUG: sendcounts just after gather\n");
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", sbuf[_rank]);
 			printf("\n");
@@ -1289,8 +1287,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", rbuf[_rank]);
 			printf("\n");
 			fflush(stdout);
-		}
-#endif
+//#endif
 #else 
 		for (int _rank=0; _rank<comm_size; _rank++){
 			// sbuf[0] = sendcount;  // so this assumes all ranks have used the same count, and records that value just once.
@@ -1298,9 +1295,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			sbuf[_rank] = sendcount;
 			rbuf[_rank] = recvcount;
 		}
-#if DEBUG
-		if (my_comm_rank == 0)
-		{
+//#if DEBUG == 1
 			printf("DEBUG: sendcounts just after assumption\n");
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", sbuf[_rank]);
 			printf("\n");
@@ -1308,8 +1303,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", rbuf[_rank]);
 			printf("\n");
 			fflush(stdout);
-		}
-#endif
+//#endif
 #endif
 
 
@@ -1343,9 +1337,9 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 
 		if (my_comm_rank == 0)
 		{
-#if DEBUG
-			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
-#endif
+// #if DEBUG
+// 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, my_comm_rank, comm_size, localrank);  // this segfaulted after edit to use likely var names after previous ones found to be non existent
+// #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 			int s_dt_size, r_dt_size;
