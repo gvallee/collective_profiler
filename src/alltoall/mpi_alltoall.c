@@ -1204,7 +1204,6 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 {
 	int comm_size;
 	int i, j;
-	int localrank;
 	int ret;
 	bool need_profile = true;
 	int my_comm_rank;
@@ -1326,7 +1325,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 		if (my_comm_rank == 0)
 		{
 #if DEBUG
-			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
+			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, world_rank, comm_size, my_comm_rank);
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)

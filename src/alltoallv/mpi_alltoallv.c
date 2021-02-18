@@ -1167,14 +1167,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 {
 	int comm_size;
 	int i, j;
-	int localrank;
+	// int localrank;  // not assigned in this function - fixing
 	int ret;
 	bool need_profile = true;
 	int my_comm_rank;
 
 	MPI_Comm_size(comm, &comm_size);
-	MPI_Comm_rank(comm, &my_comm_rank);
-
+	MPI_Comm_rank(comm, &my_comm_rank);  // "Determines the rank of the calling process in the communicator." (var names confusing? localrank could fit this)
 #if ENABLE_BACKTRACE
 	if (my_comm_rank == 0)
 	{
@@ -1265,7 +1264,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		if (my_comm_rank == 0)
 		{
 #if DEBUG
-			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
+			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, world_rank, comm_size, my_comm_rank);
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
