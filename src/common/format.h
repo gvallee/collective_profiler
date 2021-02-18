@@ -14,7 +14,7 @@
 
 #define FORMAT_VERSION_WRITE(_fd) (fprintf(_fd, "FORMAT_VERSION: %d\n\n", FORMAT_VERSION))
 
-char *compress_int_array(int *array, int size);
-char *compress_uint64_array(uint64_t *array, size_t size);
+char *compress_int_array(int *array, int xsize,  int ysize);
+char *compress_uint64_array(uint64_t *array, size_t xsize,  size_t ysize);
 
 #endif // MPI_COLLECTIVE_PROFILER_FORMAT_H

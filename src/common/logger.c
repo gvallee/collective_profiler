@@ -80,39 +80,6 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
     return NULL;
 }
 
-// compress_int_array compresses a matrix or a vector of int.
-// The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
-char *compress_int_array(int *array, int xsize,  int ysize)
-{
-    int rc;
-    size_t idx;
-    char *compressedRep = NULL;
-    for (idx = 0; idx < xsize * ysize; idx += xsize) 
-    {
-        char *compressed_line = _compress_int_vec(array, idx, xsize);
-        if (compressedRep == NULL) {
-            compressedRep = strdup(compressed_line);
-        }
-        else
-        {
-            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
-            size_t n;
-            size_t copy_idx = strlen(compressedRep);
-            compressedRep[copy_idx] = '\n';
-            copy_idx++;
-            for (n = 0; n < strlen(compressed_line); n++)
-            {
-                compressedRep[copy_idx] = compressed_line[n];
-                copy_idx++;
-            }
-            compressedRep[copy_idx] = '\0';
-        }
-        free(compressed_line);
-    }
-    return compressedRep;
-}
-
-
 static void _log_data(logger_t *logger,
                       uint64_t startcall,
                       uint64_t endcall,

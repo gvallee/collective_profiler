@@ -277,7 +277,8 @@ static char *add_singleton(char *str, int n)
     return str;
 }
 
-char *compress_uint64_array(uint64_t *array, size_t size)
+
+static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size)
 {
     size_t i, start;
     char *compressedRep = NULL;
@@ -286,15 +287,15 @@ char *compress_uint64_array(uint64_t *array, size_t size)
     fprintf(stderr, "Compressing:");
     for (i = 0; i < size; i++)
     {
-        fprintf(stderr, " %" PRIu64, array[i]);
+        fprintf(stderr, " %d", array[i]);
     }
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = 0; i < size; i++)
+    for (i = start_idx; i < start_idx + size; i++)
     {
         start = i;
-        while (i + 1 < size && array[i] + 1 == array[i + 1])
+        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -315,7 +316,39 @@ char *compress_uint64_array(uint64_t *array, size_t size)
     return compressedRep;
 }
 
-char *compress_int_array(int *array, int size)
+// compress_uint64_array compresses a matrix or a vector of uint64_t
+// The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
+char *compress_uint64_array(uint64_t *array, size_t xsize,  size_t ysize)
+{
+    int rc;
+    size_t idx;
+    char *compressedRep = NULL;
+    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    {
+        char *compressed_line = _compress_uint64_vec(array, idx, xsize);
+        if (compressedRep == NULL) {
+            compressedRep = strdup(compressed_line);
+        }
+        else
+        {
+            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            size_t n;
+            size_t copy_idx = strlen(compressedRep);
+            compressedRep[copy_idx] = '\n';
+            copy_idx++;
+            for (n = 0; n < strlen(compressed_line); n++)
+            {
+                compressedRep[copy_idx] = compressed_line[n];
+                copy_idx++;
+            }
+            compressedRep[copy_idx] = '\0';
+        }
+        free(compressed_line);
+    }
+    return compressedRep;
+}
+
+static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
 {
     int i, start;
     char *compressedRep = NULL;
@@ -329,10 +362,10 @@ char *compress_int_array(int *array, int size)
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = 0; i < size; i++)
+    for (i = start_idx; i < start_idx + size; i++)
     {
         start = i;
-        while (i + 1 < size && array[i] + 1 == array[i + 1])
+        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -350,5 +383,37 @@ char *compress_int_array(int *array, int size)
 #if DEBUG
     fprintf(stderr, "Compressed version is: %s\n", compressedRep);
 #endif // DEBUG
+    return compressedRep;
+}
+
+// compress_int_array compresses a matrix or a vector of int.
+// The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
+char *compress_int_array(int *array, int xsize,  int ysize)
+{
+    int rc;
+    size_t idx;
+    char *compressedRep = NULL;
+    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    {
+        char *compressed_line = _compress_int_vec(array, idx, xsize);
+        if (compressedRep == NULL) {
+            compressedRep = strdup(compressed_line);
+        }
+        else
+        {
+            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            size_t n;
+            size_t copy_idx = strlen(compressedRep);
+            compressedRep[copy_idx] = '\n';
+            copy_idx++;
+            for (n = 0; n < strlen(compressed_line); n++)
+            {
+                compressedRep[copy_idx] = compressed_line[n];
+                copy_idx++;
+            }
+            compressedRep[copy_idx] = '\0';
+        }
+        free(compressed_line);
+    }
     return compressedRep;
 }
