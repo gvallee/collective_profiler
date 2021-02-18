@@ -105,7 +105,7 @@ int write_backtrace_to_file(backtrace_logger_t *logger)
 
     for (i = 0; i < logger->num_contexts; i++)
     {
-        char *str = compress_uint64_array(logger->contexts[i].calls, logger->contexts[i].calls_count);
+        char *str = compress_uint64_array(logger->contexts[i].calls, logger->contexts[i].calls_count, 1);
         fprintf(logger->fd, "Communicator: %d\n", logger->contexts[i].comm_id);
         fprintf(logger->fd, "Calls: %s\n", str);
         fprintf(logger->fd, "Rank: %d\n", logger->contexts[i].rank);
