@@ -22,6 +22,7 @@
 
 backtrace_logger_t *trace_loggers_head = NULL;
 backtrace_logger_t *trace_loggers_tail = NULL;
+uint64_t trace_id = 0;
 
 static inline void _write_backtrace_info(FILE *f)
 {
@@ -37,29 +38,17 @@ static inline void _write_backtrace_info(FILE *f)
 static inline int _open_backtrace_file(char **backtrace_filename, FILE **backtrace_file, int world_rank, uint64_t id)
 {
     char *filename = NULL;
-    char *target_dir = NULL;
     int rc;
+    // filename schema: bracktrace_rank<WORLDRANK>_trace<ID>.md
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(target_dir, rc, "%s/backtraces", getenv(OUTPUT_DIR_ENVVAR));
+        _asprintf(filename, rc, "%s/backtrace_rank%d_trace%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, id);
         assert(rc > 0);
     }
     else
     {
-        target_dir = strdup("backtraces");
-    }
-    // filename schema: bracktrace_rank<WORLDRANK>_trace<ID>.md
-    _asprintf(filename, rc, "%s/backtrace_rank%d_trace%" PRIu64 ".md", target_dir, world_rank, id);
-    assert(rc > 0);
-
-    // Make sure the target directory exists
-    struct stat dir_stat = {0};
-    if (stat(target_dir, &dir_stat) == -1)
-    {
-        if (mkdir(target_dir, 0755))
-        {
-            return -1;
-        }
+        _asprintf(filename, rc, "backtrace_rank%d_trace%" PRIu64 ".md", world_rank, id);
+        assert(rc > 0);
     }
 
     FILE *f = fopen(filename, "w");
@@ -67,34 +56,22 @@ static inline int _open_backtrace_file(char **backtrace_filename, FILE **backtra
 
     *backtrace_file = f;
     *backtrace_filename = filename;
-    free(target_dir);
     return 0;
 
 exit_on_error:
     *backtrace_file = NULL;
     *backtrace_filename = NULL;
-    if (target_dir)
-    {
-        free(target_dir);
-    }
     return -1;
 }
 
 int write_backtrace_to_file(backtrace_logger_t *logger)
 {
-    char *filename = NULL;
-    char *target_dir = NULL;
-    int rc;
-    rc = _open_backtrace_file(&(logger->filename), &(logger->fd), logger->world_rank, logger->id);
-    if (rc)
-    {
-        fprintf(stderr, "open_backtrace_file() failed: %d\n", rc);
-        return -1;
-    }
-
+    assert(logger);
+    assert(logger->fd);
     _write_backtrace_info(logger->fd);
 
-    int i;
+    uint64_t i;
+    fprintf(logger->fd, "\n# Trace\n\n");
     for (i = 0; i < logger->trace_size; i++)
     {
 
@@ -104,24 +81,15 @@ int write_backtrace_to_file(backtrace_logger_t *logger)
 
     for (i = 0; i < logger->num_contexts; i++)
     {
+        fprintf(logger->fd, "# Context %" PRIu64 "\n\n", i);
         char *str = compress_uint64_array(logger->contexts[i].calls, logger->contexts[i].calls_count, 1);
         fprintf(logger->fd, "Communicator: %d\n", logger->contexts[i].comm_id);
+        fprintf(logger->fd, "Communicator rank: %d\n", logger->contexts[i].comm_rank);
+        fprintf(logger->fd, "COMM_WORLD rank: %d\n", logger->contexts[i].world_rank);
         fprintf(logger->fd, "Calls: %s\n", str);
-        fprintf(logger->fd, "Rank: %d\n", logger->contexts[i].rank);
         fprintf(logger->fd, "\n");
     }
 
-    fclose(logger->fd);
-    if (logger->filename)
-    {
-        free(logger->filename);
-        logger->filename = NULL;
-    }
-    if (logger->fd)
-    {
-        free(logger->fd);
-        logger->fd = NULL;
-    }
     return 0;
 }
 
@@ -131,7 +99,7 @@ int lookup_trace_context(backtrace_logger_t *trace_logger, int commID, int comm_
 
     while (ptr != NULL)
     {
-        if (ptr->comm_id == commID && ptr->rank == comm_rank)
+        if (ptr->comm_id == commID && ptr->comm_rank == comm_rank)
         {
             *trace_ctxt = ptr;
             return 0;
@@ -190,7 +158,7 @@ static inline int _close_backtrace_file(backtrace_logger_t *logger)
     return 0;
 }
 
-int init_backtrace_context(MPI_Comm comm, int comm_rank, uint64_t n_call, trace_context_t **trace_ctxt)
+int init_backtrace_context(MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, trace_context_t **trace_ctxt)
 {
     uint32_t comm_id;
     GET_COMM_LOGGER(comm_id);
@@ -201,11 +169,13 @@ int init_backtrace_context(MPI_Comm comm, int comm_rank, uint64_t n_call, trace_
     new_ctxt->max_calls = 2;
     new_ctxt->calls = malloc(new_ctxt->max_calls * sizeof(uint64_t));
     assert(new_ctxt->calls);
-    new_ctxt->calls_count = 0;
+    new_ctxt->calls[0] = n_call;
+    new_ctxt->calls_count = 1;
     new_ctxt->comm_id = comm_id;
     new_ctxt->next = NULL;
     new_ctxt->prev = NULL;
-    new_ctxt->rank = comm_rank;
+    new_ctxt->comm_rank = comm_rank;
+    new_ctxt->world_rank = world_rank;
 
     *trace_ctxt = new_ctxt;
     return 0;
@@ -215,6 +185,8 @@ int init_backtrace_logger(char **trace, size_t trace_size, int world_rank, trace
 {
     backtrace_logger_t *new_logger = malloc(sizeof(backtrace_logger_t));
     assert(new_logger);
+    new_logger->id = trace_id;
+    trace_id++;
     new_logger->world_rank = world_rank;
     new_logger->contexts = trace_ctxt;
     new_logger->fd = NULL;
@@ -273,6 +245,7 @@ static inline int _fini_trace_contexts(trace_context_t *ctx)
 
 int fini_backtrace_logger(backtrace_logger_t **logger)
 {
+    write_backtrace_to_file((*logger));
     _close_backtrace_file((*logger));
     _fini_trace_contexts((*logger)->contexts);
     (*logger)->contexts = NULL;
@@ -358,7 +331,7 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
     if (trace_logger == NULL)
     {
         trace_context_t *trace_ctxt = NULL;
-        rc = init_backtrace_context(comm, comm_rank, n_call, &trace_ctxt);
+        rc = init_backtrace_context(comm, comm_rank, world_rank, n_call, &trace_ctxt);
         if (rc)
         {
             fprintf(stderr, "init_backtrace_context() failed: %d\n", rc);
@@ -398,7 +371,7 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
         else
         {
             trace_context_t *new_trace_ctxt = NULL;
-            rc = init_backtrace_context(comm, comm_rank, n_call, &new_trace_ctxt);
+            rc = init_backtrace_context(comm, comm_rank, world_rank, n_call, &new_trace_ctxt);
             if (rc)
             {
                 fprintf(stderr, "init_backtrace_context() failed: %d\n", rc);

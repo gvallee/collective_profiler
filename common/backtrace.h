@@ -16,7 +16,8 @@
 typedef struct trace_context 
 {
     uint32_t comm_id; // Communicator ID for the associated trace
-    int rank; // Rank on the communicator
+    int comm_rank; // Rank on the communicator
+    int world_rank;
     uint64_t *calls; // All the calls associated to this backtrace
     size_t calls_count;
     size_t max_calls;
@@ -30,8 +31,8 @@ typedef struct trace_context
 typedef struct backtrace_logger
 {
     trace_context_t *contexts;
-    int world_rank;
     uint64_t id;
+    int world_rank;
     size_t num_contexts;
     size_t max_contexts;
     char **trace;
