@@ -4,7 +4,7 @@
 # See LICENSE.txt for license information
 #
 
-all: alltoallv alltoall common
+all: common alltoallv alltoall
 
 .PHONY: alltoall alltoallv common
 
