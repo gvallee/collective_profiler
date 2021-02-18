@@ -1279,7 +1279,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 		// MPI_Comm comm)
 		MPI_Gather(&sendcount, 1, MPI_INT, sbuf, 1, MPI_INT, 0, comm);
 		MPI_Gather(&recvcount, 1, MPI_INT, rbuf, 1, MPI_INT, 0, comm);
-//#if DEBUG == 1
+#if DEBUG == 1
 			printf("DEBUG: sendcounts just after gather\n");
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", sbuf[_rank]);
 			printf("\n");
@@ -1287,7 +1287,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", rbuf[_rank]);
 			printf("\n");
 			fflush(stdout);
-//#endif
+#endif
 #else 
 		for (int _rank=0; _rank<comm_size; _rank++){
 			// sbuf[0] = sendcount;  // so this assumes all ranks have used the same count, and records that value just once.
@@ -1295,7 +1295,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			sbuf[_rank] = sendcount;
 			rbuf[_rank] = recvcount;
 		}
-//#if DEBUG == 1
+#if DEBUG == 1
 			printf("DEBUG: sendcounts just after assumption\n");
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", sbuf[_rank]);
 			printf("\n");
@@ -1303,7 +1303,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			for (int _rank=0; _rank<comm_size; _rank++) printf("%i ", rbuf[_rank]);
 			printf("\n");
 			fflush(stdout);
-//#endif
+#endif
 #endif
 
 
