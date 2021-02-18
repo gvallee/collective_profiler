@@ -59,6 +59,7 @@ type Test struct {
 	expectedLocationFiles          []string
 	expectedExecTimeFiles          []string
 	expectedLateArrivalFiles       []string
+	expectedBacktraceFiles         []string
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -70,6 +71,9 @@ func validateCountProfiles(dir string, jobid int, id int) error {
 	return nil
 }
 
+// checkOutputFiles compares the file generated for the profiler with the save we expect to get.
+// Files that we expect are stored in the repository in the 'tests' directory. We therefore
+// assume that some of the output, the one check by this function, is always predictable.
 func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []string) error {
 	for _, expectedOutputFile := range expectedFiles {
 		referenceFile := filepath.Join(expectedOutputDir, expectedOutputFile)
@@ -112,19 +116,19 @@ func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls
 func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, "expectedOutput")
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedSendCompactCountsFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedSendCompactCountsFiles)
 	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedRecvCompactCountsFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedRecvCompactCountsFiles)
 	err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedRecvCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedExecTimeFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedExecTimeFiles)
 	index := 0
 	for _, file := range tt.expectedExecTimeFiles {
 		execTimingFile := filepath.Join(tempDir, file)
@@ -139,7 +143,7 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 		index++
 	}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedLateArrivalFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedLateArrivalFiles)
 	index = 0
 	for _, file := range tt.expectedLateArrivalFiles {
 		lateArrivalFile := filepath.Join(tempDir, file)
@@ -151,6 +155,18 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 		if err != nil {
 			return err
 		}
+		index++
+	}
+
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedBacktraceFiles)
+	index = 0
+	for _, file := range tt.expectedBacktraceFiles {
+		backtraceFile := filepath.Join(tempDir, file)
+		if !util.FileExists(backtraceFile) {
+			return fmt.Errorf("%s is missing", backtraceFile)
+		}
+		// The content of the backtraces is execution dependent so we cannot check the content against a template.
+		// todo: check the format of the file.
 		index++
 	}
 
@@ -233,6 +249,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             3,
@@ -247,6 +264,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             4,
@@ -261,6 +279,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
+			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md", "backtrace_rank0_trace1.md", "backtrace_rank0_trace2.md", "backtrace_rank2_trace0.md", "backtrace_rank2_trace1.md"},
 		},
 		{
 			np:                             4,
@@ -275,6 +294,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md", "backtrace_rank0_trace1.md"},
 		},
 	}
 
@@ -293,6 +313,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedLocationFiles:    []string{},
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+				expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
