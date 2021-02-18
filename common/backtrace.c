@@ -35,19 +35,19 @@ static inline void _write_backtrace_info(FILE *f)
     fprintf(f, "stack trace for %s pid=%s\n", name_buf, pid_buf);
 }
 
-static inline int _open_backtrace_file(char **backtrace_filename, FILE **backtrace_file, int world_rank, uint64_t id)
+static inline int _open_backtrace_file(char *collective_name, char **backtrace_filename, FILE **backtrace_file, int world_rank, uint64_t id)
 {
     char *filename = NULL;
     int rc;
     // filename schema: bracktrace_rank<WORLDRANK>_trace<ID>.md
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(filename, rc, "%s/backtrace_rank%d_trace%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, id);
+        _asprintf(filename, rc, "%s/%s_backtrace_rank%d_trace%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, world_rank, id);
         assert(rc > 0);
     }
     else
     {
-        _asprintf(filename, rc, "backtrace_rank%d_trace%" PRIu64 ".md", world_rank, id);
+        _asprintf(filename, rc, "%s_backtrace_rank%d_trace%" PRIu64 ".md", collective_name, world_rank, id);
         assert(rc > 0);
     }
 
@@ -111,14 +111,14 @@ int lookup_trace_context(backtrace_logger_t *trace_logger, int commID, int comm_
     return 0;
 }
 
-int lookup_backtrace(char **trace, size_t trace_size, backtrace_logger_t **logger)
+int lookup_backtrace(char *collective_name, char **trace, size_t trace_size, backtrace_logger_t **logger)
 {
     assert(trace);
     backtrace_logger_t *ptr = trace_loggers_head;
     int i;
     while (ptr != NULL)
     {
-        if (ptr->trace_size == trace_size)
+        if (ptr->trace_size == trace_size && strcmp(ptr->collective_name, collective_name) == 0)
         {
             bool found = true;
             for (i = 0; i < trace_size; i++)
@@ -181,10 +181,13 @@ int init_backtrace_context(MPI_Comm comm, int comm_rank, int world_rank, uint64_
     return 0;
 }
 
-int init_backtrace_logger(char **trace, size_t trace_size, int world_rank, trace_context_t *trace_ctxt, backtrace_logger_t **trace_logger)
+static inline int init_backtrace_logger(char *collective_name, char **trace, size_t trace_size, int world_rank, trace_context_t *trace_ctxt, backtrace_logger_t **trace_logger)
 {
+    assert(collective_name);
+    assert(trace);
     backtrace_logger_t *new_logger = malloc(sizeof(backtrace_logger_t));
     assert(new_logger);
+    new_logger->collective_name = strdup(collective_name);
     new_logger->id = trace_id;
     trace_id++;
     new_logger->world_rank = world_rank;
@@ -198,7 +201,7 @@ int init_backtrace_logger(char **trace, size_t trace_size, int world_rank, trace
     new_logger->prev = NULL;
     new_logger->next = NULL;
 
-    int rc = _open_backtrace_file(&new_logger->filename, &new_logger->fd, new_logger->world_rank, new_logger->id);
+    int rc = _open_backtrace_file(new_logger->collective_name, &new_logger->filename, &new_logger->fd, new_logger->world_rank, new_logger->id);
     if (rc)
     {
         fprintf(stderr, "_open_backtrace_file() failed: %d\n", rc);
@@ -252,6 +255,12 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
     (*logger)->num_contexts = 0;
     (*logger)->contexts = NULL;
 
+    if ((*logger)->collective_name)
+    {
+        free((*logger)->collective_name);
+        (*logger)->collective_name = NULL;
+    }
+
     if ((*logger)->fd)
     {
         fclose((*logger)->fd);
@@ -265,7 +274,7 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
     }
 
     int i;
-    /*
+    /* fixme: no idea why that creates a problem
     for (i = 0; i < (*logger)->trace_size; i++)
     {
         free((*logger)->trace[i]);
@@ -303,7 +312,7 @@ int release_backtrace_loggers()
     return 0;
 }
 
-int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call)
+int insert_caller_data(char *collective_name, char **trace, size_t trace_size, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call)
 {
     int i;
     int rc;
@@ -321,7 +330,7 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
         }
     }
 
-    rc = lookup_backtrace(trace, trace_size, &trace_logger);
+    rc = lookup_backtrace(collective_name, trace, trace_size, &trace_logger);
     if (rc)
     {
         fprintf(stderr, "lookup_backtrace() failed: %d\n", rc);
@@ -339,7 +348,7 @@ int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_
         }
 
         // we do not have that trace yet, add it
-        rc = init_backtrace_logger(trace, trace_size, world_rank, trace_ctxt, &trace_logger);
+        rc = init_backtrace_logger(collective_name, trace, trace_size, world_rank, trace_ctxt, &trace_logger);
         if (rc)
         {
             fprintf(stderr, "init_backtrace_logger() failed: %d\n", rc);

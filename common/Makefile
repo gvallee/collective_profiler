@@ -28,7 +28,7 @@ format.o: format.c format.h
 	$(CC) -I../ -fPIC -c format.c
 
 backtrace.o: backtrace.c backtrace.h format.h
-	mpicc -I../ -fPIC -c backtrace.c
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
 
 comm.o: comm.c comm.h
 	mpicc -I../ -fPIC -c comm.c

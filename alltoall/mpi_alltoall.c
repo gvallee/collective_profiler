@@ -1103,7 +1103,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 
 		_s = backtrace(array, 16);
 		strings = backtrace_symbols(array, _s);
-		insert_caller_data(strings, _s, comm, my_comm_rank, world_rank, avCalls);
+		insert_caller_data(collective_name, strings, _s, comm, my_comm_rank, world_rank, avCalls);
 	}
 #endif // ENABLE_BACKTRACE
 
