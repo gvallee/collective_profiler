@@ -467,9 +467,11 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
 		{
 			// New data
-#if DEBUG
-			fprintf(logger->f, "new data: %d\n", size);
-#endif
+
+// Temporary solution?? - logger->f is not yet initialised (which is done in _commit_data)
+// #if DEBUG
+// 			fprintf(logger->f, "new data: %d\n", size);
+// #endif
 			if (temp->next != NULL)
 				temp = temp->next;
 			else
@@ -488,17 +490,18 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 			}
 			temp->list_calls[temp->count] = avCalls; // Note: count starts at 1, not 0
 			temp->count++;
-#if DEBUG
-			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
-#endif
+// Temporary solution?? - logger->f is not yet initialised (which is done in _commit_data)
+// #if DEBUG
+// 			fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
+// #endif
 			DEBUG_ALLTOALLV_PROFILING("Metadata successfully updated\n", NULL);
 			return 0;
 		}
 	}
-
-#if DEBUG
-	fprintf(logger->f, "no data: %d \n", size);
-#endif
+// Temporary solution?? - logger->f is not yet initialised (which is done in _commit_data)
+// #if DEBUG
+// 	fprintf(logger->f, "no data: %d \n", size);
+// #endif
 	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));
 	assert(newNode);
 
@@ -547,9 +550,10 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	newNode->recvtype_size = recvtype_size;
 	newNode->list_calls[0] = avCalls;
 	newNode->next = NULL;
-#if DEBUG
-	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
-#endif
+// Temporary solution?? - logger->f is not yet initialised (which is done in _commit_data)
+// #if DEBUG
+// 	fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
+// #endif
 
 	DEBUG_ALLTOALLV_PROFILING("Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
@@ -1263,9 +1267,10 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		if (my_comm_rank == 0)
 		{
-#if DEBUG
-			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, world_rank, comm_size, my_comm_rank);
-#endif
+// Temporary solution?? - logger->f is not yet initialised (which is done in _commit_data)
+// #if DEBUG
+// 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, world_rank, comm_size, my_comm_rank);
+// #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 			int s_dt_size, r_dt_size;
