@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
@@ -165,8 +166,12 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 		if !util.FileExists(backtraceFile) {
 			return fmt.Errorf("%s is missing", backtraceFile)
 		}
-		// The content of the backtraces is execution dependent so we cannot check the content against a template.
-		// todo: check the format of the file.
+		// The content of the backtraces is execution dependent so we cannot check the content against a template,
+		// but we check the format by forcing the parsing of the files.
+		_, err := backtraces.ReadBacktraceFile(codeBaseDir, backtraceFile, nil)
+		if err != nil {
+			return fmt.Errorf("%s's format is invalid: %s", backtraceFile, err)
+		}
 		index++
 	}
 
@@ -249,7 +254,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
-			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             3,
@@ -264,7 +269,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
-			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             4,
@@ -279,7 +284,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
-			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md", "backtrace_rank0_trace1.md", "backtrace_rank0_trace2.md", "backtrace_rank2_trace0.md", "backtrace_rank2_trace1.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
 		},
 		{
 			np:                             4,
@@ -294,7 +299,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
-			expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md", "backtrace_rank0_trace1.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
 		},
 	}
 
@@ -313,7 +318,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedLocationFiles:    []string{},
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
-				expectedBacktraceFiles:   []string{"backtrace_rank0_trace0.md"},
+				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)

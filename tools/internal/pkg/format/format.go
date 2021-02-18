@@ -81,6 +81,8 @@ func GetDataFormatVersion(codeBaseDir string) (int, error) {
 	return version, nil
 }
 
+// CheckDataFormat compares a data format version with the one of the repository used for post-mortem analysis.
+// If the two versions do not match, an error is returned
 func CheckDataFormat(version int, codeBaseDir string) error {
 	myVersion, err := GetDataFormatVersion(codeBaseDir)
 	if err != nil {
@@ -92,4 +94,25 @@ func CheckDataFormat(version int, codeBaseDir string) error {
 	}
 
 	return nil
+}
+
+// CheckDataFormatLineFromProfileFile parses the line from a profile file that specifies the version of the data format
+// and check if the version is compatible with the data format used for post-mortem analysis
+func CheckDataFormatLineFromProfileFile(line string, codeBaseDir string) (bool, error) {
+	line = strings.TrimRight(line, "\n")
+
+	if !strings.HasPrefix(line, DataFormatHeader) {
+		return false, fmt.Errorf("Invalid data format, format version missing")
+	}
+
+	dataFormatVersion, err := strconv.Atoi(strings.TrimLeft(line, DataFormatHeader))
+	if err != nil {
+		return false, err
+	}
+	err = CheckDataFormat(dataFormatVersion, codeBaseDir)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

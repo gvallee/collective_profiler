@@ -30,6 +30,7 @@ typedef struct trace_context
 // trace, multiple contexts can be tracked. A context is the tuple communictor id/rank/call.
 typedef struct backtrace_logger
 {
+    char *collective_name;
     trace_context_t *contexts;
     uint64_t id;
     int world_rank;
@@ -43,8 +44,7 @@ typedef struct backtrace_logger
     struct backtrace_logger *prev;
 } backtrace_logger_t;
 
-int insert_caller_data(char **trace, size_t trace_size, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call);
-int init_backtrace_logger(char **trace, size_t trace_size, int world_rank, trace_context_t *trace_ctxt, backtrace_logger_t **trace_logger);
+int insert_caller_data(char *collective_name, char **trace, size_t trace_size, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call);
 int release_backtrace_loggers();
 
 #endif // MPI_COLLECTIVE_PROFILER_BACKTRACE_H

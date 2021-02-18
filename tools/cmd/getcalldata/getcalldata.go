@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -158,9 +159,12 @@ func main() {
 		fmt.Printf("\n")
 	}
 
+	_, filename, _, _ := runtime.Caller(0)
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+
 	var callsInfo []profiler.CallInfo
 	for _, callNum := range listCalls {
-		callInfo, err := profiler.GetCallData(*collectiveName, *dir, *commid, *jobid, *rank, callNum, *msgSizeThreshold)
+		callInfo, err := profiler.GetCallData(codeBaseDir, *collectiveName, *dir, *commid, *jobid, *rank, callNum, *msgSizeThreshold)
 		if err != nil {
 			log.Fatalf("unable to get data of call #%d: %s", callNum, err)
 		}

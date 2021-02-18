@@ -300,7 +300,7 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 }
 
 // GetCallData extract all the data related to a specific call.
-func GetCallData(collectiveName string, dir string, commid int, jobid int, rank int, callNum int, msgSizeThreshold int) (CallInfo, error) {
+func GetCallData(codeBaseDir string, collectiveName string, dir string, commid int, jobid int, rank int, callNum int, msgSizeThreshold int) (CallInfo, error) {
 	var info CallInfo
 	info.ID = callNum
 
@@ -388,7 +388,7 @@ func GetCallData(collectiveName string, dir string, commid int, jobid int, rank 
 
 	// Load the backtrace
 	log.Printf("Extracting backtrace for call #%d\n", callNum)
-	info.Backtrace, err = backtraces.GetCall(dir, callNum)
+	info.Backtrace, err = backtraces.GetCall(codeBaseDir, dir, collectiveName, callNum)
 	if err != nil {
 		return info, err
 	}
