@@ -1324,7 +1324,8 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 
 		if (my_comm_rank == 0)
 		{
-#if DEBUG
+#if (DEBUG && ENABLE_RAW_DATA)
+            assert(logger->f);
 			fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, world_rank, comm_size, my_comm_rank);
 #endif
 
