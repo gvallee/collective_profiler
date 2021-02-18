@@ -36,7 +36,7 @@ tools:
 	@echo "Go not installed; skipping tools' compilation"
 else
 tools:
-	cd tools && make;
+#	cd tools && make;   - commented out for quicker compiling, while working on sampler
 endif
 
 check: libraries
