@@ -34,7 +34,7 @@ comm.o: comm.c comm.h
 	mpicc -I../ -fPIC -c comm.c
 
 timings.o: timings.c timings.h comm.o 
-	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o exec_timings.o 
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o timings.o 
 
 exec_timings.o: timings.c timings.h comm.o
 	mpicc -I../ -fPIC -DENABLE_EXEC_TIMING=1 -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o exec_timings.o
