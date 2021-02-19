@@ -24,9 +24,9 @@ typedef struct location_logger
     size_t calls_max;
     uint64_t *calls;
     uint64_t commid;
+    int comm_size;
     char *locations;
     int *pids;
-    size_t pids_count;
     struct location_logger *next;
     struct location_logger *prev;
 } location_logger_t;

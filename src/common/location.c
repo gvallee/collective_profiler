@@ -43,9 +43,9 @@ int init_location_logger(char *collective_name, int world_rank, uint64_t comm_id
     assert(new_logger);
     new_logger->world_rank = world_rank;
     new_logger->commid = comm_id;
+    new_logger->comm_size = comm_size;
     new_logger->collective_name = strdup(collective_name);
     new_logger->pids = pids;
-    new_logger->pids_count = comm_size;
     new_logger->calls_max = 2;
     new_logger->calls = malloc(new_logger->calls_max * sizeof(uint64_t));
     assert(new_logger->calls);
@@ -125,13 +125,18 @@ static inline int _write_location_to_file(location_logger_t *logger)
     assert(logger->fd);
 
     fprintf(logger->fd, "Communicator ID: %"PRIu64"\n", logger->commid);
-    fprintf(logger->fd, "Hostnames: %s\n", logger->locations);
     char *str1 = compress_uint64_array(logger->calls, logger->calls_count, 1);
     assert(str1);
     fprintf(logger->fd, "Calls: %s\n", str1);
-    char *str2 = compress_int_array(logger->pids, logger->pids_count, 1);
+    char *str2 = compress_int_array(logger->pids, logger->comm_size, 1);
     assert(str2);
     fprintf(logger->fd, "PIDs: %s\n", str2);
+    fprintf(logger->fd, "Hostnames:\n");
+    int i;
+    for(i = 0; i < logger->comm_size; i++)
+    {
+        fprintf(logger->fd, "\tRank %d: %s\n", i, &(logger->locations[i * 256]));
+    }
     free(str1);
     free(str2);
     return 0;
