@@ -22,6 +22,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
@@ -181,6 +182,11 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 		locationFile := filepath.Join(tempDir, file)
 		if !util.FileExists(locationFile) {
 			return fmt.Errorf("%s is missing", locationFile)
+		}
+		// We also check the format of the content
+		_, _, err := location.ParseLocationFile(codeBaseDir, locationFile, nil)
+		if err != nil {
+			return fmt.Errorf("%s's format is invalid: %s", locationFile, err)
 		}
 		index++
 	}

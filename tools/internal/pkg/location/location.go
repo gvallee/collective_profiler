@@ -45,7 +45,7 @@ type Info struct {
 // and converting the content to an array of strings.
 func GetLocationDataFromStrings(lines []string, readIndex int, locationData *RankFileData) ([]int, []*Info, *RankFileData, error) {
 	if locationData == nil {
-		locationData := new(RankFileData)
+		locationData = new(RankFileData)
 		locationData.HostMap = make(map[string][]int)
 		locationData.RankMap = make(map[int]string)
 	}
@@ -99,7 +99,7 @@ func GetLocationDataFromStrings(lines []string, readIndex int, locationData *Ran
 	readIndex++
 
 	// Read hostnames header
-	if lines[readIndex] != hostnameToken {
+	if strings.TrimRight(lines[readIndex], "\n") != strings.TrimRight(hostnameToken, "\n") {
 		return nil, nil, nil, fmt.Errorf("invalid format, %s is not expected %s", lines[readIndex], hostnameToken)
 	}
 	readIndex++
@@ -109,8 +109,13 @@ func GetLocationDataFromStrings(lines []string, readIndex int, locationData *Ran
 	index := 0
 	var l []*Info
 	for readIndex < len(lines) {
+		if lines[readIndex] == "" {
+			readIndex++
+			continue
+		}
+
 		if !strings.HasPrefix(lines[readIndex], rankToken) {
-			return nil, nil, nil, fmt.Errorf("invalid format, %s is not expected %s", lines[readIndex], rankToken)
+			return nil, nil, nil, fmt.Errorf("invalid format, %s is not expected %s (l.%d/%d)", lines[readIndex], rankToken, readIndex, len(lines))
 		}
 		line := strings.TrimRight(lines[readIndex], "\n")
 		line = strings.TrimLeft(line, rankToken)
@@ -196,6 +201,9 @@ func ParseLocationFile(codeBaseDir string, path string, locationData *RankFileDa
 	if !formatMatch {
 		return nil, nil, fmt.Errorf("data format does not match")
 	}
+	readIndex++
+
+	// Followed by an empty line
 	readIndex++
 
 	// Populate the rank map
