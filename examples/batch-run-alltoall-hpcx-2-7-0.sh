@@ -27,7 +27,7 @@ THIS_SCRIPT_FILENAME=$(basename "$THIS_SCRIPT")
 THIS_SCRIPT_DIR=$(dirname "$THIS_SCRIPT")
 
 # environment and modules and some paths etc. for the job 
-# /global/home/users/cyrusl/placement/expt0060/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
+# /global/home/users/cyrusl/placement/expt0070/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
 export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070
 # TODO - set modulefiles!!?
 module purge
@@ -124,7 +124,7 @@ EOF
 export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoall
 export EXECUTABLE1_PARAMS=""
 
-# following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
+# following example at /global/home/users/cyrusl/placement/expt0070/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
 ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoall
