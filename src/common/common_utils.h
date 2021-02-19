@@ -7,6 +7,8 @@
 #ifndef COLLECTIVE_PROFILER_COMM_UTILS_H
 #define COLLECTIVE_PROFILER_COMM_UTILS_H
 
+#include <assert.h>
+
 #include "common_types.h"
 
 static int

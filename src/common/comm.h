@@ -15,7 +15,6 @@ typedef struct comm_data
     uint32_t id;
     MPI_Comm comm;
     struct comm_data *next;
-
 } comm_data_t;
 
 int lookup_comm(MPI_Comm comm, uint32_t *id);

@@ -152,14 +152,14 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
                 fprintf(stderr, "unabel to add communicator\n");
                 return rc;
             }
+        }
 
-            // Now we know the communicator, create a logger for it
-            rc = init_time_tracking(comm, collective_name, rank, jobid, &logger);
-            if (rc || logger == NULL)
-            {
-                fprintf(stderr, "unable to initialize time tracking (rc: %d)\n", rc);
-                return 1;
-            }
+        // Now we know the communicator, create a logger for it
+        rc = init_time_tracking(comm, collective_name, rank, jobid, &logger);
+        if (rc || logger == NULL)
+        {
+            fprintf(stderr, "unable to initialize time tracking (rc: %d)\n", rc);
+            return 1;
         }
     }
     assert(logger);

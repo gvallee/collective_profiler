@@ -14,6 +14,7 @@
 #include "execinfo.h"
 #include "timings.h"
 #include "backtrace.h"
+#include "location.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -991,42 +992,6 @@ static void save_counts(int *sendcounts, int *recvcounts, int s_datatype_size, i
 	free(filename);
 }
 
-static void save_rank_ids(int *pids, int *world_comm_ranks, char *hostnames, int comm_size, uint64_t n_call)
-{
-	char *filename = NULL;
-	int i;
-	int rc;
-
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		_asprintf(filename, rc, "%s/locations_rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), world_rank, n_call);
-	}
-	else
-	{
-		_asprintf(filename, rc, "locations_rank%d_call%" PRIu64 ".md", world_rank, n_call);
-	}
-	assert(rc > 0);
-
-	FILE *f = fopen(filename, "w");
-	for (i = 0; i < comm_size; i++)
-	{
-		fprintf(f, "COMMWORLD rank: %d - COMM rank: %d - PID: %d - Hostname: ", world_comm_ranks[i], i, pids[i]);
-		int j;
-		for (j = 0; j < 256; j++)
-		{
-			if (hostnames[i * 256 + j] == '\0')
-			{
-				break;
-			}
-			fprintf(f, "%c", hostnames[i * 256 + j]);
-		}
-		fprintf(f, "\n");
-	}
-	fclose(f);
-	free(pids);
-	free(filename);
-}
-
 int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls,
 				   MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
 				   const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
@@ -1112,6 +1077,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 #if ENABLE_LOCATION_TRACKING
 		int my_pid = getpid();
+		// Note that the library will free all the allocated memory. We hand over the pointer
+		// and the profiler frees the memory when finalizing
 		int *pids = (int *)malloc(comm_size * sizeof(int));
 		assert(pids);
 		int *world_comm_ranks = (int *)malloc(comm_size * sizeof(int));
@@ -1126,7 +1093,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		MPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
 		if (my_comm_rank == 0)
 		{
-			save_rank_ids(pids, world_comm_ranks, hostnames, comm_size, avCalls);
+			int rc = commit_rank_locations(collective_name, comm, comm_size, world_rank, pids, world_comm_ranks, hostnames, avCalls);
+			if (rc)
+			{
+				fprintf(stderr, "save_rank_locations() failed: %d", rc);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
 		}
 #endif // ENABLE_LOCATION_TRACKING
 
