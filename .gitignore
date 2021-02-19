@@ -96,5 +96,3 @@ examples/alltoallv_dt_c
 src/alltoall/examples/alltoall
 src/alltoall/examples/results_alltoallv/*
 
-tools/go.sum
-tools/go.mod
