@@ -102,58 +102,56 @@ func main() {
 
 	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	//rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(maps.Heat, *dir, allCallsData)
-	_, callMaps, globalSendHeatMap, globalRecvHeatMap, _, err := maps.Create(maps.Heat, *dir, allCallsData)
+	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(maps.Heat, *dir, allCallsData)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
 		os.Exit(1)
 	}
 	// Create maps with averages
-	//avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
-	maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
+	avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
 	fmt.Printf("Step completed in %s\n", duration)
 	currentStep++
 
 	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	_, _, _, err = timings.HandleTimingFiles(codeBaseDir, *dir, totalNumCalls, callMaps)
+	collectiveOpsTimings, totalA2AExecutionTimes, totalLateArrivalTimes, err := timings.HandleTimingFiles(codeBaseDir, *dir, totalNumCalls, callMaps)
 	if err != nil {
 		fmt.Printf("Unable to parse timing data: %s", err)
 		os.Exit(1)
 	}
-	/*
-		duration = t.Stop()
-		if err != nil {
-			fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
-			os.Exit(1)
-		}
-		avgExecutionTimes := make(map[int]float64)
-		for rank, execTime := range totalA2AExecutionTimes {
-			rankNumCalls := rankNumCallsMap[rank]
-			avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
-		}
-		avgLateArrivalTimes := make(map[int]float64)
-		for rank, lateTime := range totalLateArrivalTimes {
-			rankNumCalls := rankNumCallsMap[rank]
-			avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
-		}
-		fmt.Printf("Step completed in %s\n", duration)
-		currentStep++
 
-		fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
-		t = timer.Start()
-		err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, a2aExecutionTimes, lateArrivalTimes)
-		duration = t.Stop()
-		if err != nil {
-			fmt.Printf("ERROR: unable to plot data: %s", err)
-			os.Exit(1)
-		}
-		err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
-		if err != nil {
-			fmt.Printf("ERROR: unable to plot average data: %s", err)
-		}
-		fmt.Printf("Step completed in %s\n", duration)
-		currentStep++
-	*/
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
+		os.Exit(1)
+	}
+	avgExecutionTimes := make(map[int]float64)
+	for rank, execTime := range totalA2AExecutionTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
+	}
+	avgLateArrivalTimes := make(map[int]float64)
+	for rank, lateTime := range totalLateArrivalTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, collectiveOpsTimings["alltoallv"].ExecTimes, collectiveOpsTimings["alltoallv"].LateArrivalTimes)
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to plot data: %s", err)
+		os.Exit(1)
+	}
+	err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
+	if err != nil {
+		fmt.Printf("ERROR: unable to plot average data: %s", err)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
 }
