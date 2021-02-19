@@ -328,8 +328,9 @@ int main(int argc, char *argv[]) {
 
             // test that my rank is one of the communicator used in this call - if not omit this call
             DEBUG_ALLTOALL_PROFILING("DEBUG driver prog: send type index, value, %i, %i\n", param_set->send_type_idx, MPI_Datatypes_used[param_set->send_type_idx] );
-            MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
-
+            for (int repeat_idx=0; repeat_idx<param_set->repeat; repeat_idx++ ){     
+                MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
+            }
             // make sure only one rank prints at once, using barrier and sleep
             print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf);
             // for (int rank=0; rank<world_size; rank++){ 
