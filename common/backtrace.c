@@ -276,14 +276,9 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
         (*logger)->filename = NULL;
     }
 
-    int i;
-    /* fixme: no idea why that creates a problem
-    for (i = 0; i < (*logger)->trace_size; i++)
-    {
-        free((*logger)->trace[i]);
-    }
-    */
-
+    // Secification for the trace buffer says: "This array is malloc(3)ed by backtrace_symbols(), 
+    // and must be freed by the caller. (The strings pointed to by the array of pointers need 
+    // not and should not be freed.)"
     if ((*logger)->trace)
     {
         free((*logger)->trace);
