@@ -35,7 +35,7 @@ static inline int _open_location_file(location_logger_t *logger)
     return 0;
 }
 
-int init_location_logger(char *collective_name, int world_rank, uint64_t comm_id, size_t comm_size, char *hostnames, int *pids, uint64_t callID, location_logger_t **logger)
+int init_location_logger(char *collective_name, int world_rank, uint64_t comm_id, size_t comm_size, char *hostnames, int *pids, int *world_comm_ranks, uint64_t callID, location_logger_t **logger)
 {
     int rc;
 
@@ -44,6 +44,7 @@ int init_location_logger(char *collective_name, int world_rank, uint64_t comm_id
     new_logger->world_rank = world_rank;
     new_logger->commid = comm_id;
     new_logger->comm_size = comm_size;
+    new_logger->world_comm_ranks = world_comm_ranks;
     new_logger->collective_name = strdup(collective_name);
     new_logger->pids = pids;
     new_logger->calls_max = 2;
@@ -125,20 +126,24 @@ static inline int _write_location_to_file(location_logger_t *logger)
     assert(logger->fd);
 
     fprintf(logger->fd, "Communicator ID: %"PRIu64"\n", logger->commid);
-    char *str1 = compress_uint64_array(logger->calls, logger->calls_count, 1);
-    assert(str1);
-    fprintf(logger->fd, "Calls: %s\n", str1);
-    char *str2 = compress_int_array(logger->pids, logger->comm_size, 1);
-    assert(str2);
-    fprintf(logger->fd, "PIDs: %s\n", str2);
+    char *strCalls = compress_uint64_array(logger->calls, logger->calls_count, 1);
+    assert(strCalls);
+    fprintf(logger->fd, "Calls: %s\n", strCalls);
+    char *strRanks = compress_int_array(logger->world_comm_ranks, logger->comm_size, 1);
+    assert(strRanks);
+    fprintf(logger->fd, "COMM_WORLD ranks: %s\n", strRanks);
+    char *strPIDs = compress_int_array(logger->pids, logger->comm_size, 1);
+    assert(strPIDs);
+    fprintf(logger->fd, "PIDs: %s\n", strPIDs);
     fprintf(logger->fd, "Hostnames:\n");
     int i;
     for(i = 0; i < logger->comm_size; i++)
     {
         fprintf(logger->fd, "\tRank %d: %s\n", i, &(logger->locations[i * 256]));
     }
-    free(str1);
-    free(str2);
+    free(strCalls);
+    free(strPIDs);
+    free(strRanks);
     return 0;
 }
 
@@ -228,7 +233,7 @@ int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, i
         // We have no data about the communicator
         // We check first if the communicator is already known
 
-        rc = init_location_logger(collective_name, world_rank, comm_id, comm_size, hostnames, pids, n_call, &logger);
+        rc = init_location_logger(collective_name, world_rank, comm_id, comm_size, hostnames, pids, world_comm_ranks, n_call, &logger);
         if (rc)
         {
             fprintf(stderr, "init_location_logger(): %d\n", rc);
