@@ -88,3 +88,11 @@ alltoallv-*.log
 
 # VScode specific stuff
 .vscode/
+src/alltoall/examples/results/*
+
+alltoallv_*.err
+alltoallv_*.out
+examples/alltoallv_dt_c
+src/alltoall/examples/alltoall
+src/alltoall/examples/results_alltoallv/*
+

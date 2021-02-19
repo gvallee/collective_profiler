@@ -47,6 +47,7 @@ typedef struct alltoall_test_node_params {
     int sendcount;
     int recvcount;
     rank_set_t* rank_set;
+    int repeat;
 } alltoall_test_node_params_t;
 
 
@@ -72,7 +73,7 @@ bool is_rank_in_rankset(int rank, rank_set_t* rank_set){
 void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_count){
     DEBUG_ALLTOALL_PROFILING("params for create_communicators: worldsize = %i, ranks_sets_count = %i\n", world_size, rank_sets_count);
     for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("%i ", rank_sets[0].ranks[k]); 
-    DEBUG_ALLTOALL_PROFILING("\n)");
+    DEBUG_ALLTOALL_PROFILING("\n)", NULL);
 
     //MPI_Comm** communicators = (MPI_Comm**) malloc(sizeof(MPI_Comm*) * world_size);
     MPI_Group world_group;
@@ -84,10 +85,10 @@ void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_c
     DEBUG_ALLTOALL_PROFILING("World group size = %i\n", group_size);
 
     for (int rank_set_idx=0; rank_set_idx< rank_sets_count; rank_set_idx++){
-        DEBUG_ALLTOALL_PROFILING("IN LOOP\n");
+        DEBUG_ALLTOALL_PROFILING("IN LOOP\n", NULL);
         rank_set_t* rank_set = &rank_sets[rank_set_idx];
         for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("* %i ", rank_set->ranks[k]); 
-        DEBUG_ALLTOALL_PROFILING("\n");
+        DEBUG_ALLTOALL_PROFILING("\n", NULL);
         // signature: MPI_Group_incl( MPI_Group group , int n , const int ranks[] , MPI_Group* newgroup);
         DEBUG_ALLTOALL_PROFILING("calling MPI_Group_incl rank_set_idx=%i ...\n", rank_set_idx);
         // signature: int MPI_Group_incl(MPI_Group group, int n, const int ranks[], MPI_Group *newgroup)
@@ -107,16 +108,16 @@ alltoall_test_node_params_t* alltoall_test_all_node_params_sets(rank_set_t* rank
     DEBUG_ALLTOALL_PROFILING("creating param sets ...\n", NULL);
     alltoall_test_node_params_t* params_sets = (alltoall_test_node_params_t*) malloc(sizeof(alltoall_test_node_params_t) * PARAM_SETS_COUNT);
     // template: paramset[] = (alltoall_test_node_params_t) {.send_type_idx =  , .recv_type_idx = , .sendcount =  , .recvcount = , .communicator = communicators[] };
-    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0]};
-    params_sets[1] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0]};
-    params_sets[2] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 32, .recvcount = 32, .rank_set = &rank_sets[1]};
-    params_sets[3] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 64, .recvcount = 64, .rank_set = &rank_sets[0]};
-    params_sets[4] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 1, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0]};
-    params_sets[5] = (alltoall_test_node_params_t) {.send_type_idx = 2, .recv_type_idx = 2, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0]};
-    params_sets[6] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[1]};
-    params_sets[7] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[1]};
-    params_sets[8] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 0, .sendcount =  8, .recvcount = 16, .rank_set = &rank_sets[0]};
-    params_sets[9] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 1, .sendcount = 16, .recvcount =  8, .rank_set = &rank_sets[0]};
+    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[1] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[2] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 32, .recvcount = 32, .rank_set = &rank_sets[1], .repeat=2};
+    params_sets[3] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 64, .recvcount = 64, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[4] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 1, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[5] = (alltoall_test_node_params_t) {.send_type_idx = 2, .recv_type_idx = 2, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[6] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[1], .repeat=2};
+    params_sets[7] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[1], .repeat=2};
+    params_sets[8] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 0, .sendcount =  8, .recvcount = 16, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[9] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 1, .sendcount = 16, .recvcount =  8, .rank_set = &rank_sets[0], .repeat=2};
     DEBUG_ALLTOALL_PROFILING("param sets created\n", NULL);
     return params_sets;
 } 
@@ -125,10 +126,10 @@ alltoall_test_node_params_t* alltoall_test_individual_node_params_sets(rank_set_
     DEBUG_ALLTOALL_PROFILING("creating param sets ...\n", NULL);
     alltoall_test_node_params_t* params_sets = (alltoall_test_node_params_t*) malloc(sizeof(alltoall_test_node_params_t) * PARAM_SETS_COUNT);
     // template: paramset[] = (alltoall_test_node_params_t) {.send_type_idx =  , .recv_type_idx = , .sendcount =  , .recvcount = , .communicator = communicators[] };
-    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0]};
-    params_sets[1] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 1, .sendcount = 16, .recvcount =  8, .rank_set = &rank_sets[0]};
-    params_sets[2] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 0, .sendcount =  8, .recvcount = 16, .rank_set = &rank_sets[0]};
-    params_sets[3] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 1, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0]};
+    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 0, .sendcount = 16, .recvcount = 16, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[1] = (alltoall_test_node_params_t) {.send_type_idx = 0, .recv_type_idx = 1, .sendcount = 16, .recvcount =  8, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[2] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 0, .sendcount =  8, .recvcount = 16, .rank_set = &rank_sets[0], .repeat=2};
+    params_sets[3] = (alltoall_test_node_params_t) {.send_type_idx = 1, .recv_type_idx = 1, .sendcount =  8, .recvcount =  8, .rank_set = &rank_sets[0], .repeat=2};
     DEBUG_ALLTOALL_PROFILING("param sets created\n", NULL);
     return params_sets;
 } 
@@ -148,7 +149,7 @@ void* create_sendbuf(alltoall_test_node_params_t* node_params){
                 DEBUG_ALLTOALL_PROFILING("i=%i ", i);
                 b[i] = i / node_params->sendcount;
             }
-            DEBUG_ALLTOALL_PROFILING("\n");
+            DEBUG_ALLTOALL_PROFILING("\n", NULL);
 #if DEBUG == 1            
             for (int j=0; j<64; j++) DEBUG_ALLTOALL_PROFILING("~~ %i ", b[j]);
 #endif           
@@ -327,8 +328,9 @@ int main(int argc, char *argv[]) {
 
             // test that my rank is one of the communicator used in this call - if not omit this call
             DEBUG_ALLTOALL_PROFILING("DEBUG driver prog: send type index, value, %i, %i\n", param_set->send_type_idx, MPI_Datatypes_used[param_set->send_type_idx] );
-            MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
-
+            for (int repeat_idx=0; repeat_idx<param_set->repeat; repeat_idx++ ){     
+                MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
+            }
             // make sure only one rank prints at once, using barrier and sleep
             print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf);
             // for (int rank=0; rank<world_size; rank++){ 
@@ -417,8 +419,10 @@ int main(int argc, char *argv[]) {
         DEBUG_ALLTOALL_PROFILING("DEBUG driver prog: send type index, value, %i, %i\n", param_set->send_type_idx, MPI_Datatypes_used[param_set->send_type_idx] );
         // note for next line - paramset has been prepared with all items using the same rankset of all 8 nodes
         // printf("Calling alltoall in rank %i\n", my_rank);
-        // fflush(stdout);        
-        MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
+        // fflush(stdout);   
+        for (int repeat_idx=0; repeat_idx<param_set->repeat; repeat_idx++ ){     
+            MPI_Alltoall(sendbuf, param_set->sendcount , MPI_Datatypes_used[param_set->send_type_idx] , recvbuf , param_set->recvcount , MPI_Datatypes_used[param_set->recv_type_idx] , param_set->rank_set->communicator);
+        }
         printf("Returned from alltoall in rank %i\n", my_rank);
         // fflush(stdout);        
         // print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf);

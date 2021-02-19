@@ -36,7 +36,7 @@ tools:
 	@echo "Go not installed; skipping tools' compilation"
 else
 tools:
-	cd tools && make;
+	cd tools && make; 
 endif
 
 check: libraries
