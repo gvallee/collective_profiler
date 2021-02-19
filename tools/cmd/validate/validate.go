@@ -175,13 +175,15 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 		index++
 	}
 
-	/* todo
-	fmt.Printf("Checking if %s exists...\n", tt.expectedLocationFiles[0])
-	locationFile := filepath.Join(tempDir, tt.expectedLocationFiles[0])
-	if !util.FileExists(locationFile) {
-		return fmt.Errorf("%s is missing", locationFile)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedLocationFiles)
+	index = 0
+	for _, file := range tt.expectedLocationFiles {
+		locationFile := filepath.Join(tempDir, file)
+		if !util.FileExists(locationFile) {
+			return fmt.Errorf("%s is missing", locationFile)
+		}
+		index++
 	}
-	*/
 
 	return nil
 }
@@ -251,7 +253,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
@@ -266,7 +268,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
@@ -281,7 +283,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md", "alltoallv_locations_comm1_rank0.md", "alltoallv_locations_comm0_rank2.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
@@ -296,7 +298,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
@@ -315,7 +317,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 				expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 				// todo: expectedCountsFiles
-				expectedLocationFiles:    []string{},
+				expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
