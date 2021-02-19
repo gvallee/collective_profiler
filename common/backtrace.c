@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -83,11 +83,13 @@ int write_backtrace_to_file(backtrace_logger_t *logger)
     {
         fprintf(logger->fd, "# Context %" PRIu64 "\n\n", i);
         char *str = compress_uint64_array(logger->contexts[i].calls, logger->contexts[i].calls_count, 1);
+        assert(str);
         fprintf(logger->fd, "Communicator: %d\n", logger->contexts[i].comm_id);
         fprintf(logger->fd, "Communicator rank: %d\n", logger->contexts[i].comm_rank);
         fprintf(logger->fd, "COMM_WORLD rank: %d\n", logger->contexts[i].world_rank);
         fprintf(logger->fd, "Calls: %s\n", str);
         fprintf(logger->fd, "\n");
+        free(str);
     }
 
     return 0;
@@ -155,6 +157,7 @@ static inline int _close_backtrace_file(backtrace_logger_t *logger)
         free(logger->filename);
         logger->filename = NULL;
     }
+    
     return 0;
 }
 
@@ -248,8 +251,8 @@ static inline int _fini_trace_contexts(trace_context_t *ctx)
 
 int fini_backtrace_logger(backtrace_logger_t **logger)
 {
-    write_backtrace_to_file((*logger));
-    _close_backtrace_file((*logger));
+    write_backtrace_to_file(*logger);
+    _close_backtrace_file(*logger);
     _fini_trace_contexts((*logger)->contexts);
     (*logger)->contexts = NULL;
     (*logger)->num_contexts = 0;

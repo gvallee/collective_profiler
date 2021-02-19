@@ -10,6 +10,7 @@
 #include "comm.h"
 #include "timings.h"
 #include "backtrace.h"
+#include "location.h"
 
 void log_groups(logger_t *logger, group_t *gps, int num_gps)
 {
@@ -471,6 +472,12 @@ void logger_fini(logger_t **l)
     if (rc)
     {
         fprintf(stderr, "release_backtrace_loggers() failed: %d\n", rc);
+    }
+
+    rc = release_location_loggers();
+    if (rc)
+    {
+        fprintf(stderr, "release_location_loggers() failed: %d\n", rc);
     }
 
     rc = release_comm_data();

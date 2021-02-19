@@ -8,6 +8,7 @@ FORMATVERSION := `cat ../../FORMAT_VERSION`
 all: \
 	format.o                      \
 	comm.o                        \
+	location.o                    \
 	timings.o                     \
 	exec_timings.o                \
 	late_arrival_timings.o        \
@@ -26,6 +27,9 @@ all: \
 
 format.o: format.c format.h
 	$(CC) -I../ -fPIC -c format.c
+
+location.o: location.c location.h format.h
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c location.c
 
 backtrace.o: backtrace.c backtrace.h format.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
