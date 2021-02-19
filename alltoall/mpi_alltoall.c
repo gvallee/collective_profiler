@@ -811,10 +811,10 @@ int _mpi_init(int *argc, char ***argv)
 	assert(sbuf);
 	rbuf = (int *)malloc(world_size * (sizeof(int)));
 	assert(rbuf);
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 	op_exec_times = (double *)malloc(world_size * sizeof(double));
 	assert(op_exec_times);
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 #if ENABLE_LATE_ARRIVAL_TIMING
 	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
 	assert(late_arrival_timings);
@@ -1098,16 +1098,16 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 		double t_barrier_end = MPI_Wtime();
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		double t_start = MPI_Wtime();
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
         DEBUG_ALLTOALL_PROFILING("DEBUG sampler prog: send type value, %i\n", sendtype );
 		ret = PMPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
 		double t_arrival = t_barrier_end - t_barrier_start;
@@ -1141,9 +1141,9 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #endif
 
 
-#if ENABLE_A2A_TIMING
+#if ENABLE_EXEC_TIMING
 		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
-#endif // ENABLE_A2A_TIMING
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
