@@ -20,6 +20,7 @@ typedef struct location_logger
     int world_rank;
     FILE *fd; // File descriptor to write the trace
     char *filename; // Filename for the trace
+    int *world_comm_ranks;
     size_t calls_count;
     size_t calls_max;
     uint64_t *calls;

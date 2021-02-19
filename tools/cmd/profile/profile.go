@@ -18,6 +18,7 @@ import (
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
@@ -27,7 +28,7 @@ import (
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]maps.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
 	for i := 0; i < len(allCallsData); i++ {
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)

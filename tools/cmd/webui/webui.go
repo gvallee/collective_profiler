@@ -23,6 +23,7 @@ import (
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
@@ -63,7 +64,7 @@ var numCalls int
 var stats map[int]counts.SendRecvStats
 var allPatterns map[int]patterns.Data
 var allCallsData []counts.CommDataT
-var rankFileData map[int]maps.RankFileData
+var rankFileData map[int]location.RankFileData
 var callMaps map[int]maps.CallsDataT
 var globalSendHeatMap map[int]int
 var globalRecvHeatMap map[int]int
