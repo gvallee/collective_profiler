@@ -28,7 +28,7 @@ import (
 	"github.com/gvallee/go_util/pkg/util"
 )
 
-func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
 	for i := 0; i < len(allCallsData); i++ {
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)
@@ -102,7 +102,7 @@ func main() {
 
 	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 	t = timer.Start()
-	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(maps.Heat, *dir, allCallsData)
+	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(codeBaseDir, maps.Heat, *dir, allCallsData)
 	duration = t.Stop()
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s\n", err)

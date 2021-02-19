@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -77,7 +78,7 @@ func findCountFile(countsFiles []string, rankID int) string {
 	return ""
 }
 
-func getRankMapFromLocations(locations []location.Info) map[int]int {
+func getRankMapFromLocations(locations []location.RankLocation) map[int]int {
 	m := make(map[int]int)
 	for _, l := range locations {
 		m[l.CommRank] = l.CommWorldRank
@@ -288,19 +289,19 @@ func createHeatMap(dir string, leadRank int, rankMap *location.RankFileData, all
 	return nil
 }
 
-func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int, rankNumCallsMap map[int]int) (location.RankFileData, CallsDataT, error) {
+func commCreate(codeBaseDir string, dir string, leadRank int, allCallsData map[int]*counts.CallData, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int, rankNumCallsMap map[int]int) (*location.RankFileData, CallsDataT, error) {
 	commMaps := CallsDataT{
 		SendHeatMap: map[int]map[int]int{},
 		RecvHeatMap: map[int]map[int]int{},
 	}
-	var rankFileData location.RankFileData
+	var rankFileData *location.RankFileData
 	var err error
-	rankFileData, _, commMaps.RanksMap, err = prepareRanksMap(dir)
+	rankFileData, _, commMaps.RanksMap, err = prepareRanksMap(codeBaseDir, dir)
 	if err != nil {
-		return rankFileData, commMaps, err
+		return nil, commMaps, err
 	}
 
-	err = createHeatMap(dir, leadRank, &rankFileData, allCallsData, &commMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
+	err = createHeatMap(dir, leadRank, rankFileData, allCallsData, &commMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
 	if err != nil {
 		return rankFileData, commMaps, err
 	}
@@ -323,7 +324,7 @@ func commCreate(dir string, leadRank int, allCallsData map[int]*counts.CallData,
 
 // Create is the main function to create heat maps. The id identifies what type of maps
 // need to be created.
-func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]location.RankFileData, map[int]CallsDataT, map[int]int, map[int]int, map[int]int, error) {
+func Create(codeBaseDir string, id int, dir string, allCallsData []counts.CommDataT) (map[int]*location.RankFileData, map[int]CallsDataT, map[int]int, map[int]int, map[int]int, error) {
 	switch id {
 	case Heat:
 		var err error
@@ -331,12 +332,12 @@ func Create(id int, dir string, allCallsData []counts.CommDataT) (map[int]locati
 		rankNumCallsMap := make(map[int]int)
 		globalCallsData := make(map[int]CallsDataT)
 		// fixme: RankFileData is supposed to be static and dealing with ranks on comm world, no need to track per lead rank
-		globalCommRankFileData := make(map[int]location.RankFileData)
+		globalCommRankFileData := make(map[int]*location.RankFileData)
 		globalSendHeatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
 		globalRecvHeatMap := make(map[int]int)
 
 		for _, commData := range allCallsData {
-			globalCommRankFileData[commData.LeadRank], globalCallsData[commData.LeadRank], err = commCreate(dir, commData.LeadRank, commData.CallData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
+			globalCommRankFileData[commData.LeadRank], globalCallsData[commData.LeadRank], err = commCreate(codeBaseDir, dir, commData.LeadRank, commData.CallData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
 			if err != nil {
 				return nil, nil, nil, nil, nil, err
 			}
@@ -382,40 +383,40 @@ func saveProcessedLocationData(dir string, leadRank int, info map[int]int) error
 // getRankMapFromFile parses the unique location files that could be found and returns
 // both a rank-based map (map of comm rank/worldcomm rank), as well as a call map (map
 // where the key if the call ID and the value a slice of Location)
-func getRankMapFromFile(info map[string]*rankMapInfo, hm location.RankFileData, callMap map[int][]location.Info) (map[int]int, map[int][]location.Info, error) {
+func getRankMapFromFile(codeBaseDir string, info map[string]*rankMapInfo, hm location.RankFileData, callMap map[int][]*location.RankLocation) (map[int]int, map[int][]*location.RankLocation, error) {
 	m := make(map[int]int) // The key is the rank on the communicator; the value is the rank on COMMWORLD
 
-	/*
-		for _, data := range info {
-			locations, err := location.ParseLocationFile(data.file)
-			if err != nil {
-				return nil, nil, err
-			}
+	for _, data := range info {
+		locations, locationsData, err := location.ParseLocationFile(codeBaseDir, data.file)
+		if err != nil {
+			return nil, nil, err
+		}
 
-			for _, c := range data.calls {
-				if _, ok := callMap[c]; ok {
-					fmt.Printf("[WARN] Location data for call %d already present", c)
-				}
-				callMap[c] = locations
+		// Merge the call data with what we already have
+		for c, callData := range locations {
+			if _, ok := callMap[c]; ok {
+				fmt.Printf("[WARN] Location data for call %d already present", c)
 			}
+			callMap[c] = callData
+		}
 
-			for _, l := range locations {
-				m[l.CommRank] = l.CommWorldRank
-				if _, ok := hm.RankMap[l.CommWorldRank]; !ok {
-					// We do not track the host information for that rank yet
-					hm.RankMap[l.CommWorldRank] = l.Hostname
-					rankList := hm.HostMap[l.Hostname]
-					rankList = append(rankList, l.CommWorldRank)
-					hm.HostMap[l.Hostname] = rankList
-				}
+		for _, l := range locationsData.RankLocations {
+			m[l.CommRank] = l.CommWorldRank
+			if _, ok := hm.RankMap[l.CommWorldRank]; !ok {
+				// We do not track the host information for that rank yet
+				hm.RankMap[l.CommWorldRank] = l.Hostname
+				rankList := hm.HostMap[l.Hostname]
+				rankList = append(rankList, l.CommWorldRank)
+				hm.HostMap[l.Hostname] = rankList
 			}
 		}
-	*/
+
+	}
 
 	return m, callMap, nil
 }
 
-func createRankFile(dir string, hm location.RankFileData) error {
+func createRankFile(dir string, hm *location.RankFileData) error {
 	rankFilePath := filepath.Join(dir, RankFilename)
 	fd, err := os.OpenFile(rankFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -438,57 +439,60 @@ func createRankFile(dir string, hm location.RankFileData) error {
 	return nil
 }
 
-func prepareRanksMap(dir string) (location.RankFileData, map[int][]location.Info, map[int]map[int]int, error) {
-	callMap := make(map[int][]location.Info)
-	var callsRanksMap = map[int]map[int]int{}
-
+func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, map[int][]*location.RankLocation, map[int]map[int]int, error) {
+	callMap := make(map[int][]*location.RankLocation)
+	callsRanksMap := make(map[int]map[int]int)
 	// This is to track the files for a specific communicator
-	hm := location.RankFileData{
-		HostMap: make(map[string][]int),
-		RankMap: make(map[int]string),
+	hm := new(location.RankFileData)
+	hm.HostMap = make(map[string][]int)
+	hm.RankMap = make(map[int]string)
+
+	// Find all the location files
+	f, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var locationFiles []string
+	for _, file := range f {
+		filename := file.Name()
+
+		if strings.Contains(filename, location.LocationFileToken) {
+			locationFiles = append(locationFiles, filepath.Join(dir, filename))
+		}
 	}
 
-	/*
-		commMap, err := getCommMap(dir)
+	// Parse each file and aggregate the results from each file.
+	for _, locationFile := range locationFiles {
+		callsData, locationsData, err := location.ParseLocationFile(codeBaseDir, locationFile)
 		if err != nil {
-			return hm, nil, nil, err
+			return nil, nil, nil, err
 		}
-
-		// We have a list of all the location files as well as the communicator lead rank and the call ID; based on comm rank lead.
-		// Now we will parse that data: first we pre-process the list of files, identifying identical files; then we parse the unique files and gather the data
-		// In other words, for each unique rank lead previously identified, we parse all the associated location files.
-		for leadRank, commInfo := range commMap {
-			// Curate the data to avoid parsing identical location files.
-			// The returned data includes the list of all the associated call IDs
-			commRankMap, err := analyzeCommFiles(leadRank, commInfo)
-			if err != nil {
-				return hm, nil, nil, err
-			}
-
-			// Now we have a curated data, i.e., unique location files that represent location data for all the alltoallv calls performed on the communicator(s) led by leadRank.
-			// So we can efficiently parse the location files.
-			// We also slowly build the rank file's data will going through the files.
-			m, _, err := getRankMapFromFile(commRankMap, hm, callMap)
-			if err != nil {
-				return hm, nil, nil, err
-			}
-
-			// We link rank mapping to actual calls so we can use it later
-			for _, rankLocationInfo := range commRankMap {
-				for _, c := range rankLocationInfo.calls {
-					callsRanksMap[c] = make(map[int]int)
-					callsRanksMap[c] = m
+		for callID := range callsData {
+			if _, ok := callsRanksMap[callID]; !ok {
+				// Transform the array of locations into a map
+				listCallRanks := callsData[callID]
+				callLocationMap := make(map[int]int)
+				for _, rankLocation := range listCallRanks {
+					callLocationMap[rankLocation.CommRank] = rankLocation.CommWorldRank
 				}
+				callsRanksMap[callID] = callLocationMap
 			}
 
-			err = saveProcessedLocationData(dir, leadRank, m)
-			if err != nil {
-				return hm, nil, nil, err
+			if _, ok := callMap[callID]; !ok {
+				callMap[callID] = locationsData.RankLocations
 			}
 		}
-	*/
+		for _, l := range locationsData.RankLocations {
+			if _, ok := hm.HostMap[l.Hostname]; !ok {
+				hm.HostMap[l.Hostname] = append(hm.HostMap[l.Hostname], l.CommWorldRank)
+			}
+			if _, ok := hm.RankMap[l.CommWorldRank]; !ok {
+				hm.RankMap[l.CommWorldRank] = l.Hostname
+			}
+		}
+	}
 
-	err := createRankFile(dir, hm)
+	err = createRankFile(dir, hm)
 	if err != nil {
 		return hm, nil, nil, err
 	}

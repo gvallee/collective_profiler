@@ -184,7 +184,7 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 			return fmt.Errorf("%s is missing", locationFile)
 		}
 		// We also check the format of the content
-		_, _, err := location.ParseLocationFile(codeBaseDir, locationFile, nil)
+		_, _, err := location.ParseLocationFile(codeBaseDir, locationFile)
 		if err != nil {
 			return fmt.Errorf("%s's format is invalid: %s", locationFile, err)
 		}

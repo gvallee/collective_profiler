@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -64,7 +64,7 @@ var numCalls int
 var stats map[int]counts.SendRecvStats
 var allPatterns map[int]patterns.Data
 var allCallsData []counts.CommDataT
-var rankFileData map[int]location.RankFileData
+var rankFileData map[int]*location.RankFileData
 var callMaps map[int]maps.CallsDataT
 var globalSendHeatMap map[int]int
 var globalRecvHeatMap map[int]int
@@ -193,7 +193,7 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			if callMaps == nil {
-				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(maps.Heat, datasetBasedir, allCallsData)
+				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(codeBaseDir, maps.Heat, datasetBasedir, allCallsData)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}

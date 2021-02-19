@@ -15,7 +15,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 )
 
-func getRanksMapFromLocations(locations []*location.Info) map[int]int {
+func getRanksMapFromLocations(locations []*location.RankLocation) map[int]int {
 	ranksMap := make(map[int]int)
 	for _, l := range locations {
 		ranksMap[l.CommRank] = l.CommWorldRank
@@ -23,7 +23,7 @@ func getRanksMapFromLocations(locations []*location.Info) map[int]int {
 	return ranksMap
 }
 
-func getRankFileDataFromLocations(locations []*location.Info) location.RankFileData {
+func getRankFileDataFromLocations(locations []*location.RankLocation) location.RankFileData {
 	var data location.RankFileData
 	data.RankMap = make(map[int]string)
 	data.HostMap = make(map[string][]int)
@@ -63,13 +63,13 @@ func TestCreateMapFromCounts(t *testing.T) {
 
 	for _, tt := range tests {
 		globalHeatMap := make(map[int]int)
-		_, l, _, err := location.GetLocationDataFromStrings(tt.locations, 0, nil)
+		locationData, err := location.GetLocationDataFromStrings(tt.locations, 0)
 		if err != nil {
 			t.Fatalf("getLocationFromString() failed: %s", err)
 		}
 
-		ranksMap := getRanksMapFromLocations(l)
-		rankFileData := getRankFileDataFromLocations(l)
+		ranksMap := getRanksMapFromLocations(locationData.RankLocations)
+		rankFileData := getRankFileDataFromLocations(locationData.RankLocations)
 		var data counts.Data
 		data.RawCounts = tt.counts
 		data.CountsMetadata.DatatypeSize = tt.datatypeSize
