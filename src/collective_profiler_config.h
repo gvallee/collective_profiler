@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -14,6 +14,10 @@
 // A few environment variables to control a few things at runtime
 #define MSG_SIZE_THRESHOLD_ENVVAR "MSG_SIZE_THRESHOLD" // Name of the environment variable to change the value used to differentiate small and large messages
 #define OUTPUT_DIR_ENVVAR "A2A_PROFILING_OUTPUT_DIR"   // Name of the environment variable to specify where output files will be created
+
+#ifndef FORMAT_VERSION
+#define FORMAT_VERSION (0)
+#endif // FORMAT_VERSION
 
 // A few switches to enable/disable a bunch of capabilities
 

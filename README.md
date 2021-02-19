@@ -49,9 +49,9 @@ generates multiple counter files, one per communicator. If the application is on
 `recv-counters.job<JOBID>.rank0.txt`.
 Using these two identifiers makes it easier to handle multiple traces from multiple 
 applications and/or platforms.
-- Gather timings: use the `liballtoallv_timings.so` shared library. This generates
+- Gather timings: use the `liballtoallv_exec_timings.so` and `liballtoallv_late_arrival.so` shared libraries. These generate
 by default multiple files based on the following naming scheme:
- `late-arrivals-timings.job<JOBID>.rank<RANK>.md` and `a2a-timings.job<JOBID>.rank<RANK>.md`. 
+ `<COLLECTIVE>_late_arrivals_timings.rank<RANK>_comm<COMMID>_job<JOBID>.md` and `<COLLECTIVE>_execution_times.rank<RANK>_comm<COMMID>_job<JOBID>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
 files `backtrace_rank<RANK>_call<ID>.md`, *one per alltoallv call*, all of them stored in a `backtraces`
 directory. In other words, this generates one file per alltoallv call, where `<ID>` is the
@@ -68,7 +68,8 @@ This requires to have MPI available on the system.
 
 This creates the following shared libraries:
 - `liballtoallv_counts.so`,
-- `liballtoallv_timings.so`,
+- `liballtoallv_exec_timings.so`,
+- `liballtoallv_late_arrival.so`,
 - `liballtoallv_backtrace.so`,
 - `liballtoallv_location.so`,
 - and `alltoallv/liballtoallv.so`.

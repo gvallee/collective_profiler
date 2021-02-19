@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -23,6 +23,7 @@ import (
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
@@ -52,9 +53,10 @@ const (
 	binThresholds = "200,1024,2048,4096"
 )
 
-var datasetBasedir string
-var datasetName string
-var mainData CallsPageData
+// The webUI is designed at the moment to support only alltoallv over a single communicator
+// so we hardcode corresponding data
+var collectiveName = "alltoallv"
+var commID = 0
 
 // A bunch of global variable to avoiding loading data all the time and make everything super slow
 // when dealing with big datasets
@@ -62,19 +64,21 @@ var numCalls int
 var stats map[int]counts.SendRecvStats
 var allPatterns map[int]patterns.Data
 var allCallsData []counts.CommDataT
-var rankFileData map[int]maps.RankFileData
+var rankFileData map[int]*location.RankFileData
 var callMaps map[int]maps.CallsDataT
 var globalSendHeatMap map[int]int
 var globalRecvHeatMap map[int]int
 var rankNumCallsMap map[int]int
-var a2aExecutionTimes map[int]map[int]map[int]float64
-var lateArrivalTimes map[int]map[int]map[int]float64
-var totalA2AExecutionTimes map[int]float64
+var operationsTimings map[string]*timings.CollectiveTimings
+var totalExecutionTimes map[int]float64
 var totalLateArrivalTimes map[int]float64
 
-var basedir string
+var codeBaseDir string
+var datasetBasedir string
+var datasetName string
+var mainData CallsPageData
 
-func allDataAvailable(dir string, leadRank int, callID int) bool {
+func allDataAvailable(collectiveName string, dir string, leadRank int, commID int, jobID int, callID int) bool {
 	callSendHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-send.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID))
 	callRecvHeatMapFilePath := filepath.Join(dir, fmt.Sprintf("%s%d-recv.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID))
 
@@ -88,8 +92,8 @@ func allDataAvailable(dir string, leadRank int, callID int) bool {
 		return false
 	}
 
-	lateArrivalTimingFilePath := filepath.Join(dir, fmt.Sprintf("%s.job0.rank%d.call%d.md", timings.LateArrivalFilePrefix, leadRank, callID))
-	execTimingFilePath := filepath.Join(dir, fmt.Sprintf("%s.job0.rank%d.call%d.md", timings.AlltoallFilePrefix, leadRank, callID))
+	lateArrivalTimingFilePath := timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID)
+	execTimingFilePath := timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID)
 
 	if !util.PathExists(execTimingFilePath) {
 		log.Printf("%s is missing!\n", execTimingFilePath)
@@ -113,11 +117,13 @@ func allDataAvailable(dir string, leadRank int, callID int) bool {
 	return true
 }
 
+// CallHandler is the http handler invoked when details about a specific call are requested
 func CallHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	leadRank := 0
 	callID := 0
+	jobID := 0
 	params := r.URL.Query()
 	for k, v := range params {
 		if k == "leadRank" {
@@ -133,32 +139,44 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
+
+		if k == "jobID" {
+			jobID, err = strconv.Atoi(v[0])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
 	}
 
 	// Make sure the graph is ready
 	if !plot.CallFilesExist(datasetBasedir, leadRank, callID) {
-		if allDataAvailable(datasetBasedir, leadRank, callID) {
+		if allDataAvailable(collectiveName, datasetBasedir, leadRank, commID, jobID, callID) {
 			// Load all the data and generate the file
 			callSendHeatMap, err := maps.LoadCallFileHeatMap(filepath.Join(datasetBasedir, fmt.Sprintf("%s%d-send.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID)))
 			if err != nil {
-				log.Printf("ERROR: %s\n", err)
+				log.Printf("ERROR: %s", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			callRecvHeatMap, err := maps.LoadCallFileHeatMap(filepath.Join(datasetBasedir, fmt.Sprintf("%s%d-recv.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID)))
 			if err != nil {
-				log.Printf("ERROR: %s\n", err)
+				log.Printf("ERROR: %s", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			callExecTimings, err := timings.LoadCallFile(filepath.Join(datasetBasedir, fmt.Sprintf("%s.job0.rank%d.call%d.md", timings.AlltoallFilePrefix, leadRank, callID)))
+
+			execTimingsFile := timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID)
+			_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, codeBaseDir)
 			if err != nil {
-				log.Printf("ERROR: %s\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Printf("unable to parse %s: %s", execTimingsFile, err)
 			}
-			callLateArrivalTimings, err := timings.LoadCallFile(filepath.Join(datasetBasedir, fmt.Sprintf("%s.job0.rank%d.call%d.md", timings.LateArrivalFilePrefix, leadRank, callID)))
+			callExecTimings := execTimings[callID]
+
+			lateArrivalFile := timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID)
+			_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, codeBaseDir)
 			if err != nil {
-				log.Printf("ERROR: %s\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Printf("unable to parse %s: %s", execTimingsFile, err)
 			}
+			callLateArrivalTimings := lateArrivalTimings[callID]
+
 			hostMap, err := maps.LoadHostMap(filepath.Join(datasetBasedir, maps.RankFilename))
 			if err != nil {
 				log.Printf("ERROR: %s\n", err)
@@ -175,19 +193,26 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			if callMaps == nil {
-				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(maps.Heat, datasetBasedir, allCallsData)
+				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(codeBaseDir, maps.Heat, datasetBasedir, allCallsData)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
 			}
 
-			if a2aExecutionTimes == nil {
-				a2aExecutionTimes, lateArrivalTimes, totalA2AExecutionTimes, totalLateArrivalTimes, err = timings.HandleTimingFiles(filepath.Join(datasetBasedir, "timings"), numCalls, callMaps)
+			if operationsTimings == nil {
+				operationsTimings, totalExecutionTimes, totalLateArrivalTimes, err = timings.HandleTimingFiles(codeBaseDir, datasetBasedir, numCalls, callMaps)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
 			}
 
 			for i := 0; i < len(allCallsData); i++ {
 				if allCallsData[i].LeadRank == leadRank {
-					_, err = plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
+					opTimings := operationsTimings[collectiveName]
+					opExecTimings := opTimings.ExecTimes
+					opLateArrivalTimings := opTimings.LateArrivalTimes
+
+					_, err = plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], opExecTimings[commID][i], opLateArrivalTimings[commID][i])
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 					}
@@ -223,7 +248,7 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 		"displayCallPlot": func(leadRank int, callID int) string {
 			return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
 		},
-	}).ParseFiles(filepath.Join(basedir, "templates", "callDetails.html"))
+	}).ParseFiles(filepath.Join(codeBaseDir, "tools", "cmd", "webui", "templates", "callDetails.html"))
 
 	err = callTemplate.Execute(w, cpd)
 	if err != nil {
@@ -267,7 +292,7 @@ func CallsLayoutHandler(w http.ResponseWriter, r *http.Request) {
 		Calls:     allCallsData,
 	}
 
-	callsLayoutTemplate, err := template.New("callsLayout.html").ParseFiles(filepath.Join(basedir, "templates", "callsLayout.html"))
+	callsLayoutTemplate, err := template.New("callsLayout.html").ParseFiles(filepath.Join(codeBaseDir, "tools", "cmd", "webui", "templates", "callsLayout.html"))
 	err = callsLayoutTemplate.Execute(w, mainData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -323,7 +348,7 @@ func PatternsHandler(w http.ResponseWriter, r *http.Request) {
 		Content: htmlContent,
 	}
 
-	patternsTemplate, err := template.New("patterns.html").ParseFiles(filepath.Join(basedir, "templates", "patterns.html"))
+	patternsTemplate, err := template.New("patterns.html").ParseFiles(filepath.Join(codeBaseDir, "tools", "cmd", "webui", "templates", "patterns.html"))
 	err = patternsTemplate.Execute(w, patternsSummaryData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -332,7 +357,7 @@ func PatternsHandler(w http.ResponseWriter, r *http.Request) {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
-	indexTemplate, err := template.New("index.html").ParseFiles(filepath.Join(basedir, "templates", "index.html"))
+	indexTemplate, err := template.New("index.html").ParseFiles(filepath.Join(codeBaseDir, "tools", "cmd", "webui", "templates", "index.html"))
 	err = indexTemplate.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -340,8 +365,8 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func displayUI(dataBasedir string, name string) error {
-	datasetBasedir = dataBasedir
+func displayUI(codeBaseDir string, basedir string, name string) error {
+	datasetBasedir = basedir
 	datasetName = name
 
 	http.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(datasetBasedir))))
@@ -356,7 +381,7 @@ func displayUI(dataBasedir string, name string) error {
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
-	baseDir := flag.String("basedir", "", "Base directory of the dataset")
+	basedir := flag.String("basedir", "", "Base directory of the dataset")
 	name := flag.String("name", "example", "Name of the dataset to display")
 	help := flag.Bool("h", false, "Help message")
 
@@ -380,6 +405,6 @@ func main() {
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	basedir = filepath.Dir(filename)
-	displayUI(*baseDir, *name)
+	codeBaseDir = filepath.Dir(filename)
+	displayUI(codeBaseDir, *basedir, *name)
 }

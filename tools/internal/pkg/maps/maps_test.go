@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -12,9 +12,10 @@ import (
 	"testing"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 )
 
-func getRanksMapFromLocations(locations []Location) map[int]int {
+func getRanksMapFromLocations(locations []*location.RankLocation) map[int]int {
 	ranksMap := make(map[int]int)
 	for _, l := range locations {
 		ranksMap[l.CommRank] = l.CommWorldRank
@@ -22,8 +23,8 @@ func getRanksMapFromLocations(locations []Location) map[int]int {
 	return ranksMap
 }
 
-func getRankFileDataFromLocations(locations []Location) RankFileData {
-	var data RankFileData
+func getRankFileDataFromLocations(locations []*location.RankLocation) location.RankFileData {
+	var data location.RankFileData
 	data.RankMap = make(map[int]string)
 	data.HostMap = make(map[string][]int)
 
@@ -34,54 +35,6 @@ func getRankFileDataFromLocations(locations []Location) RankFileData {
 		}
 	}
 	return data
-}
-
-func TestGetLocationsFromStrings(t *testing.T) {
-	tests := []struct {
-		input             []string
-		expectedLocations []Location
-	}{
-		{
-			input: []string{"COMMWORLD rank: 0 - COMM rank: 0 - PID: 2 - Hostname: node1", "COMMWORLD rank: 1 - COMM rank: 1 - PID: 3 - Hostname: node2"},
-			expectedLocations: []Location{
-				{
-					CommWorldRank: 0,
-					CommRank:      0,
-					PID:           2,
-					Hostname:      "node1",
-				},
-				{
-					CommWorldRank: 1,
-					CommRank:      1,
-					PID:           3,
-					Hostname:      "node2",
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		l, err := getLocationsFromStrings(tt.input)
-		if err != nil {
-			t.Fatalf("getLocationFromString() failed: %s", err)
-		}
-
-		if len(l) != len(tt.expectedLocations) {
-			t.Fatalf("getLocationFromString() returned %d locations instead of %d", len(l), len(tt.expectedLocations))
-		}
-
-		for i := 0; i < len(l); i++ {
-			if l[i].CommWorldRank != tt.expectedLocations[i].CommWorldRank {
-				t.Fatalf("COMM WORLD's rank for element %d is %d instead of %d", i, l[i].CommWorldRank, tt.expectedLocations[i].CommWorldRank)
-			}
-			if l[i].CommRank != tt.expectedLocations[i].CommRank {
-				t.Fatalf("comm rank for element %d is %d instead of %d", i, l[i].CommRank, tt.expectedLocations[i].CommRank)
-			}
-			if l[i].Hostname != tt.expectedLocations[i].Hostname {
-				t.Fatalf("Rank location for element %d is %s instead of %s", i, l[i].Hostname, tt.expectedLocations[i].Hostname)
-			}
-		}
-	}
 }
 
 func TestCreateMapFromCounts(t *testing.T) {
@@ -99,7 +52,7 @@ func TestCreateMapFromCounts(t *testing.T) {
 			datatypeSize:        1,
 			commSize:            2,
 			counts:              []string{"Rank(s) 0: 1 2", "Rank(s) 1: 3 4"},
-			locations:           []string{"COMMWORLD rank: 0 - COMM rank: 0 - PID: 2 - Hostname: node1", "COMMWORLD rank: 1 - COMM rank: 1 - PID: 3 - Hostname: node2"},
+			locations:           []string{"Communicator ID: 0\n", "Calls: 0-1\n", "COMM_WORLD ranks: 0-1\n", "PIDs: 1041208-1041209\n", "Hostnames:\n", "\tRank 0: node1\n", "\tRank 1: node2"},
 			expectedCallHeatMap: []int{3, 7}, // Rank 0 sends a total of 3 bytes; rank 1 a total of 7 bytes
 			expectedHostHeatMap: map[string]int{
 				"node1": 3, // 3 bytes are sent from node1
@@ -110,13 +63,13 @@ func TestCreateMapFromCounts(t *testing.T) {
 
 	for _, tt := range tests {
 		globalHeatMap := make(map[int]int)
-		l, err := getLocationsFromStrings(tt.locations)
+		locationData, err := location.GetLocationDataFromStrings(tt.locations, 0)
 		if err != nil {
 			t.Fatalf("getLocationFromString() failed: %s", err)
 		}
 
-		ranksMap := getRanksMapFromLocations(l)
-		rankFileData := getRankFileDataFromLocations(l)
+		ranksMap := getRanksMapFromLocations(locationData.RankLocations)
+		rankFileData := getRankFileDataFromLocations(locationData.RankLocations)
 		var data counts.Data
 		data.RawCounts = tt.counts
 		data.CountsMetadata.DatatypeSize = tt.datatypeSize
@@ -181,12 +134,12 @@ func TestLoadHostMap(t *testing.T) {
 		{
 			inputFile: filepath.Join(basedir, "testData", "set1", "input", "rankfile.txt"),
 			expectedMap: map[string][]int{
-				"node-031": []int{960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970},
-				"node-002": []int{32},
-				"node-012": []int{352, 353, 354},
-				"node-017": []int{512, 513, 514, 515, 516, 517, 518, 520},
-				"node-026": []int{800, 801, 802},
-				"node-029": []int{900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912},
+				"node-031": {960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970},
+				"node-002": {32},
+				"node-012": {352, 353, 354},
+				"node-017": {512, 513, 514, 515, 516, 517, 518, 520},
+				"node-026": {800, 801, 802},
+				"node-029": {900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912},
 			},
 		},
 	}

@@ -19,8 +19,11 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -49,12 +52,16 @@ type Test struct {
 	np                             int
 	source                         string
 	binary                         string
+	totalNumCalls                  int
+	numRanksPerComm                []int
+	numCallsPerComm                []int
 	expectedSendCompactCountsFiles []string
 	expectedRecvCompactCountsFiles []string
 	expectedCountsFiles            []string
 	expectedLocationFiles          []string
-	expectedA2ATimeFiles           []string
+	expectedExecTimeFiles          []string
 	expectedLateArrivalFiles       []string
+	expectedBacktraceFiles         []string
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -66,6 +73,9 @@ func validateCountProfiles(dir string, jobid int, id int) error {
 	return nil
 }
 
+// checkOutputFiles compares the file generated for the profiler with the save we expect to get.
+// Files that we expect are stored in the repository in the 'tests' directory. We therefore
+// assume that some of the output, the one check by this function, is always predictable.
 func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []string) error {
 	for _, expectedOutputFile := range expectedFiles {
 		referenceFile := filepath.Join(expectedOutputDir, expectedOutputFile)
@@ -91,46 +101,95 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 	return nil
 }
 
-func checkOutput(basedir string, tempDir string, tt Test) error {
-	expectedOutputDir := filepath.Join(basedir, "tests", tt.binary, "expectedOutput")
+func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls int, expectedNumRanks int, tt Test) error {
+	md, _, _, err := timings.ParseTimingFile(filepath, codeBaseDir)
+	if err != nil {
+		return fmt.Errorf("timings.ParseTimingFile(() failed: %s", err)
+	}
+	if md.NumCalls != expectedNumCalls {
+		return fmt.Errorf("%s contains data for %d calls instead of %d", filepath, md.NumCalls, expectedNumCalls)
+	}
+	if md.NumRanks != expectedNumRanks {
+		return fmt.Errorf("%s contains data for %d ranks instead of %d", filepath, md.NumRanks, expectedNumRanks)
+	}
+	return nil
+}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedSendCompactCountsFiles)
+func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
+	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, "expectedOutput")
+
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedSendCompactCountsFiles)
 	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedRecvCompactCountsFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedRecvCompactCountsFiles)
 	err = checkOutputFiles(expectedOutputDir, tempDir, tt.expectedRecvCompactCountsFiles)
 	if err != nil {
 		return err
 	}
 
-	// For the other files, we do not at the moment check the content (we could check its
-	// format), we just check if the files were correctly generated
-	fmt.Printf("Checking if %s exists...\n", tt.expectedA2ATimeFiles)
-	for _, file := range tt.expectedA2ATimeFiles {
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedExecTimeFiles)
+	index := 0
+	for _, file := range tt.expectedExecTimeFiles {
 		execTimingFile := filepath.Join(tempDir, file)
 		if !util.FileExists(execTimingFile) {
 			return fmt.Errorf("%s is missing", execTimingFile)
 		}
+		// We also check the format of the content
+		err = checkFormatTimingFile(execTimingFile, codeBaseDir, tt.numCallsPerComm[index], tt.numRanksPerComm[index], tt)
+		if err != nil {
+			return err
+		}
+		index++
 	}
 
-	fmt.Printf("Checking if %s exists...\n", tt.expectedLateArrivalFiles)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedLateArrivalFiles)
+	index = 0
 	for _, file := range tt.expectedLateArrivalFiles {
 		lateArrivalFile := filepath.Join(tempDir, file)
 		if !util.FileExists(lateArrivalFile) {
 			return fmt.Errorf("%s is missing", lateArrivalFile)
 		}
+		// We also check the format of the content
+		err = checkFormatTimingFile(lateArrivalFile, codeBaseDir, tt.numCallsPerComm[index], tt.numRanksPerComm[index], tt)
+		if err != nil {
+			return err
+		}
+		index++
 	}
 
-	/* todo
-	fmt.Printf("Checking if %s exists...\n", tt.expectedLocationFiles[0])
-	locationFile := filepath.Join(tempDir, tt.expectedLocationFiles[0])
-	if !util.FileExists(locationFile) {
-		return fmt.Errorf("%s is missing", locationFile)
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedBacktraceFiles)
+	index = 0
+	for _, file := range tt.expectedBacktraceFiles {
+		backtraceFile := filepath.Join(tempDir, file)
+		if !util.FileExists(backtraceFile) {
+			return fmt.Errorf("%s is missing", backtraceFile)
+		}
+		// The content of the backtraces is execution dependent so we cannot check the content against a template,
+		// but we check the format by forcing the parsing of the files.
+		_, err := backtraces.ReadBacktraceFile(codeBaseDir, backtraceFile, nil)
+		if err != nil {
+			return fmt.Errorf("%s's format is invalid: %s", backtraceFile, err)
+		}
+		index++
 	}
-	*/
+
+	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedLocationFiles)
+	index = 0
+	for _, file := range tt.expectedLocationFiles {
+		locationFile := filepath.Join(tempDir, file)
+		if !util.FileExists(locationFile) {
+			return fmt.Errorf("%s is missing", locationFile)
+		}
+		// We also check the format of the content
+		_, _, err := location.ParseLocationFile(codeBaseDir, locationFile)
+		if err != nil {
+			return fmt.Errorf("%s's format is invalid: %s", locationFile, err)
+		}
+		index++
+	}
 
 	return nil
 }
@@ -157,11 +216,7 @@ func validateTestPostmortemResults(testName string, dir string) error {
 		"stats-job0-rank0.md",
 		"patterns-job0-rank0.md",
 		"patterns-summary-job0-rank0.md"}
-	/* todo:
-		"a2a-timings.job0.rank0.md",           // We do not have a good way to check the content but the file should be there
-		"late-arrivals-timings.job0.rank0.md", // We do not have a good way to check the content but the file should be there
-	}
-	*/
+
 	expectedOutputDir := filepath.Join(basedir, "tests", testName, "expectedOutput")
 	err = checkOutputFiles(expectedOutputDir, dir, expectedFiles)
 	if err != nil {
@@ -196,47 +251,63 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	validationTests := []Test{
 		{
 			np:                             4,
+			totalNumCalls:                  1,
+			numCallsPerComm:                []int{1},
+			numRanksPerComm:                []int{4},
 			source:                         exampleFileC,
 			binary:                         exampleBinaryC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             3,
+			totalNumCalls:                  2,
+			numCallsPerComm:                []int{2},
+			numRanksPerComm:                []int{3},
 			source:                         exampleFileF,
 			binary:                         exampleBinaryF,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 		},
 		{
 			np:                             4,
+			totalNumCalls:                  3,
+			numCallsPerComm:                []int{2, 1},
+			numRanksPerComm:                []int{2, 4},
 			source:                         exampleFileMulticommC,
 			binary:                         exampleBinaryMulticommC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md", "alltoallv_locations_comm1_rank0.md", "alltoallv_locations_comm0_rank2.md"},
+			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
 		},
 		{
 			np:                             4,
+			totalNumCalls:                  2,
+			numCallsPerComm:                []int{2},
+			numRanksPerComm:                []int{4},
 			source:                         exampleFileDatatypeC,
 			binary:                         exampleBinaryDatatypeC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{},
-			expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-			expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
 		},
 	}
 
@@ -244,21 +315,25 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		extaTests := []Test{
 			{
 				np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
+				totalNumCalls:                  1000000,
+				numCallsPerComm:                []int{1000000},
+				numRanksPerComm:                []int{4},
 				source:                         exampleFileBigCountsC,
 				binary:                         exampleBinaryBigCountsC,
 				expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 				expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 				// todo: expectedCountsFiles
-				expectedLocationFiles:    []string{},
-				expectedA2ATimeFiles:     []string{"a2a-timings.job0.rank0.md"},
-				expectedLateArrivalFiles: []string{"late-arrivals-timings.job0.rank0.md"},
+				expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md"},
+				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
+				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
+				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	basedir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
 	// Find MPI
 	mpiBin, err := exec.LookPath("mpirun")
@@ -275,14 +350,14 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	// Compile both the profiler libraries and the example
 	log.Println("Building libraries and tests...")
 	cmd := exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(basedir, "src", "alltoallv")
+	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoallv")
 	err = cmd.Run()
 	if err != nil {
 		return nil, err
 	}
 
 	cmd = exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(basedir, "examples")
+	cmd.Dir = filepath.Join(codeBaseDir, "examples")
 	err = cmd.Run()
 	if err != nil {
 		return nil, err
@@ -307,11 +382,12 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		// Run the profiler
+		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
 		var stdout, stderr bytes.Buffer
 		for _, lib := range sharedLibraries {
-			pathToLib := filepath.Join(basedir, "src", "alltoallv", lib)
+			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
 			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(basedir, "examples", tt.binary))
+			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
 			cmd.Env = append(os.Environ(),
 				"LD_PRELOAD="+pathToLib,
 				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
@@ -325,7 +401,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		// Check the results
-		err = checkOutput(basedir, tempDir, tt)
+		err = checkOutput(codeBaseDir, tempDir, tt)
 		if err != nil {
 			return nil, err
 		}

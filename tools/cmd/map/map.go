@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/go_util/pkg/util"
@@ -42,8 +43,11 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
+	_, filename, _, _ := runtime.Caller(0)
+	codeBaseDir := filepath.Dir(filename)
+
 	// We do not care about the data returned by Create, we only care here about the files that are generated.
-	_, _, _, _, _, err := maps.Create(maps.Heat, *dir, nil)
+	_, _, _, _, _, err := maps.Create(codeBaseDir, maps.Heat, *dir, nil)
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s", err)
 		os.Exit(1)

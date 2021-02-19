@@ -73,7 +73,7 @@ typedef struct caller_info
     struct caller_info *next;
 } caller_info_t;
 
-typedef char* (*get_full_filename_fn_t)(int, char *, int);
+typedef char* (*get_full_filename_fn_t)(int, char *, int, int);
 
 typedef struct logger_config
 {

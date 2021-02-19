@@ -1,10 +1,10 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 #
 # See LICENSE.txt for license information
 #
 
-all: alltoallv alltoall common
+all: common alltoallv alltoall
 
 .PHONY: alltoall alltoallv common
 

@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
-#include <string.h>
 #include <inttypes.h>
 
 #include "collective_profiler_config.h"
@@ -45,6 +44,7 @@ typedef struct logger
     char *collective_name;     // Name of the collective, mainly used to enable nice output text.
     int world_size;            // COMM_WORLD size.
     int rank;                  // Rank that is handling the current logger.
+    int jobid;                 // Job identifier.
     char *main_filename;       // Path to the main profile file.
     FILE *f;                   // File handle to save general profile data. Other files are created for specific data.
     char *sendcounts_filename; // Path of the send counts profile.
@@ -64,6 +64,5 @@ extern void logger_fini(logger_t **l);
 extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
-extern char *compress_int_array(int *array, int xsize, int ysize);
 
 #endif // LOGGER_H

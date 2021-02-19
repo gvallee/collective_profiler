@@ -1,12 +1,9 @@
 # Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
 
-all: webui convert map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer extracttimings analyzetimings analyzebacktraces getcalldata getbins
+all: webui map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer analyzetimings analyzebacktraces getcalldata getbins
 
 webui:
 	cd cmd/webui; go build webui.go
-
-convert:
-	cd cmd/convert; go build convert.go
 
 map:
 	cd cmd/map; go build map.go
@@ -41,9 +38,6 @@ sendprofiler:
 recvprofiler:
 	cd cmd/recvprofiler; go build recvprofiler.go
 
-extracttimings:
-	cd cmd/extracttimings; go build extracttimings.go
-
 test:
 	cd internal/pkg/grouping; go test -v
 	cd internal/pkg/patterns; go test -v
@@ -54,6 +48,7 @@ test:
 	cd internal/pkg/timings; go test -v
 	cd internal/pkg/scale; go test -v
 	cd internal/pkg/plot; go test -v
+	cd internal/pkg/location; go test -v
 
 check: test
 
@@ -63,7 +58,6 @@ clean:
 	@rm -f cmd/srcountsanalyzer/srcountsanalyzer
 	@rm -f cmd/sendprofiler/sendprofiler
 	@rm -f cmd/recvprofiler/recvprofiler
-	@rm -f cmd/extracttimings/extracttimings
 	@rm -f cmd/analyzetimings/analyzetimings
 	@rm -f cmd/analyzebacktraces/analyzebacktraces
 	@rm -f cmd/getcalldata/getcalldata
@@ -71,5 +65,4 @@ clean:
 	@rm -f cmd/validate/validate
 	@rm -f cmd/profile/profile
 	@rm -f cmd/map/map
-	@rm -f cmd/convert/convert
 	@rm -f cmd/webui/webui
