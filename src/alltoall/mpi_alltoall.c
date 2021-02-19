@@ -157,7 +157,7 @@ static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, in
 	int i, j;
 	for (i = 0; i < num; i++)  // i counts to num, so this is a loop over counts_data ** send_data
 	{
-		for (j = 0; j < size; j++)  // and this is a loop over ranks? (Size= communicator size)
+		for (j = 0; j < size; j++)  // and this is a loop over ranks? (Size= communicator size) - now rank_vec_len
 		{
 			if (count[j] != list[i]->counters[j])
 			{
@@ -343,12 +343,12 @@ static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_co
 
 static counts_data_t *lookupSendCounters(int *counts, avSRCountNode_t *call_data)
 {
-	return lookupCounters(call_data->size, call_data->send_data_size, call_data->send_data, counts);
+	return lookupCounters(call_data->rank_vec_len, call_data->send_data_size, call_data->send_data, counts);  // call_data->size changed to call_data->rank_vec_len
 }
 
 static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data)
 {
-	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
+	return lookupCounters(call_data->rank_vec_len, call_data->recv_data_size, call_data->recv_data, counts);
 }
 
 static int add_rank_to_counters_data(int rank, counts_data_t *counters_data)  // TODO - DONE no alltoall mods here - adding rank records not counts.
@@ -387,7 +387,7 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 	int i;
 	counts_data_t *new_data = (counts_data_t *)malloc(sizeof(counts_data_t));
 	assert(new_data);
-	new_data->counters = (int *)malloc(sizeof(int)); // was malloc(size * sizeof(int)) for alltoallv but only one count per rank for alltoall
+	new_data->counters = (int *)malloc(sizeof(int)); // was malloc(size * sizeof(int)) for alltoallv but only one count per rank for alltoall - could do size * again because now called with ->rank_vec_len
 	assert(new_data->counters);
 	new_data->num_ranks = 0;
 	new_data->max_ranks = MAX_TRACKED_RANKS;
@@ -406,7 +406,7 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 // called with add_new_send_counters_to_counters_data(call_data, rank, counts), which are the newnode?, the rank and the relevant section of sbuf?
 static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)  //TODO alltoall mods fro alltoallv
 {
-	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
+	counts_data_t *new_data = new_counter_data(call_data->rank_vec_len, rank, counts);  //TO DO is this it - counter data should olnly be 1 so use rank_vec_len (was ->size)
 	call_data->send_data[call_data->send_data_size] = new_data;
 	call_data->send_data_size++;
 
@@ -415,7 +415,7 @@ static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, in
 
 static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
 {
-	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
+	counts_data_t *new_data = new_counter_data(call_data->rank_vec_len, rank, counts);  // TODO see next fn above
 	call_data->recv_data[call_data->recv_data_size] = new_data;
 	call_data->recv_data_size++;
 
