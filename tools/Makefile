@@ -1,6 +1,9 @@
 # Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
 
-all: webui map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer analyzetimings analyzebacktraces getcalldata getbins
+all: webui map profile sendprofiler recvprofiler getcounters validate srcountsanalyzer analyzetimings analyzebacktraces getcalldata getbins profilerrun
+
+profilerrun:
+	cd cmd/profilerrun; go build profilerrun.go
 
 webui:
 	cd cmd/webui; go build webui.go
@@ -66,3 +69,4 @@ clean:
 	@rm -f cmd/profile/profile
 	@rm -f cmd/map/map
 	@rm -f cmd/webui/webui
+	@rm -f cmd/profilerrun/profilerrun
