@@ -225,7 +225,7 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
                             printf(" %08x ", ((uint32_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
                             break;
                         case 3:
-                            printf(" %016x ", ((uint64_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
+                            printf(" %016lx ", ((uint64_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
                             break;
                     }
                 }
@@ -246,7 +246,7 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
                             printf(" %08x ", ((uint32_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
                             break;
                         case 3:
-                            printf(" %016x ", ((uint64_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
+                            printf(" %016lx ", ((uint64_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
                             break;
                     }
                 }
@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
     // and type for first half of ranks is uint32_t, and second half is uint8_t
     printf("MPI Datatypes used:\n");
     for (int i=0; i<4; i++){
-        printf("name, value: %s, %i\n", type_strings[i], (uint64_t) MPI_Datatypes_used[i]);
+        printf("name, value: %s, %li\n", type_strings[i], (uint64_t) MPI_Datatypes_used[i]);
     }
 
 
