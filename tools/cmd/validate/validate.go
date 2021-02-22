@@ -458,14 +458,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *counts {
-		err := validateCountProfiles(*dir, *jobid, *id)
-		if err != nil {
-			fmt.Printf("Validation of the profiler failed: %s\n", err)
-			os.Exit(1)
-		}
-	}
-
 	if *profiler && !*postmortem {
 		_, err := validateProfiler(false, *full)
 		if err != nil {
