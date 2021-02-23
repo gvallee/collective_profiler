@@ -49,14 +49,13 @@ typedef struct alltoall_test_node_params {
 } alltoall_test_node_params_t;
 
 
-
-
 bool is_rank_in_rankset(int rank, rank_set_t* rank_set){
     for(int i=0; i<rank_set->count; i++){
         if (rank_set->ranks[i] == rank) return true;
     }
     return false;
 }
+
 
 // creates a set of communicators having ranks defined by ranksets
 void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_count){
