@@ -9,7 +9,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,21 +27,17 @@ const (
 // but not block if nothing is available. We assume here the data of interest
 // from stdin is because the user specify writing to stdin from the command line
 // e.g., profilerrun -np 2 myapp < input.txt.
-func getStdin() string {
-	stdinText := ""
-	ch := make(chan string)
-	go func(ch chan string) {
-		reader := bufio.NewReader(os.Stdin)
+func getStdin() []byte {
+	var stdinData []byte
+	ch := make(chan []byte)
+	go func(ch chan []byte) {
+		scanner := bufio.NewScanner(os.Stdin)
 		for {
-			s, err := reader.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					ch <- s
-				}
-				close(ch)
+			if !scanner.Scan() {
 				return
 			}
-			ch <- s
+			data := scanner.Bytes()
+			ch <- data
 		}
 	}(ch)
 
@@ -50,17 +45,17 @@ readfromstdin:
 	for {
 		// We either read data from stdin or timeout if we did not get any data within 1 second
 		select {
-		case text, ok := <-ch:
+		case data, ok := <-ch:
 			if !ok {
 				break readfromstdin
 			} else {
-				stdinText += text
+				stdinData = append(stdinData, data...)
 			}
 		case <-time.After(ioTimeout * time.Second):
-			return stdinText
+			return stdinData
 		}
 	}
-	return stdinText
+	return stdinData
 }
 
 func main() {
@@ -69,7 +64,7 @@ func main() {
 
 	// Check if there is anything to read from stdin, if so, save what is there so we
 	// can feed it to the various mpirun sub-commands we will execute
-	stdinText := getStdin()
+	stdinData := getStdin()
 
 	stderr := os.Stderr
 	stdout := os.Stdout
@@ -93,7 +88,7 @@ func main() {
 		cmd := exec.Command(mpirunPath, cmdArgs...)
 		cmd.Stderr = stderr
 		cmd.Stdout = stdout
-		if stdinText != "" {
+		if len(stdinData) != 0 {
 			// We got data from stdin when the wrapper was invoked so we make sure
 			// we pass that data in to the mpirun command.
 			stdin, err := cmd.StdinPipe()
@@ -103,7 +98,7 @@ func main() {
 			}
 			go func() {
 				defer stdin.Close()
-				io.WriteString(stdin, stdinText)
+				stdin.Write(stdinData)
 			}()
 		}
 		newPath := filepath.Join(mpiDir, "bin")
@@ -112,7 +107,6 @@ func main() {
 		newLDpath = newLDpath + ":" + os.Getenv("LD_LIBRARY_PATH")
 		cmd.Env = append(cmd.Env, os.Environ()...)
 		cmd.Env = append(cmd.Env, []string{"PATH=" + newPath, "LD_LIBRARY_PATH=" + newLDpath}...)
-		fmt.Printf("Executing: %s %s\n", mpirunPath, cmdArgs)
 		err = cmd.Run()
 		if err != nil {
 			fmt.Printf("command failed: %s\n", err)
