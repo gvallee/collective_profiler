@@ -99,4 +99,4 @@ src/alltoall/examples/results_alltoallv/*
 # Compiled code
 examples/alltoallv_dt_c
 src/alltoall/examples/alltoall
-
+examples/alltoall_simple_c
