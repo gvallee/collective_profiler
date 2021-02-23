@@ -36,7 +36,9 @@ tools:
 	@echo "Go not installed; skipping tools' compilation"
 else
 tools:
-	cd tools && make;
+	# We overwite CC because we discovered issues when CC=icc and in our context,
+	# the tools can always be compiled with gcc.
+	cd tools && make CC=gcc;
 endif
 
 check: libraries
@@ -59,3 +61,15 @@ clean:
 validate: clean check_gnuplot all
 	# postmortem validates both the profiler's capabilities and postmortem analysis
 	cd tools/cmd/validate; ./validate -postmortem
+
+install-go:
+ifndef GOCMD
+	@echo "Installing Go 1.13 for Linux into your home directory..."
+	`cd ${HOME}; wget https://golang.org/dl/go1.13.15.linux-amd64.tar.gz && tar xzf go1.13.15.linux-amd64.tar.gz`
+	@echo 'Please add the following to your .bashrc:''
+	@echo 'export GOPATH=$$HOME/go'
+	@echo 'export PATH=$$GOPATH/bin:$$PATH'
+	@echo 'export LD_LIBRARY_PATH=$$GOPATH/lib:$$LD_LIBRARY_PATH'
+else
+	@echo "Go already installed"
+endif

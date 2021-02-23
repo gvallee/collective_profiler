@@ -428,7 +428,7 @@ func main() {
 	counts := flag.Bool("counts", false, "Validate the count data generated during the validation run of the profiler with an MPI application. Requires the following additional options: -dir, -job, -id.")
 	profiler := flag.Bool("profiler", false, "Perform a validation of the profiler itself running various tests. Requires MPI. Does not require any additional option.")
 	postmortem := flag.Bool("postmortem", false, "Perform a validation of the postmortem analysis tools.")
-	full := flag.Bool("full", false, "Run the full validation. WARNING! This may generate a huge amount of files and create file system issues!")
+	full := flag.Bool("full", true, "Run the full validation. WARNING! This may generate a huge amount of files and create file system issues!")
 	dir := flag.String("dir", "", "Where all the data is")
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
@@ -456,14 +456,6 @@ func main() {
 	if !*counts && !*profiler && !*postmortem {
 		fmt.Println("No validate option select, run '-h' for more details")
 		os.Exit(1)
-	}
-
-	if *counts {
-		err := validateCountProfiles(*dir, *jobid, *id)
-		if err != nil {
-			fmt.Printf("Validation of the profiler failed: %s\n", err)
-			os.Exit(1)
-		}
 	}
 
 	if *profiler && !*postmortem {
