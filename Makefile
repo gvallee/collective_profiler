@@ -66,10 +66,10 @@ install-go:
 ifndef GOCMD
 	@echo "Installing Go 1.13 for Linux into your home directory..."
 	`cd ${HOME}; wget https://golang.org/dl/go1.13.15.linux-amd64.tar.gz && tar xzf go1.13.15.linux-amd64.tar.gz`
-	@echo "Please add the following to your .bashrc:"
-	@echo "export GOPATH=$HOME/go"
-	@echo "export PATH=$GOPATH/bin:$PATH"
-	@echo "export LD_LIBRARY_PATH=$GOPATH/lib:$LD_LIBRARY_PATH"
+	@echo 'Please add the following to your .bashrc:''
+	@echo 'export GOPATH=$$HOME/go'
+	@echo 'export PATH=$$GOPATH/bin:$$PATH'
+	@echo 'export LD_LIBRARY_PATH=$$GOPATH/lib:$$LD_LIBRARY_PATH'
 else
 	@echo "Go already installed"
 endif
