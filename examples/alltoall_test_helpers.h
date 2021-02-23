@@ -12,8 +12,6 @@
 #define DEBUG_FLUSH 1
 
 
-// to be compiled with std=c99
-
 /* man page for MPI_Alltoall says
  * "The amount of data sent must be equal to the amount of data received, pairwise, between every pair of processes."
  * hence the first constant below is constant - can use different values of it in different runs */ 
