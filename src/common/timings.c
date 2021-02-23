@@ -98,6 +98,7 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
             *logger = ptr;
             return 0;
         }
+        ptr = ptr->next;
     }
 
     // We could find data about the communicator but no associated logger
