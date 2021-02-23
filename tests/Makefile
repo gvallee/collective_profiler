@@ -14,3 +14,4 @@ wrapper_test/wrapper_test: wrapper_test/wrapper_test.c
 
 clean:
 	@rm -f *.so *.o
+	@rm -f wrapper_test/wrapper_test
