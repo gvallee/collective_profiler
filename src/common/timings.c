@@ -115,7 +115,10 @@ int fini_time_tracking(comm_timing_logger_t **logger)
         (*logger)->prev->next = (*logger)->next;
     }
 
-    fclose((*logger)->fd);
+    if ((*logger)->fd) {
+        fclose((*logger)->fd);
+        (*logger)->fd = NULL;
+    }
     free((*logger)->filename);
     free((*logger));
     *logger = NULL;
@@ -128,7 +131,7 @@ int release_time_loggers()
     while (timing_loggers_head)
     {
         comm_timing_logger_t *ptr = timing_loggers_head->next;
-        free(timing_loggers_head);
+        fini_time_tracking(&timing_loggers_head);
         timing_loggers_head = ptr;
     }
     return 0;
@@ -163,6 +166,12 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         }
     }
     assert(logger);
+
+    if (logger->fd == NULL)
+    {
+        assert(logger->filename);
+        new_logger->fd = fopen(new_logger->filename, "w");
+    }
     assert(logger->fd);
 
     // We know from here we have a correct logger
@@ -173,6 +182,9 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         fprintf(logger->fd, "%f\n", times[i]);
     }
     fprintf(logger->fd, "\n");
-    fflush(logger->fd);
+    // We experienced some unexpected IO problems when we do not close the file
+    // after the each alltoallv operation.
+    fclose(logger->fd);
+    logger->fd = NULL;
     return 0;
 }
