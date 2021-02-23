@@ -35,6 +35,7 @@ typedef struct rank_set{
     int count;
     int ranks[10];
     MPI_Comm communicator;
+    int repetitions;
 } rank_set_t;
 
 
