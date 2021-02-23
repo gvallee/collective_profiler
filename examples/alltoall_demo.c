@@ -63,7 +63,8 @@ int main(int argc, char *argv[]) {
     // Test #1 all ranks have same send and recv types same as its receive type
     // and type for first half of ranks is uint32_t, and second half is uint8_t
     printf("MPI Datatypes used:\n");
-    for (int i=0; i<4; i++){
+    int i;
+    for (i=0; i<4; i++){
         printf("name, value: %s, %i\n", type_strings[i], (uint64_t) MPI_Datatypes_used[i]);
     }
 
@@ -92,7 +93,8 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
     }
 
-    for (int set_idx=0; set_idx<param_sets_set_count; set_idx++){
+    int set_idx;
+    for (set_idx=0; set_idx<param_sets_set_count; set_idx++){
         DEBUG_ALLTOALL_PROFILING("retrieving next parameter set ... *****************\n", NULL);
         alltoall_test_node_params_t* param_set = &param_sets[param_sets_indices[set_idx]];    // the same parameter set is used for all ranks in the alltoall call
         DEBUG_ALLTOALL_PROFILING("next parameter set retrieved\n", NULL);
@@ -123,58 +125,6 @@ int main(int argc, char *argv[]) {
 
             // make sure only one rank prints at once, using barrier and sleep
             print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf);
-            // for (int rank=0; rank<world_size; rank++){ 
-            //     MPI_Barrier(param_set->rank_set->communicator);
-            //     DEBUG_ALLTOALL_PROFILING("Done MPI_Barrier for print from rank = %i\n", rank);
-            //     if (my_rank == rank){
-            //         printf("Buffers for RANK #%i\n", my_rank);
-            //         for (int block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
-            //             printf("SENDBUF to rank #%i  : ", block_idx);
-            //             for (int idx=0; idx<param_set->sendcount; idx++){
-            //                 switch (param_set->send_type_idx){
-            //                     case 0:
-            //                         printf(" %02x ", ((uint8_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
-            //                         break;
-            //                     case 1:
-            //                         printf(" %04x ", ((uint16_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
-            //                         break;
-            //                     case 2:
-            //                         printf(" %08x ", ((uint32_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
-            //                         break;
-            //                     case 3:
-            //                         printf(" %016x ", ((uint64_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
-            //                         break;
-            //                 }
-            //             }
-            //             printf("\n");
-            //             fflush(stdout);
-            //         }
-            //         for (int block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
-            //             printf("RECVBUF from rank #%i: ", block_idx);
-            //             for (int idx=0; idx<param_set->recvcount; idx++){
-            //                 switch (param_set->recv_type_idx){
-            //                     case 0:
-            //                         printf(" %02x ", ((uint8_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
-            //                         break;
-            //                     case 1:
-            //                         printf(" %04x ", ((uint16_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
-            //                         break;
-            //                     case 2:
-            //                         printf(" %08x ", ((uint32_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
-            //                         break;
-            //                     case 3:
-            //                         printf(" %016x ", ((uint64_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
-            //                         break;
-            //                 }
-            //             }
-            //             printf("\n");
-            //             fflush(stdout);
-            //         }
-            //         printf("\n");
-            //         fflush(stdout);
-            //     }
-            //     sleep(1.0);            
-            // }
             free(recvbuf);
             free(sendbuf);
         }

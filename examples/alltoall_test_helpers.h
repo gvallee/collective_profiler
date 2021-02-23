@@ -50,7 +50,8 @@ typedef struct alltoall_test_node_params {
 
 
 bool is_rank_in_rankset(int rank, rank_set_t* rank_set){
-    for(int i=0; i<rank_set->count; i++){
+    int i;
+    for(i=0; i<rank_set->count; i++){
         if (rank_set->ranks[i] == rank) return true;
     }
     return false;
@@ -60,7 +61,8 @@ bool is_rank_in_rankset(int rank, rank_set_t* rank_set){
 // creates a set of communicators having ranks defined by ranksets
 void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_count){
     DEBUG_ALLTOALL_PROFILING("params for create_communicators: worldsize = %i, ranks_sets_count = %i\n", world_size, rank_sets_count);
-    for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("%i ", rank_sets[0].ranks[k]); 
+    int k;
+    for (k=0; k<8; k++) DEBUG_ALLTOALL_PROFILING("%i ", rank_sets[0].ranks[k]); 
     DEBUG_ALLTOALL_PROFILING("\n)");
 
     //MPI_Comm** communicators = (MPI_Comm**) malloc(sizeof(MPI_Comm*) * world_size);
@@ -72,10 +74,11 @@ void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_c
     MPI_Group_size(world_group , &group_size);
     DEBUG_ALLTOALL_PROFILING("World group size = %i\n", group_size);
 
-    for (int rank_set_idx=0; rank_set_idx< rank_sets_count; rank_set_idx++){
+    int rank_set_idx;
+    for (rank_set_idx=0; rank_set_idx< rank_sets_count; rank_set_idx++){
         DEBUG_ALLTOALL_PROFILING("IN LOOP\n");
         rank_set_t* rank_set = &rank_sets[rank_set_idx];
-        for (int k; k<8; k++) DEBUG_ALLTOALL_PROFILING("* %i ", rank_set->ranks[k]); 
+        for (k=0; k<8; k++) DEBUG_ALLTOALL_PROFILING("* %i ", rank_set->ranks[k]); 
         DEBUG_ALLTOALL_PROFILING("\n");
         // signature: MPI_Group_incl( MPI_Group group , int n , const int ranks[] , MPI_Group* newgroup);
         DEBUG_ALLTOALL_PROFILING("calling MPI_Group_incl rank_set_idx=%i ...\n", rank_set_idx);
@@ -93,6 +96,8 @@ void create_communicators(int world_size, rank_set_t* rank_sets, int rank_sets_c
 
 void* create_sendbuf(alltoall_test_node_params_t* node_params){
     void* a;
+    int i;
+    int j;
     DEBUG_ALLTOALL_PROFILING("in create_Sendbuf\n", NULL);
     switch (node_params->send_type_idx){
         case 0: 
@@ -101,29 +106,29 @@ void* create_sendbuf(alltoall_test_node_params_t* node_params){
             DEBUG_ALLTOALL_PROFILING("sendbuf initialised\n", NULL);
             uint8_t* b = (uint8_t*) a;
             DEBUG_ALLTOALL_PROFILING("some buffer items %i %i %i\n", b[0], b[1], b[2]);
-            for (int i=0; i < node_params->sendcount * node_params->rank_set->count; i++){
+            for (i=0; i < node_params->sendcount * node_params->rank_set->count; i++){
                 DEBUG_ALLTOALL_PROFILING("i=%i ", i);
                 b[i] = i / node_params->sendcount;
             }
             DEBUG_ALLTOALL_PROFILING("\n");
 #if DEBUG == 1            
-            for (int j=0; j<64; j++) DEBUG_ALLTOALL_PROFILING("~~ %i ", b[j]);
+            for (j=0; j<64; j++) DEBUG_ALLTOALL_PROFILING("~~ %i ", b[j]);
 #endif           
             return a;
             break;
         case 1: 
             a = malloc(sizeof(uint16_t) * node_params->sendcount * node_params->rank_set->count);
-            for (int i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint16_t*) a)[i] = i / node_params->sendcount;
+            for (i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint16_t*) a)[i] = i / node_params->sendcount;
             return a;
             break;
         case 2:
             a = malloc(sizeof(uint32_t) * node_params->sendcount * node_params->rank_set->count);
-            for (int i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint32_t*) a)[i] = i / node_params->sendcount;
+            for (i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint32_t*) a)[i] = i / node_params->sendcount;
             return a;
             break;
         case 3:
             a = malloc(sizeof(uint64_t) * node_params->sendcount * node_params->rank_set->count);
-            for (int i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint64_t*) a)[i] = i / node_params->sendcount;
+            for (i=0; i < node_params->sendcount * node_params->rank_set->count; i++) ((uint64_t*) a)[i] = i / node_params->sendcount;
             return a;
             break;
     }
@@ -135,24 +140,25 @@ void* create_sendbuf(alltoall_test_node_params_t* node_params){
 void* create_recvbuf(alltoall_test_node_params_t* node_params){
     switch (node_params->recv_type_idx){
         void* a;
+        int i;
         case 0:
             a = malloc(sizeof(uint8_t) * node_params->recvcount * node_params->rank_set->count);
-            for (int i; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint8_t*) a)[i] = 0;
+            for (i=0; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint8_t*) a)[i] = 0;
             return a;
             break;
         case 1:
             a = malloc(sizeof(uint16_t) * node_params->recvcount * node_params->rank_set->count);
-            for (int i; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint16_t*) a)[i] = 0;
+            for (i=0; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint16_t*) a)[i] = 0;
             return a;
             break;
         case 2:
             a = malloc(sizeof(uint32_t) * node_params->recvcount * node_params->rank_set->count);
-            for (int i; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint32_t*) a)[i] = 0;
+            for (i=0; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint32_t*) a)[i] = 0;
             return a;
             break;
         case 3:
             a = malloc(sizeof(uint64_t) * node_params->recvcount * node_params->rank_set->count);
-            for (int i; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint64_t*) a)[i] = 0;
+            for (i=0; i < node_params->recvcount * node_params->rank_set->count; i++) ((uint64_t*) a)[i] = 0;
             return a;
             break;
     }
@@ -162,14 +168,17 @@ void* create_recvbuf(alltoall_test_node_params_t* node_params){
 
 void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* param_set, void* sendbuf, void* recvbuf){
     // make sure only one rank prints at once, using barrier and sleep
-    for (int rank=0; rank<world_size; rank++){ 
+    int rank;
+    int block_idx;
+    int idx;
+    for (rank=0; rank<world_size; rank++){ 
         MPI_Barrier(param_set->rank_set->communicator);
         DEBUG_ALLTOALL_PROFILING("Done MPI_Barrier for print from rank = %i\n", rank);
         if (my_rank == rank){
             printf("Buffers for RANK #%i\n", my_rank);
-            for (int block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
+            for (block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
                 printf("SENDBUF to rank #%i  : ", block_idx);
-                for (int idx=0; idx<param_set->sendcount; idx++){
+                for (idx=0; idx<param_set->sendcount; idx++){
                     switch (param_set->send_type_idx){
                         case 0:
                             printf(" %02x ", ((uint8_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
@@ -188,9 +197,9 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
                 printf("\n");
                 fflush(stdout);
             }
-            for (int block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
+            for (block_idx=0; block_idx<param_set->rank_set->count; block_idx++){
                 printf("RECVBUF from rank #%i: ", block_idx);
-                for (int idx=0; idx<param_set->recvcount; idx++){
+                for (idx=0; idx<param_set->recvcount; idx++){
                     switch (param_set->recv_type_idx){
                         case 0:
                             printf(" %02x ", ((uint8_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
