@@ -20,6 +20,7 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
 {
     int rc;
 
+    fprintf(stderr, "CHECKME!!!!!!!\n");
     uint32_t comm_id;
     GET_COMM_LOGGER(comm_id);
 
@@ -69,7 +70,11 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     new_logger->fd = fopen(new_logger->filename, "w");
     assert(new_logger->fd);
     // Write the format version at the begining of the file
+    fprintf(stderr, "Writing data format to %s\n", new_logger->filename);
     FORMAT_VERSION_WRITE(new_logger->fd);
+    fclose(new_logger->fd);
+    new_logger->fd = NULL;
+
     *logger = new_logger;
 
     return 0;
@@ -104,17 +109,6 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
 
 int fini_time_tracking(comm_timing_logger_t **logger)
 {
-    if (timing_loggers_head == *logger)
-        timing_loggers_head = (*logger)->next;
-
-    if (timing_loggers_tail == *logger)
-        timing_loggers_tail = (*logger)->prev;
-
-    if ((*logger)->prev != NULL)
-    {
-        (*logger)->prev->next = (*logger)->next;
-    }
-
     if ((*logger)->fd) {
         fclose((*logger)->fd);
         (*logger)->fd = NULL;
@@ -133,6 +127,8 @@ int release_time_loggers()
         comm_timing_logger_t *ptr = timing_loggers_head->next;
         fini_time_tracking(&timing_loggers_head);
         timing_loggers_head = ptr;
+        if (ptr != NULL)
+            ptr->prev = NULL;
     }
     return 0;
 }
@@ -170,7 +166,7 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
     if (logger->fd == NULL)
     {
         assert(logger->filename);
-        new_logger->fd = fopen(new_logger->filename, "w");
+        logger->fd = fopen(logger->filename, "a");
     }
     assert(logger->fd);
 
