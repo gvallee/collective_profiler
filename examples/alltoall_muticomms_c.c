@@ -11,6 +11,22 @@ rank_set_t* create_rank_sets(){
     rank_set_t* rank_sets = malloc(sizeof(rank_set_t) * RANK_SETS_COUNT);  
     rank_set_t new_set0 = { .count= 4, .ranks = {0, 1, 2, 3} };
     rank_sets[0] = new_set0;
+    rank_set_t new_set1 = { .count= 3, .ranks = {1, 2, 3} };
+    rank_sets[1] = new_set1;
+    rank_set_t new_set2 = { .count= 3, .ranks = {0, 2, 3} };
+    rank_sets[2] = new_set2;
+    rank_set_t new_set3 = { .count= 3, .ranks = {0, 1, 3} };
+    rank_sets[3] = new_set3;
+    rank_set_t new_set4 = { .count= 3, .ranks = {0, 1, 2} };
+    rank_sets[4] = new_set4;
+    rank_set_t new_set5 = { .count= 2, .ranks = {1, 2} };
+    rank_sets[5] = new_set5;
+    rank_set_t new_set6 = { .count= 2, .ranks = {0, 3} };
+    rank_sets[6] = new_set6;
+    rank_set_t new_set7 = { .count= 2, .ranks = {0, 1} };
+    rank_sets[7] = new_set7;
+    rank_set_t new_set8 = { .count= 2, .ranks = {2, 3} };
+    rank_sets[8] = new_set8;
     return rank_sets;
 }
 

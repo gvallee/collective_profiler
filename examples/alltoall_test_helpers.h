@@ -224,4 +224,28 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
     }
 }
 
+void do_test(alltoall_test_node_params_t* param_sets, int param_sets_set_count, int* param_sets_indices, int my_rank){
+    int set_idx;
+    int repetition;
+    for (set_idx=0; set_idx<param_sets_set_count; set_idx++){
+        alltoall_test_node_params_t* param_set = &param_sets[param_sets_indices[set_idx]];    
+
+        /* test that my rank is one of the communicator used in this call - if not omit this call */
+        if (is_rank_in_rankset(my_rank, param_set->rank_set)){
+            void* sendbuf = create_sendbuf(param_set);
+            void* recvbuf = create_recvbuf(param_set);
+            for (repetition=0; repetition<param_set->repetitions; repetition++){
+                MPI_Alltoall(sendbuf, param_set->sendcount, MPI_Datatypes_used[param_set->send_type_idx], recvbuf, param_set->recvcount, MPI_Datatypes_used[param_set->recv_type_idx], param_set->rank_set->communicator);
+            }
+#if DEBUG
+            print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf); /* note that this function has long calls to sleep() */
+#endif
+            free(recvbuf);
+            free(sendbuf);
+        }
+    }
+}
+
+
+
 #endif /* ALLTOALL_TEST_HELPERS_H */

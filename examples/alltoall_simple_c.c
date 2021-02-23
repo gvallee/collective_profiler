@@ -34,29 +34,11 @@ int main(int argc, char *argv[]) {
     create_communicators(world_size, rank_sets, RANK_SETS_COUNT); 
     alltoall_test_node_params_t* param_sets = create_params_sets(rank_sets);
 
-    /* to test aggregation of patters this set should have duplicates */
+    /* to test aggregation of patterns this set should have duplicates */
     int param_sets_set_count = 1;
     int param_sets_indices[] = {0};
     
-    int set_idx;
-    int repetition;
-    for (set_idx=0; set_idx<param_sets_set_count; set_idx++){
-        alltoall_test_node_params_t* param_set = &param_sets[param_sets_indices[set_idx]];    
-
-        /* test that my rank is one of the communicator used in this call - if not omit this call */
-        if (is_rank_in_rankset(my_rank, param_set->rank_set)){
-            void* sendbuf = create_sendbuf(param_set);
-            void* recvbuf = create_recvbuf(param_set);
-            for (repetition=0; repetition<param_set->repetitions; repetition++){
-                MPI_Alltoall(sendbuf, param_set->sendcount, MPI_Datatypes_used[param_set->send_type_idx], recvbuf, param_set->recvcount, MPI_Datatypes_used[param_set->recv_type_idx], param_set->rank_set->communicator);
-            }
-#if DEBUG
-            print_buffers(my_rank, world_size, param_set, sendbuf, recvbuf); /* note that this function has long calls to sleep() */
-#endif
-            free(recvbuf);
-            free(sendbuf);
-        }
-    }
+    do_test(param_sets, param_sets_set_count, param_sets_indices, my_rank);
 
     MPI_Finalize();
 }
