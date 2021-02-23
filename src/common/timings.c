@@ -70,6 +70,9 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     assert(new_logger->fd);
     // Write the format version at the begining of the file
     FORMAT_VERSION_WRITE(new_logger->fd);
+    fclose(new_logger->fd);
+    new_logger->fd = NULL;
+
     *logger = new_logger;
 
     return 0;
@@ -104,18 +107,10 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
 
 int fini_time_tracking(comm_timing_logger_t **logger)
 {
-    if (timing_loggers_head == *logger)
-        timing_loggers_head = (*logger)->next;
-
-    if (timing_loggers_tail == *logger)
-        timing_loggers_tail = (*logger)->prev;
-
-    if ((*logger)->prev != NULL)
-    {
-        (*logger)->prev->next = (*logger)->next;
+    if ((*logger)->fd) {
+        fclose((*logger)->fd);
+        (*logger)->fd = NULL;
     }
-
-    fclose((*logger)->fd);
     free((*logger)->filename);
     free((*logger));
     *logger = NULL;
@@ -128,8 +123,10 @@ int release_time_loggers()
     while (timing_loggers_head)
     {
         comm_timing_logger_t *ptr = timing_loggers_head->next;
-        free(timing_loggers_head);
+        fini_time_tracking(&timing_loggers_head);
         timing_loggers_head = ptr;
+        if (ptr != NULL)
+            ptr->prev = NULL;
     }
     return 0;
 }
@@ -149,7 +146,7 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
             rc = add_comm(comm, &comm_id);
             if (rc)
             {
-                fprintf(stderr, "unabel to add communicator\n");
+                fprintf(stderr, "unable to add communicator\n");
                 return rc;
             }
         }
@@ -163,6 +160,12 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         }
     }
     assert(logger);
+
+    if (logger->fd == NULL)
+    {
+        assert(logger->filename);
+        logger->fd = fopen(logger->filename, "a");
+    }
     assert(logger->fd);
 
     // We know from here we have a correct logger
@@ -173,6 +176,9 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         fprintf(logger->fd, "%f\n", times[i]);
     }
     fprintf(logger->fd, "\n");
-    fflush(logger->fd);
+    // We experienced some unexpected IO problems when we do not close the file
+    // after the each alltoallv operation.
+    fclose(logger->fd);
+    logger->fd = NULL;
     return 0;
 }
