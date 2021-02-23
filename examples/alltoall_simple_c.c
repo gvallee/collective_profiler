@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     /* set up alltoall parameter sets and the communicators therefor */
     rank_set_t* rank_sets = create_rank_sets();
     create_communicators(world_size, rank_sets, RANK_SETS_COUNT); 
-    alltoall_test_node_params_t* param_sets = alltoall_test_all_node_params_sets(rank_sets);
+    alltoall_test_node_params_t* param_sets = create_params_sets(rank_sets);
 
     /* to test aggregation of patters this set should have duplicates */
     int param_sets_set_count = 1;
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         if (is_rank_in_rankset(my_rank, param_set->rank_set)){
             void* sendbuf = create_sendbuf(param_set);
             void* recvbuf = create_recvbuf(param_set);
-            for (repetition=0; repetition<param_set_>repetitions; repetition++){
+            for (repetition=0; repetition<param_set->repetitions; repetition++){
                 MPI_Alltoall(sendbuf, param_set->sendcount, MPI_Datatypes_used[param_set->send_type_idx], recvbuf, param_set->recvcount, MPI_Datatypes_used[param_set->recv_type_idx], param_set->rank_set->communicator);
             }
 #if DEBUG

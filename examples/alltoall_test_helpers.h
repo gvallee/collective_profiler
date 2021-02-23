@@ -35,7 +35,6 @@ typedef struct rank_set{
     int count;
     int ranks[10];
     MPI_Comm communicator;
-    int repetitions;
 } rank_set_t;
 
 
@@ -45,6 +44,7 @@ typedef struct alltoall_test_node_params {
     int sendcount;
     int recvcount;
     rank_set_t* rank_set;
+    int repetitions;
 } alltoall_test_node_params_t;
 
 
