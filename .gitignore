@@ -100,3 +100,8 @@ src/alltoall/examples/results_alltoallv/*
 examples/alltoallv_dt_c
 src/alltoall/examples/alltoall
 examples/alltoall_simple_c
+examples/alltoall_bigcounts_c
+examples/alltoall_demo
+
+tests/wrapper_test/wrapper_test
+tools/cmd/profilerrun/profilerrun
