@@ -414,9 +414,18 @@ func HandleTimingFiles(codeBaseDir string, dir string, totalNumCalls int, callsM
 
 	data := make(map[string]*CollectiveTimings)
 	for _, file := range f {
-		// Get collective name from filename
 		filename := file.Name()
-		collectiveName := filename[0:strings.Index(filename, "_")]
+		if !strings.Contains(filename, execTimingsFilenameIdentifier) {
+			// Not a timing profile file
+			continue
+		}
+
+		// Get collective name from filename
+		indexFirstDelimiter := strings.Index(filename, "_")
+		if indexFirstDelimiter == -1 {
+			return nil, nil, nil, fmt.Errorf("Timing data file does not follow format: %s", filename)
+		}
+		collectiveName := filename[0:indexFirstDelimiter]
 
 		if strings.Contains(filename, execTimingsFilenameIdentifier) {
 			if _, ok := data[collectiveName]; !ok {
