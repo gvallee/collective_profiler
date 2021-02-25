@@ -27,6 +27,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
@@ -41,6 +42,9 @@ const (
 
 	// DefaultBinThreshold is the default string representation of the list of thresholds for the creation of message size bins
 	DefaultBinThreshold = "200,1024,2048,4096"
+
+	// DefaultSteps is the list of the predefined step the profiler follows by default when analyzing a dataset
+	DefaultSteps = "1-2,4" // Other steps are still too expensive to run on larger datasets
 )
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
@@ -492,7 +496,41 @@ func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileIn
 	return info, nil
 }
 
-func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int, listBins []int) (map[int]*counts.CallData, counts.SendRecvStats, patterns.Data, error) {
+// CreateBinsFromCounts goes through all the call and all the counts to create bins
+func CreateBinsFromCounts(basedir string, rank int, cs map[int]*counts.CallData, listBins []int) error {
+	// Figure basic required data such as jobid and lead rank
+	_, sendCountsFiles, _, err := FindCompactFormatCountsFiles(basedir)
+	if err != nil {
+		return err
+	}
+	sendJobids, err := datafilereader.GetJobIDsFromFileNames(sendCountsFiles)
+	if err != nil {
+		return err
+	}
+	jobid := sendJobids[0]
+
+	if !bins.FilesExist(basedir, jobid, rank, listBins) {
+		b := progress.NewBar(len(cs), "Bin creation")
+		defer progress.EndBar(b)
+		for _, callData := range cs {
+			b.Increment(1)
+			callData.SendData.BinThresholds = listBins
+			sendBins := bins.Create(listBins)
+			sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
+			if err != nil {
+				return err
+			}
+			err = bins.Save(basedir, jobid, rank, sendBins)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int) (map[int]*counts.CallData, counts.SendRecvStats, patterns.Data, error) {
 	var p patterns.Data
 	var sendRecvStats counts.SendRecvStats
 	var cs map[int]*counts.CallData // The key is the call number and the value a pointer to the call's data (several calls can share the same data)
@@ -510,24 +548,6 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 	cs, p, err = patterns.ParseFiles(sendCountFile, recvCountFile, numCalls, rank, sizeThreshold)
 	if err != nil {
 		return cs, sendRecvStats, p, fmt.Errorf("unable to parse count file %s: %s", sendCountFile, err)
-	}
-
-	if !bins.FilesExist(basedir, jobid, rank, listBins) {
-		b := progress.NewBar(len(cs), "Bin creation")
-		defer progress.EndBar(b)
-		for _, callData := range cs {
-			b.Increment(1)
-			callData.SendData.BinThresholds = listBins
-			sendBins := bins.Create(listBins)
-			sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
-			if err != nil {
-				return cs, sendRecvStats, p, err
-			}
-			err = bins.Save(basedir, jobid, rank, sendBins)
-			if err != nil {
-				return cs, sendRecvStats, p, err
-			}
-		}
 	}
 
 	sendRecvStats, err = counts.GatherStatsFromCallData(cs, sizeThreshold)
@@ -595,9 +615,9 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 
 	var allCallsData []counts.CommDataT
 	for _, rank := range sendRanks {
-		callsData, sendRecvStats, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold, listBins)
+		callsData, sendRecvStats, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)
 		if err != nil {
-			return 0, nil, nil, nil, err
+			return 0, nil, nil, nil, fmt.Errorf("analyzeJobRankCounts() failed: %s", err)
 		}
 		totalNumCalls += len(callsData)
 		allStats[rank] = sendRecvStats
@@ -702,93 +722,242 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 	return nil
 }
 
+type step1ResultsT struct {
+	totalNumCalls int
+	stats         map[int]counts.SendRecvStats
+	allPatterns   map[int]patterns.Data
+	allCallsData  []counts.CommDataT
+}
+
+type step3ResultsT struct {
+	rankFileData      map[int]*location.RankFileData
+	callMaps          map[int]maps.CallsDataT
+	globalSendHeatMap map[int]int
+	globalRecvHeatMap map[int]int
+	rankNumCallsMap   map[int]int
+	avgSendHeatMap    map[int]int
+	avgRecvHeatMap    map[int]int
+}
+
+type step4ResultsT struct {
+	collectiveOpsTimings   map[string]*timings.CollectiveTimings
+	totalA2AExecutionTimes map[int]float64
+	totalLateArrivalTimes  map[int]float64
+	avgExecutionTimes      map[int]float64
+	avgLateArrivalTimes    map[int]float64
+}
+
+func displayStepsToBeExecuted(requestedSteps map[int]bool) {
+	fmt.Printf("Executing steps: ")
+	var listSteps []int
+	for step, enabled := range requestedSteps {
+		if enabled {
+			listSteps = append(listSteps, step)
+		}
+	}
+	sort.Ints(listSteps)
+	for _, step := range listSteps {
+		fmt.Printf("%d ", step)
+	}
+	fmt.Printf("\n")
+}
+
 // AnalyzeDataset is a high-level function to trigger the post-mortem analysis of the dataset
-func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeThreshold int) error {
+func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeThreshold int, steps string) error {
+	var err error
+	// We isolate results for each step to clearly see the dependencies between the steps
+	var resultsStep1 *step1ResultsT
+	var resultsStep3 *step3ResultsT
+	var resultsStep4 *step4ResultsT
+
 	listBins := bins.GetFromInputDescr(binThresholds)
 
-	totalNumSteps := 5
+	totalNumSteps := 7
+	listSteps := []int{1, 2, 3, 4, 5, 6, 7}
+	if steps != "" {
+		listSteps, err = notation.ConvertCompressedCallListToIntSlice(steps)
+	}
+	// Transform the list of steps in a map to make it easier to handle
+	requestedSteps := make(map[int]bool)
+	for _, step := range listSteps {
+		requestedSteps[step] = true
+	}
+	// Deal with dependencies between steps
+	if requestedSteps[7] == true {
+		requestedSteps[4] = true
+		requestedSteps[3] = true
+	}
+	if requestedSteps[6] == true {
+		requestedSteps[1] = true
+	}
+	if requestedSteps[5] == true {
+		requestedSteps[4] = true
+		requestedSteps[3] = true
+	}
+	if requestedSteps[4] == true {
+		requestedSteps[1] = true
+	}
+	if requestedSteps[3] == true {
+		requestedSteps[1] = true
+	}
+	if requestedSteps[2] == true {
+		requestedSteps[1] = true
+	}
+
+	displayStepsToBeExecuted(requestedSteps)
+
 	currentStep := 1
-	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
-	t := timer.Start()
-	totalNumCalls, stats, allPatterns, allCallsData, err := HandleCountsFiles(dir, sizeThreshold, listBins)
-	duration := t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	err = AnalyzeSubCommsResults(dir, stats, allPatterns)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(codeBaseDir, maps.Heat, dir, allCallsData)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
-		os.Exit(1)
-	}
-	// Create maps with averages
-	avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	collectiveOpsTimings, totalA2AExecutionTimes, totalLateArrivalTimes, err := timings.HandleTimingFiles(codeBaseDir, dir, totalNumCalls, callMaps)
-	if err != nil {
-		fmt.Printf("Unable to parse timing data: %s", err)
-		os.Exit(1)
-	}
-
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
-		os.Exit(1)
-	}
-	avgExecutionTimes := make(map[int]float64)
-	for rank, execTime := range totalA2AExecutionTimes {
-		rankNumCalls := rankNumCallsMap[rank]
-		avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
-	}
-	avgLateArrivalTimes := make(map[int]float64)
-	for rank, lateTime := range totalLateArrivalTimes {
-		rankNumCalls := rankNumCallsMap[rank]
-		avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	// Check whether gunplot is available, if not skip step
-	_, err = exec.LookPath("gmuplot")
-	if err == nil {
-		fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
-		t = timer.Start()
-		err = plotCallsData(dir, allCallsData, rankFileData, callMaps, collectiveOpsTimings["alltoallv"].ExecTimes, collectiveOpsTimings["alltoallv"].LateArrivalTimes)
-		duration = t.Stop()
+	// STEP 1
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
+		t := timer.Start()
+		resultsStep1 = new(step1ResultsT)
+		resultsStep1.totalNumCalls, resultsStep1.stats, resultsStep1.allPatterns, resultsStep1.allCallsData, err = HandleCountsFiles(dir, sizeThreshold, listBins)
+		duration := t.Stop()
 		if err != nil {
-			fmt.Printf("ERROR: unable to plot data: %s", err)
-			os.Exit(1)
-		}
-		err = plot.Avgs(dir, dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
-		if err != nil {
-			fmt.Printf("ERROR: unable to plot average data: %s", err)
+			return fmt.Errorf("unable to analyze counts: %s", err)
 		}
 		fmt.Printf("Step completed in %s\n", duration)
 	} else {
-		fmt.Printf("\n* Step %d/%d: gnuplot not available, skipping...", currentStep, totalNumSteps)
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
 	}
 	currentStep++
+
+	// STEP 2
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
+		if resultsStep1 == nil {
+			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
+		}
+		t := timer.Start()
+		err = AnalyzeSubCommsResults(dir, resultsStep1.stats, resultsStep1.allPatterns)
+		duration := t.Stop()
+		if err != nil {
+			return fmt.Errorf("unable to analyze sub-communicators results: %s", err)
+		}
+		fmt.Printf("Step completed in %s\n", duration)
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 3
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
+		if resultsStep1 == nil {
+			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
+		}
+		t := timer.Start()
+		resultsStep3 = new(step3ResultsT)
+		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(codeBaseDir, maps.Heat, dir, resultsStep1.allCallsData)
+		if err != nil {
+			return fmt.Errorf("unable to create heat map: %s", err)
+		}
+		// Create maps with averages
+		resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap = maps.CreateAvgMaps(resultsStep1.totalNumCalls, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap)
+		duration := t.Stop()
+		fmt.Printf("Step completed in %s\n", duration)
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 4
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
+		if resultsStep1 == nil {
+			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
+		}
+		t := timer.Start()
+		resultsStep4 = new(step4ResultsT)
+		resultsStep4.collectiveOpsTimings, resultsStep4.totalA2AExecutionTimes, resultsStep4.totalLateArrivalTimes, err = timings.HandleTimingFiles(codeBaseDir, dir, resultsStep1.totalNumCalls)
+		if err != nil {
+			return fmt.Errorf("unable to parse timing data: %s", err)
+		}
+
+		duration := t.Stop()
+		fmt.Printf("Step completed in %s\n", duration)
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 5
+	if requestedSteps[currentStep] == true {
+		// Check whether gunplot is available, if not skip step
+		_, err = exec.LookPath("gmuplot")
+		if err == nil {
+			fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+			if resultsStep1 == nil {
+				return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
+			}
+			if resultsStep3 == nil {
+				return fmt.Errorf("step %d requires results for step 3 which are undefined", currentStep)
+			}
+			if resultsStep4 == nil {
+				return fmt.Errorf("step %d requires results for step 4 which are undefined", currentStep)
+			}
+			t := timer.Start()
+			err = plotCallsData(dir, resultsStep1.allCallsData, resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep4.collectiveOpsTimings["alltoallv"].ExecTimes, resultsStep4.collectiveOpsTimings["alltoallv"].LateArrivalTimes)
+			if err != nil {
+				return fmt.Errorf("unable to plot data: %s", err)
+			}
+			err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
+			if err != nil {
+				return fmt.Errorf("unable to plot average data: %s", err)
+			}
+			duration := t.Stop()
+			fmt.Printf("Step completed in %s\n", duration)
+		} else {
+			fmt.Printf("\n* Step %d/%d: gnuplot not available, skipping...\n", currentStep, totalNumSteps)
+		}
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 6
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: creating bins...\n", currentStep, totalNumSteps)
+		if resultsStep1 == nil {
+			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
+		}
+		for _, callData := range resultsStep1.allCallsData {
+			err := CreateBinsFromCounts(dir, callData.LeadRank, callData.CallData, listBins)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 7
+	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: Calculate stats over entire dataset...\n", currentStep, totalNumSteps)
+		if resultsStep3 == nil {
+			return fmt.Errorf("step %d requires results for step 3 which are undefined", currentStep)
+		}
+		if resultsStep4 == nil {
+			return fmt.Errorf("step %d requires results for step 4 which are undefined", currentStep)
+		}
+		resultsStep4.avgExecutionTimes = make(map[int]float64)
+		for rank, execTime := range resultsStep4.totalA2AExecutionTimes {
+			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
+			resultsStep4.avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
+		}
+		resultsStep4.avgLateArrivalTimes = make(map[int]float64)
+		for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
+			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
+			resultsStep4.avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
+		}
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	fmt.Printf("\n")
 
 	return nil
 }

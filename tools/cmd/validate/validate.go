@@ -23,6 +23,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
@@ -226,8 +227,17 @@ func validateTestSRCountsAnalyzer(testName string, dir string) error {
 	return nil
 }
 
-func validateTestPostmortemResults(testName string, dir string) error {
+func validateDatasetProfiler(codeBaseDir string, testName string, dir string, steps string) error {
+	return profiler.AnalyzeDataset(codeBaseDir, dir, profiler.DefaultBinThreshold, profiler.DefaultMsgSizeThreshold, steps)
+}
+
+func validateTestPostmortemResults(codeBaseDir string, testName string, dir string) error {
 	err := validateTestSRCountsAnalyzer(testName, dir)
+	if err != nil {
+		return err
+	}
+
+	err = validateDatasetProfiler(codeBaseDir, testName, dir, profiler.DefaultSteps)
 	if err != nil {
 		return err
 	}
@@ -235,9 +245,9 @@ func validateTestPostmortemResults(testName string, dir string) error {
 	return nil
 }
 
-func validatePostmortemAnalysisTools(profilerResults map[string]string) error {
+func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[string]string) error {
 	for source, dir := range profilerResults {
-		err := validateTestPostmortemResults(source, dir)
+		err := validateTestPostmortemResults(codeBaseDir, source, dir)
 		if err != nil {
 			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, dir)
 			return err
@@ -467,6 +477,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	_, filename, _, _ := runtime.Caller(0)
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+
 	if *profiler && !*postmortem {
 		_, err := validateProfiler(false, *full)
 		if err != nil {
@@ -485,7 +498,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = validatePostmortemAnalysisTools(profilerValidationResults)
+		err = validatePostmortemAnalysisTools(codeBaseDir, profilerValidationResults)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
 			os.Exit(1)

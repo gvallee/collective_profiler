@@ -484,22 +484,41 @@ func WriteSubcommNto1Patterns(fd *os.File, ranks []int, stats map[int]counts.Sen
 	return nil
 }
 
+// ParseFiles parses all the count files to extract patterns
 func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank int, sizeThreshold int) (map[int]*counts.CallData, Data, error) {
 	var patterns Data
 
 	callData, err := counts.LoadCallsData(sendCountsFile, recvCountsFile, rank, sizeThreshold)
 	if err != nil {
-		return nil, patterns, err
+		return nil, patterns, fmt.Errorf("counts.LoadCallsData() failed: %s", err)
+	}
+	if callData == nil {
+		return nil, patterns, fmt.Errorf("counts.LoadCallsData() did not return any data")
 	}
 
 	b := progress.NewBar(numCalls, "Analyzing alltoallv calls")
 	defer progress.EndBar(b)
 	for i := 0; i < numCalls; i++ {
+		if i >= len(callData) {
+			return nil, patterns, fmt.Errorf("out-of-range call index")
+		}
+
 		b.Increment(1)
 
-		//displayCallPatterns(callInfo)
+		if _, ok := callData[i]; !ok {
+			// The call is not on the communicator that is parsed, we just move to the next one
+			continue
+		}
+
+		if callData[i].SendData.Statistics.Patterns == nil {
+			return nil, patterns, fmt.Errorf("no send patterns available")
+		}
+
+		if callData[i].RecvData.Statistics.Patterns == nil {
+			return nil, patterns, fmt.Errorf("no recv patterns available")
+		}
+
 		// Analyze the send/receive pattern from the call
-		//err := patterns.addPattern(i, callCountsData.SendData.Statistics.Patterns, callCountsData.RecvData.Statistics.Patterns)
 		err := patterns.addPattern(i, callData[i].SendData.Statistics.Patterns, callData[i].RecvData.Statistics.Patterns)
 		if err != nil {
 			return callData, patterns, err
@@ -515,12 +534,13 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 	}
 
 	if len(callData) != numCalls {
-		return nil, patterns, fmt.Errorf("extracted data of %d calls instead of %d\n", len(callData), numCalls)
+		return nil, patterns, fmt.Errorf("extracted data of %d calls instead of %d", len(callData), numCalls)
 	}
 
 	return callData, patterns, nil
 }
 
+// WriteData saves patterns to files
 func WriteData(patternsFd *os.File, patternsSummaryFd *os.File, patternsData Data, numCalls int) error {
 	_, err := patternsFd.WriteString("# Patterns\n")
 	if err != nil {
