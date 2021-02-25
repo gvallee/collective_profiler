@@ -778,10 +778,11 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 	listBins := bins.GetFromInputDescr(binThresholds)
 
 	totalNumSteps := maxSteps
-	listSteps := []int{1, 2, 3, 4, 5, 6, 7}
-	if steps != "" {
-		listSteps, err = notation.ConvertCompressedCallListToIntSlice(steps)
+	if steps == "" {
+		steps = AllSteps
 	}
+	listSteps, err := notation.ConvertCompressedCallListToIntSlice(steps)
+
 	// Transform the list of steps in a map to make it easier to handle
 	requestedSteps := make(map[int]bool)
 	for _, step := range listSteps {
