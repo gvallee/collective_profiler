@@ -711,6 +711,26 @@ func FindRawCountFiles(dir string) RawCountsFilesInfoT {
 }
 
 func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+	if allCallsData == nil {
+		return fmt.Errorf("profiler.plotCallsData(): allCallsData is undefined")
+	}
+
+	if rankFileData == nil {
+		return fmt.Errorf("profiler.plotCallsData(): rankFileData is undefined")
+	}
+
+	if callMaps == nil {
+		return fmt.Errorf("profiler.plotCallsData(): callMaps is undefined")
+	}
+
+	if a2aExecutionTimes == nil {
+		return fmt.Errorf("profiler.plotCallsData(): a2aExecutionTimes is undefined")
+	}
+
+	if lateArrivalTimes == nil {
+		return fmt.Errorf("profiler.plotCallsData(): lateArrivalTimes is undefined")
+	}
+
 	for i := 0; i < len(allCallsData); i++ {
 		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
 		defer progress.EndBar(b)
@@ -718,9 +738,19 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 		for callID := range allCallsData[i].CallData {
 			b.Increment(1)
 
+			if rankFileData[leadRank].HostMap == nil {
+				return fmt.Errorf("host map is undefined for communicator led by %d", leadRank)
+			}
+			if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[i] == nil {
+				return fmt.Errorf("Send heat map isundefined for communicator led by %d", leadRank)
+			}
+			if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[i] == nil {
+				return fmt.Errorf("Receive heat map is undefined for communicator led by %d", leadRank)
+			}
+
 			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
 			if err != nil {
-				return err
+				return fmt.Errorf("plot.CallData() failed: %s", err)
 			}
 		}
 	}
@@ -790,11 +820,12 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 	}
 	// Deal with dependencies between steps
 	if requestedSteps[7] == true {
-		requestedSteps[4] = true
-		requestedSteps[3] = true
+		requestedSteps[1] = true
 	}
 	if requestedSteps[6] == true {
-		requestedSteps[1] = true
+		requestedSteps[5] = true
+		requestedSteps[4] = true
+		requestedSteps[3] = true
 	}
 	if requestedSteps[5] == true {
 		requestedSteps[4] = true
@@ -880,7 +911,6 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 		if err != nil {
 			return fmt.Errorf("unable to parse timing data: %s", err)
 		}
-
 		duration := t.Stop()
 		fmt.Printf("Step completed in %s\n", duration)
 	} else {
@@ -890,10 +920,42 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 
 	// STEP 5
 	if requestedSteps[currentStep] == true {
+		fmt.Printf("\n* Step %d/%d: Calculate stats over entire dataset...\n", currentStep, totalNumSteps)
+		if resultsStep3 == nil {
+			return fmt.Errorf("step %d requires results for step 3 which are undefined", currentStep)
+		}
+		if resultsStep4 == nil {
+			return fmt.Errorf("step %d requires results for step 4 which are undefined", currentStep)
+		}
+
+		if resultsStep4.totalA2AExecutionTimes == nil || len(resultsStep4.totalA2AExecutionTimes) == 0 {
+			return fmt.Errorf("step %d: total execution time from step 4 is empty", currentStep)
+		}
+		if resultsStep4.totalLateArrivalTimes == nil || len(resultsStep4.totalLateArrivalTimes) == 0 {
+			return fmt.Errorf("step %d: total late time from step 4 is empty", currentStep)
+		}
+
+		resultsStep4.avgExecutionTimes = make(map[int]float64)
+		for rank, execTime := range resultsStep4.totalA2AExecutionTimes {
+			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
+			resultsStep4.avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
+		}
+		resultsStep4.avgLateArrivalTimes = make(map[int]float64)
+		for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
+			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
+			resultsStep4.avgLateArrivalTimes[rank] = lateTime / float64(rankNumCalls)
+		}
+	} else {
+		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	// STEP 6
+	if requestedSteps[currentStep] == true {
 		// Check whether gunplot is available, if not skip step
 		_, err = exec.LookPath("gnuplot")
 		if err == nil {
-			fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+			fmt.Printf("\n* Step %d/%d: Generating plots...\n", currentStep, totalNumSteps)
 			if resultsStep1 == nil {
 				return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
 			}
@@ -903,15 +965,22 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 			if resultsStep4 == nil {
 				return fmt.Errorf("step %d requires results for step 4 which are undefined", currentStep)
 			}
+
+			if resultsStep3.callMaps == nil {
+				return fmt.Errorf("call map from maps.Create() is undefined")
+			}
 			t := timer.Start()
+
 			err = plotCallsData(dir, resultsStep1.allCallsData, resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep4.collectiveOpsTimings["alltoallv"].ExecTimes, resultsStep4.collectiveOpsTimings["alltoallv"].LateArrivalTimes)
 			if err != nil {
-				return fmt.Errorf("unable to plot data: %s", err)
+				return fmt.Errorf("unable to plot data, plotCallsData() failed: %s", err)
 			}
-			err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
-			if err != nil {
-				return fmt.Errorf("unable to plot average data: %s", err)
-			}
+			/*
+				err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
+				if err != nil {
+					return fmt.Errorf("unable to plot average data: %s", err)
+				}
+			*/
 			duration := t.Stop()
 			fmt.Printf("Step completed in %s\n", duration)
 		} else {
@@ -922,7 +991,7 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 	}
 	currentStep++
 
-	// STEP 6
+	// STEP 7
 	if requestedSteps[currentStep] == true {
 		fmt.Printf("\n* Step %d/%d: creating bins...\n", currentStep, totalNumSteps)
 		if resultsStep1 == nil {
@@ -933,30 +1002,6 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 			if err != nil {
 				return err
 			}
-		}
-	} else {
-		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
-	}
-	currentStep++
-
-	// STEP 7
-	if requestedSteps[currentStep] == true {
-		fmt.Printf("\n* Step %d/%d: Calculate stats over entire dataset...\n", currentStep, totalNumSteps)
-		if resultsStep3 == nil {
-			return fmt.Errorf("step %d requires results for step 3 which are undefined", currentStep)
-		}
-		if resultsStep4 == nil {
-			return fmt.Errorf("step %d requires results for step 4 which are undefined", currentStep)
-		}
-		resultsStep4.avgExecutionTimes = make(map[int]float64)
-		for rank, execTime := range resultsStep4.totalA2AExecutionTimes {
-			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
-			resultsStep4.avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
-		}
-		resultsStep4.avgLateArrivalTimes = make(map[int]float64)
-		for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
-			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
-			resultsStep4.avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
 		}
 	} else {
 		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)

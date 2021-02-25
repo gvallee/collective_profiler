@@ -414,7 +414,7 @@ func HandleTimingFiles(codeBaseDir string, dir string, totalNumCalls int) (map[s
 	data := make(map[string]*CollectiveTimings)
 	for _, file := range f {
 		filename := file.Name()
-		if !strings.Contains(filename, execTimingsFilenameIdentifier) {
+		if !strings.Contains(filename, execTimingsFilenameIdentifier) && !strings.Contains(filename, lateArrivalTimingsFilenameIdentifier) {
 			// Not a timing profile file
 			continue
 		}

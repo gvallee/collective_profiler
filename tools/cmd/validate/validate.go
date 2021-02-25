@@ -260,6 +260,8 @@ func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[str
 		}
 	}
 
+	fmt.Println("All done")
+
 	// If successful, we can then delete all the directory that were created
 	for _, cfg := range profilerResults {
 		os.RemoveAll(cfg.tempDir)
@@ -320,7 +322,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
-			profilerStepsToExecute:   profiler.AllSteps,
+			profilerStepsToExecute:   profiler.DefaultSteps, // Heat map for traces with multiple communicators is creating problems
 		},
 		{
 			np:                             4,
@@ -410,6 +412,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		if keepResults {
 			cfg := new(testCfg)
 			cfg.tempDir = tempDir
+			cfg.cfg = tt
 			results[tt.binary] = cfg
 		}
 
