@@ -11,20 +11,17 @@ TMPROOT=$(mktemp -td alltoalltest.XXX)
 # profiling environment variables
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling
-# SAMPLING_LIBS=(liballtoall_backtrace_counts_unequal.so liballtoall_backtrace.so \
-#                 liballtoall_counts_compact.so liballtoall_counts.so \
-#                 liballtoall_counts_unequal_compact.so liballtoall_counts_unequal.so \
-#                 liballtoall_exec_timings_counts_unequal.so liballtoall_exec_timings.so \
-#                 liballtoall_late_arrival_counts_unequal.so liballtoall_late_arrival.so \
-#                 liballtoall_location_counts_unequal.so liballtoall_location.so \
-#                 liballtoall.so)
+SAMPLING_LIBS=(liballtoall_backtrace_counts_unequal.so liballtoall_backtrace.so \
+                liballtoall_counts_compact.so liballtoall_counts.so \
+                liballtoall_counts_unequal_compact.so liballtoall_counts_unequal.so \
+                liballtoall_exec_timings_counts_unequal.so liballtoall_exec_timings.so \
+                liballtoall_late_arrival_counts_unequal.so liballtoall_late_arrival.so \
+                liballtoall_location_counts_unequal.so liballtoall_location.so \
+                liballtoall.so)
 
-# the test programs 
-# EXAMPLE_PROGS=(alltoall_simple_c alltoall_bigcounts_c alltoall_dt_c alltoall_multicomms_c)
-
-# shortlists for working up this script
-SAMPLING_LIBS=(liballtoall_counts_compact.so)
-EXAMPLE_PROGS=(alltoall_simple_c)
+# the test programs and sample libraryies 
+#SAMPLING_LIBS=(liballtoall_counts_compact.so)
+EXAMPLE_PROGS=(alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c)
 
 
 # mpi stuff
