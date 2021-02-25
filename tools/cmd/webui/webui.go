@@ -200,7 +200,7 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if operationsTimings == nil {
-				operationsTimings, totalExecutionTimes, totalLateArrivalTimes, err = timings.HandleTimingFiles(codeBaseDir, datasetBasedir, numCalls, callMaps)
+				operationsTimings, totalExecutionTimes, totalLateArrivalTimes, err = timings.HandleTimingFiles(codeBaseDir, datasetBasedir, numCalls)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
