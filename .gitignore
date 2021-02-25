@@ -105,3 +105,6 @@ examples/alltoall_demo
 
 tests/wrapper_test/wrapper_test
 tools/cmd/profilerrun/profilerrun
+examples/alltoall_dt_c
+examples/alltoall_multicomms_c
+examples/alltoall_muticomms_c
