@@ -975,12 +975,10 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 			if err != nil {
 				return fmt.Errorf("unable to plot data, plotCallsData() failed: %s", err)
 			}
-			/*
-				err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
-				if err != nil {
-					return fmt.Errorf("unable to plot average data: %s", err)
-				}
-			*/
+			err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
+			if err != nil {
+				return fmt.Errorf("unable to plot average data: %s", err)
+			}
 			duration := t.Stop()
 			fmt.Printf("Step completed in %s\n", duration)
 		} else {
