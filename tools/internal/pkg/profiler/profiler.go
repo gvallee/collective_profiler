@@ -885,7 +885,7 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 	// STEP 5
 	if requestedSteps[currentStep] == true {
 		// Check whether gunplot is available, if not skip step
-		_, err = exec.LookPath("gmuplot")
+		_, err = exec.LookPath("gnuplot")
 		if err == nil {
 			fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
 			if resultsStep1 == nil {
