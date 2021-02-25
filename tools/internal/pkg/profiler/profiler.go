@@ -45,6 +45,11 @@ const (
 
 	// DefaultSteps is the list of the predefined step the profiler follows by default when analyzing a dataset
 	DefaultSteps = "1-2,4" // Other steps are still too expensive to run on larger datasets
+
+	// AllSteps is the string representing all the available steps of the profiler
+	AllSteps = "1-7"
+
+	maxSteps = 7
 )
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
@@ -772,7 +777,7 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 
 	listBins := bins.GetFromInputDescr(binThresholds)
 
-	totalNumSteps := 7
+	totalNumSteps := maxSteps
 	listSteps := []int{1, 2, 3, 4, 5, 6, 7}
 	if steps != "" {
 		listSteps, err = notation.ConvertCompressedCallListToIntSlice(steps)
