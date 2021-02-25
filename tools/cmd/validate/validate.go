@@ -194,7 +194,7 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
 	return nil
 }
 
-func validateTestPostmortemResults(testName string, dir string) error {
+func validateTestSRCountsAnalyzer(testName string, dir string) error {
 	toolName := "srcountsanalyzer"
 	_, filename, _, _ := runtime.Caller(0)
 	basedir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
@@ -219,6 +219,15 @@ func validateTestPostmortemResults(testName string, dir string) error {
 
 	expectedOutputDir := filepath.Join(basedir, "tests", testName, "expectedOutput")
 	err = checkOutputFiles(expectedOutputDir, dir, expectedFiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateTestPostmortemResults(testName string, dir string) error {
+	err := validateTestSRCountsAnalyzer(testName, dir)
 	if err != nil {
 		return err
 	}

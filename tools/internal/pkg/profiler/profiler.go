@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -24,10 +25,22 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
+)
+
+const (
+	// DefaultMsgSizeThreshold is the default message size to differentiate small and large messages
+	DefaultMsgSizeThreshold = 200
+
+	// DefaultBinThreshold is the default string representation of the list of thresholds for the creation of message size bins
+	DefaultBinThreshold = "200,1024,2048,4096"
 )
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
@@ -672,19 +685,110 @@ func FindRawCountFiles(dir string) RawCountsFilesInfoT {
 	return rawCountFilesInfo
 }
 
-/* deprecated?
-func ScanDirectories(dirs []string) (ProfileFilesT, error) {
-	var data ProfileFilesT
-	for _, dir := range dirs {
-		rawCountInfo := FindRawCountFiles(dir)
-		singleTimingInfo := FindSingleFileTimingFile(dir)
-		if data.SingleTimingFile.Path != "" {
-			return data, fmt.Errorf("found more than one single timing file; dataset is compromised...")
+func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+	for i := 0; i < len(allCallsData); i++ {
+		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
+		defer progress.EndBar(b)
+		leadRank := allCallsData[i].LeadRank
+		for callID := range allCallsData[i].CallData {
+			b.Increment(1)
+
+			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
+			if err != nil {
+				return err
+			}
 		}
-		data.SingleTimingFile.Path = singleTimingInfo
-		data.RawCounts.Files = append(data.RawCounts.Files, rawCountInfo.Files...)
-		data.RawCounts.Dirs = append(data.RawCounts.Dirs, rawCountInfo.Dirs...)
 	}
-	return data, nil
+	return nil
 }
-*/
+
+// AnalyzeDataset is a high-level function to trigger the post-mortem analysis of the dataset
+func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeThreshold int) error {
+	listBins := bins.GetFromInputDescr(binThresholds)
+
+	totalNumSteps := 5
+	currentStep := 1
+	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
+	t := timer.Start()
+	totalNumCalls, stats, allPatterns, allCallsData, err := HandleCountsFiles(dir, sizeThreshold, listBins)
+	duration := t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	err = AnalyzeSubCommsResults(dir, stats, allPatterns)
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(codeBaseDir, maps.Heat, dir, allCallsData)
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
+		os.Exit(1)
+	}
+	// Create maps with averages
+	avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
+	t = timer.Start()
+	collectiveOpsTimings, totalA2AExecutionTimes, totalLateArrivalTimes, err := timings.HandleTimingFiles(codeBaseDir, dir, totalNumCalls, callMaps)
+	if err != nil {
+		fmt.Printf("Unable to parse timing data: %s", err)
+		os.Exit(1)
+	}
+
+	duration = t.Stop()
+	if err != nil {
+		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
+		os.Exit(1)
+	}
+	avgExecutionTimes := make(map[int]float64)
+	for rank, execTime := range totalA2AExecutionTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
+	}
+	avgLateArrivalTimes := make(map[int]float64)
+	for rank, lateTime := range totalLateArrivalTimes {
+		rankNumCalls := rankNumCallsMap[rank]
+		avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
+	}
+	fmt.Printf("Step completed in %s\n", duration)
+	currentStep++
+
+	// Check whether gunplot is available, if not skip step
+	_, err = exec.LookPath("gmuplot")
+	if err == nil {
+		fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
+		t = timer.Start()
+		err = plotCallsData(dir, allCallsData, rankFileData, callMaps, collectiveOpsTimings["alltoallv"].ExecTimes, collectiveOpsTimings["alltoallv"].LateArrivalTimes)
+		duration = t.Stop()
+		if err != nil {
+			fmt.Printf("ERROR: unable to plot data: %s", err)
+			os.Exit(1)
+		}
+		err = plot.Avgs(dir, dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
+		if err != nil {
+			fmt.Printf("ERROR: unable to plot average data: %s", err)
+		}
+		fmt.Printf("Step completed in %s\n", duration)
+	} else {
+		fmt.Printf("\n* Step %d/%d: gnuplot not available, skipping...", currentStep, totalNumSteps)
+	}
+	currentStep++
+
+	return nil
+}

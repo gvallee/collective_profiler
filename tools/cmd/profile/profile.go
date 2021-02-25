@@ -16,41 +16,16 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
 )
-
-func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
-	for i := 0; i < len(allCallsData); i++ {
-		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
-		defer progress.EndBar(b)
-		leadRank := allCallsData[i].LeadRank
-		for callID := range allCallsData[i].CallData {
-			b.Increment(1)
-
-			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose mode")
 	dir := flag.String("dir", "", "Where all the data is")
 	help := flag.Bool("h", false, "Help message")
-	sizeThreshold := flag.Int("size-threshold", 200, "Size to differentiate small and big messages")
-	binThresholds := flag.String("bins", "200,1024,2048,4096", "Comma-separated list of thresholds to use for the creation of bins")
+	sizeThreshold := flag.Int("size-threshold", profiler.DefaultMsgSizeThreshold, "Size to differentiate small and big messages")
+	binThresholds := flag.String("bins", profiler.DefaultBinThreshold, "Comma-separated list of thresholds to use for the creation of bins")
 
 	flag.Parse()
 
@@ -74,84 +49,9 @@ func main() {
 	_, filename, _, _ := runtime.Caller(0)
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
-	listBins := bins.GetFromInputDescr(*binThresholds)
-
-	totalNumSteps := 5
-	currentStep := 1
-	fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
-	t := timer.Start()
-	totalNumCalls, stats, allPatterns, allCallsData, err := profiler.HandleCountsFiles(*dir, *sizeThreshold, listBins)
-	duration := t.Stop()
+	err := profiler.AnalyzeDataset(codeBaseDir, *dir, *binThresholds, *sizeThreshold)
 	if err != nil {
-		fmt.Printf("ERROR: unable to analyze counts: %s\n", err)
+		fmt.Printf("profiler.AnalyzeDataset() failed: %s\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	err = profiler.AnalyzeSubCommsResults(*dir, stats, allPatterns)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze sub-communicators results: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err := maps.Create(codeBaseDir, maps.Heat, *dir, allCallsData)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to create heat map: %s\n", err)
-		os.Exit(1)
-	}
-	// Create maps with averages
-	avgSendHeatMap, avgRecvHeatMap := maps.CreateAvgMaps(totalNumCalls, globalSendHeatMap, globalRecvHeatMap)
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	collectiveOpsTimings, totalA2AExecutionTimes, totalLateArrivalTimes, err := timings.HandleTimingFiles(codeBaseDir, *dir, totalNumCalls, callMaps)
-	if err != nil {
-		fmt.Printf("Unable to parse timing data: %s", err)
-		os.Exit(1)
-	}
-
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to analyze timings: %s\n", err)
-		os.Exit(1)
-	}
-	avgExecutionTimes := make(map[int]float64)
-	for rank, execTime := range totalA2AExecutionTimes {
-		rankNumCalls := rankNumCallsMap[rank]
-		avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
-	}
-	avgLateArrivalTimes := make(map[int]float64)
-	for rank, lateTime := range totalLateArrivalTimes {
-		rankNumCalls := rankNumCallsMap[rank]
-		avgExecutionTimes[rank] = lateTime / float64(rankNumCalls)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
-	fmt.Printf("\n* Step %d/%d: generating plots...\n", currentStep, totalNumSteps)
-	t = timer.Start()
-	err = plotCallsData(*dir, allCallsData, rankFileData, callMaps, collectiveOpsTimings["alltoallv"].ExecTimes, collectiveOpsTimings["alltoallv"].LateArrivalTimes)
-	duration = t.Stop()
-	if err != nil {
-		fmt.Printf("ERROR: unable to plot data: %s", err)
-		os.Exit(1)
-	}
-	err = plot.Avgs(*dir, *dir, len(rankFileData[0].RankMap), rankFileData[0].HostMap, avgSendHeatMap, avgRecvHeatMap, avgExecutionTimes, avgLateArrivalTimes)
-	if err != nil {
-		fmt.Printf("ERROR: unable to plot average data: %s", err)
-	}
-	fmt.Printf("Step completed in %s\n", duration)
-	currentStep++
-
 }
