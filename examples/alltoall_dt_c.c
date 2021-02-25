@@ -4,7 +4,7 @@ A simple test of MPI_Alltoall, just one call to that
 
 #include "alltoall_test_helpers.h"
 
-#define PARAM_SETS_COUNT 1
+#define PARAM_SETS_COUNT 4
 #define RANK_SETS_COUNT 1
 
 //TO DO - make parameter set for testing various data types - another file for unequal sizes send and recv?
