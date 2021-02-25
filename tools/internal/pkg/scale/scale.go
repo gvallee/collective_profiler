@@ -7,11 +7,18 @@
 package scale
 
 const (
+	// DOWN is the identifier used to specify that we need to scale down
 	DOWN = -1
-	UP   = 1
+
+	// UP is the identifier used to specify that we need to scale up
+	UP = 1
 )
 
 func allZerosInts(sortedValues []int) bool {
+	if len(sortedValues) == 0 {
+		return true
+	}
+
 	// If all values are 0 nothing can be done
 	if len(sortedValues) >= 2 {
 		if sortedValues[0] == 0 && sortedValues[len(sortedValues)-1] == 0 {
@@ -27,6 +34,10 @@ func allZerosInts(sortedValues []int) bool {
 }
 
 func allZerosFloat64s(sortedValues []float64) bool {
+	if len(sortedValues) == 0 {
+		return true
+	}
+
 	// If all values are 0 nothing can be done
 	if len(sortedValues) >= 2 && sortedValues[0] == 0 && sortedValues[len(sortedValues)-1] == 0 {
 		return true

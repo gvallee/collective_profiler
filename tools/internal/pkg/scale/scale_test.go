@@ -44,7 +44,10 @@ func TestInts(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		scaledUnit, scaledValues := Ints(tt.unit, tt.values)
+		scaledUnit, scaledValues, err := Ints(tt.unit, tt.values)
+		if err != nil {
+			t.Fatalf("Ints() failed: %s", err)
+		}
 		if scaledUnit != tt.expectedUnit {
 			t.Fatalf("Resulting unit is %s instead of %s", scaledUnit, tt.expectedUnit)
 		}
@@ -113,7 +116,10 @@ func TestFloat64s(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		scaledUnit, scaledValues := Float64s(tt.unit, tt.values)
+		scaledUnit, scaledValues, err := Float64s(tt.unit, tt.values)
+		if err != nil {
+			t.Fatalf("Float64s() failed: %s", err)
+		}
 		if scaledUnit != tt.expectedUnit {
 			t.Fatalf("Resulting unit is %s instead of %s", scaledUnit, tt.expectedUnit)
 		}
@@ -164,7 +170,10 @@ func TestMapInts(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		scaledUnit, scaledValues := MapInts(tt.unit, tt.values)
+		scaledUnit, scaledValues, err := MapInts(tt.unit, tt.values)
+		if err != nil {
+			t.Fatalf("MapInts failed: %s", err)
+		}
 		if scaledUnit != tt.expectedUnit {
 			t.Fatalf("Resulting unit is %s instead of %s", scaledUnit, tt.expectedUnit)
 		}
@@ -233,7 +242,10 @@ func TestMapFloat64s(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		scaledUnit, scaledValues := MapFloat64s(tt.unit, tt.values)
+		scaledUnit, scaledValues, err := MapFloat64s(tt.unit, tt.values)
+		if err != nil {
+			t.Fatalf("MapFloat64s() failed: %s", err)
+		}
 		if scaledUnit != tt.expectedUnit {
 			t.Fatalf("Resulting unit is %s instead of %s", scaledUnit, tt.expectedUnit)
 		}

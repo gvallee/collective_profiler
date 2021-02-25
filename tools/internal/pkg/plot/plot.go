@@ -87,6 +87,32 @@ func getMax(max int, values map[int]bool, rank int, sendHeatMap map[int]int, rec
 
 // fixme: too similar to generateCallDataFiles
 func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) (string, error) {
+	if avgSendHeatMap == nil {
+		return "", fmt.Errorf("avgSendHeatMap is undefined")
+	}
+	if avgRecvHeatMap == nil {
+		return "", fmt.Errorf("avgRecvHeatMap is undefined")
+	}
+	if avgExecTimeMap == nil {
+		return "", fmt.Errorf("avgExecTimeMap is undefined")
+	}
+	if avgLateArrivalTimeMap == nil {
+		return "", fmt.Errorf("avgLateArrivalTimeMap is undefined")
+	}
+
+	if len(avgSendHeatMap) == 0 {
+		return "", fmt.Errorf("avgSendHeatMap is empty")
+	}
+	if len(avgRecvHeatMap) == 0 {
+		return "", fmt.Errorf("avgRecvHeatMap is empty")
+	}
+	if len(avgExecTimeMap) == 0 {
+		return "", fmt.Errorf("avgExecTimeMap is empty")
+	}
+	if len(avgLateArrivalTimeMap) == 0 {
+		return "", fmt.Errorf("avgLateArrivalTimeMap is empty")
+	}
+
 	hosts := sortHostMapKeys(hostMap)
 	maxValue := 1000 // We automatically scale the data, the max is always 1000
 	numRanks := 0
@@ -96,10 +122,26 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	scaledSendRankBW := make(map[int]float64)
 	scaledRecvRankBW := make(map[int]float64)
 
-	avgSendHeatMapUnit, avgSendScaledHeatMap := scale.MapInts("B", avgSendHeatMap)
-	avgRecvHeatMapUnit, avgRecvScaledHeatMap := scale.MapInts("B", avgRecvHeatMap)
-	avgExecTimeMapUnit, avgExecScaledTimeMap := scale.MapFloat64s("seconds", avgExecTimeMap)
-	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
+	avgSendHeatMapUnit, avgSendScaledHeatMap, err := scale.MapInts("B", avgSendHeatMap)
+	if err != nil {
+		return "", fmt.Errorf("scale.MapInts() on avgSendHeatMap failed(): %s", err)
+	}
+	avgRecvHeatMapUnit, avgRecvScaledHeatMap, err := scale.MapInts("B", avgRecvHeatMap)
+	if err != nil {
+		return "", fmt.Errorf("scale.MapInts() on avgRecvHeatMap failed(): %s", err)
+	}
+	avgExecTimeMapUnit, avgExecScaledTimeMap, err := scale.MapFloat64s("seconds", avgExecTimeMap)
+	if err != nil {
+		return "", fmt.Errorf("scale.MapFloat64s() on avgExecTimeMap failed(): %s", err)
+	}
+	// debug
+	if avgLateArrivalTimeMap == nil {
+		return "", fmt.Errorf("TOTO avgLateArrivalTimeMap is undefined")
+	}
+	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap, err := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
+	if err != nil {
+		return "", fmt.Errorf("scale.MapFloat64s() on avgLateArrivalTimeMap failed(): %s", err)
+	}
 
 	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
 	// is the same scale all the time. It might not be true so we really need to figure out the
@@ -137,9 +179,15 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 			recvRankBW[rank] = float64(avgRecvHeatMap[rank]) / avgExecTimeMap[rank]
 			var scaledSendRankBWUnit string
 			var scaledRecvRankBWUnit string
-			scaledSendRankBWUnit, scaledSendBW := scale.Float64s("B/s", []float64{sendRankBW[rank]})
+			scaledSendRankBWUnit, scaledSendBW, err := scale.Float64s("B/s", []float64{sendRankBW[rank]})
+			if err != nil {
+				return "", err
+			}
 			scaledSendRankBW[rank] = scaledSendBW[0]
-			scaledRecvRankBWUnit, scaledRecvBW := scale.Float64s("B/s", []float64{recvRankBW[rank]})
+			scaledRecvRankBWUnit, scaledRecvBW, err := scale.Float64s("B/s", []float64{recvRankBW[rank]})
+			if err != nil {
+				return "", err
+			}
 			scaledRecvRankBW[rank] = scaledRecvBW[0]
 			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
 				return "", fmt.Errorf("detected different scales for BW data")
@@ -211,6 +259,19 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 }
 
 func generateCallDataFiles(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, string, error) {
+	if sendHeatMap == nil {
+		return "", "", fmt.Errorf("avgSendHeatMap is undefined")
+	}
+	if recvHeatMap == nil {
+		return "", "", fmt.Errorf("avgRecvHeatMap is undefined")
+	}
+	if execTimeMap == nil {
+		return "", "", fmt.Errorf("avgExecTimeMap is undefined")
+	}
+	if lateArrivalMap == nil {
+		return "", "", fmt.Errorf("avgLateArrivalTimeMap is undefined")
+	}
+
 	hosts := sortHostMapKeys(hostMap)
 	maxValue := 1000 // We scale the data the maximum is always 1000
 	numRanks := 0
@@ -218,10 +279,22 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	sendRankBW := make(map[int]float64)
 	recvRankBW := make(map[int]float64)
 
-	sendHeatMapUnit, sendScaledHeatMap := scale.MapInts("B", sendHeatMap)
-	recvHeatMapUnit, recvScaledHeatMap := scale.MapInts("B", recvHeatMap)
-	execTimeMapUnit, execScaledTimeMap := scale.MapFloat64s("seconds", execTimeMap)
-	lateArrivalTimeMapUnit, lateArrivalScaledTimeMap := scale.MapFloat64s("seconds", lateArrivalMap)
+	sendHeatMapUnit, sendScaledHeatMap, err := scale.MapInts("B", sendHeatMap)
+	if err != nil {
+		return "", "", err
+	}
+	recvHeatMapUnit, recvScaledHeatMap, err := scale.MapInts("B", recvHeatMap)
+	if err != nil {
+		return "", "", err
+	}
+	execTimeMapUnit, execScaledTimeMap, err := scale.MapFloat64s("seconds", execTimeMap)
+	if err != nil {
+		return "", "", err
+	}
+	lateArrivalTimeMapUnit, lateArrivalScaledTimeMap, err := scale.MapFloat64s("seconds", lateArrivalMap)
+	if err != nil {
+		return "", "", err
+	}
 
 	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
 	// is the same scale all the time. It might not be true so we really need to figure out the
@@ -257,8 +330,14 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 		for _, rank := range ranks {
 			sendRankBW[rank] = float64(sendHeatMap[rank]) / execTimeMap[rank]
 			recvRankBW[rank] = float64(recvHeatMap[rank]) / execTimeMap[rank]
-			scaledSendRankBWUnit, scaledSendRankBW := scale.MapFloat64s("B/s", sendRankBW)
-			scaledRecvRankBWUnit, scaledRecvRankBW := scale.MapFloat64s("B/s", recvRankBW)
+			scaledSendRankBWUnit, scaledSendRankBW, err := scale.MapFloat64s("B/s", sendRankBW)
+			if err != nil {
+				return "", "", err
+			}
+			scaledRecvRankBWUnit, scaledRecvRankBW, err := scale.MapFloat64s("B/s", recvRankBW)
+			if err != nil {
+				return "", "", err
+			}
 			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
 				return "", "", fmt.Errorf("detected different scales for BW data")
 			}
@@ -329,7 +408,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 
 	pngFile, gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts, sendHeatMapUnit, recvHeatMapUnit, execTimeMapUnit, lateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("plot.generateCallPlotScript() failed: %s", err)
 	}
 
 	return pngFile, gnuplotScript, nil
@@ -365,10 +444,6 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	str := "plot "
 	for _, hostname := range hosts {
 		str += "\"ranks_map_" + hostname + ".txt\" using 0:1 with boxes title '" + hostname + "', \\\n"
-	}
-
-	if sendBWUnit != recvBWUnit {
-		return fmt.Errorf("units different for send and receive bandwidth")
 	}
 
 	// Special for the first node
@@ -444,7 +519,7 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 		return "", err
 	}
 
-	return plotScriptPrelude, nil
+	return plotScriptFile, nil
 }
 
 func runGnuplot(gnuplotScript string, outputDir string) error {
@@ -470,27 +545,42 @@ func runGnuplot(gnuplotScript string, outputDir string) error {
 	return nil
 }
 
+// CallFilesExist checks if all the expected files for a specific collective call already exist
 func CallFilesExist(outputDir string, leadRank int, callID int) bool {
 	return util.PathExists(filepath.Join(outputDir, getPlotFilename(leadRank, callID)))
 }
 
+// CallData plots the data related to a specific collective call
 func CallData(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, error) {
 	if len(hostMap) == 0 {
 		return "", fmt.Errorf("empty list of hosts")
 	}
+	if len(sendHeatMap) == 0 {
+		return "", fmt.Errorf("sendHeatMap is empty")
+	}
+	if len(recvHeatMap) == 0 {
+		return "", fmt.Errorf("recvHeatMap is empty")
+	}
+	if len(execTimeMap) == 0 {
+		return "", fmt.Errorf("execTimeMap is empty")
+	}
+	if len(lateArrivalMap) == 0 {
+		return "", fmt.Errorf("lateArrivalMap")
+	}
 
 	pngFile, gnuplotScript, err := generateCallDataFiles(dir, outputDir, leadRank, callID, hostMap, sendHeatMap, recvHeatMap, execTimeMap, lateArrivalMap)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("generateCallDataFiles() failed: %s", err)
 	}
 
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
 
+// Avgs plots the average statistics gathered during the post-mortem analysis
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
 	gnuplotScript, err := generateAvgsDataFiles(dir, outputDir, hostMap, avgSendHeatMap, avgRecvHeatMap, avgExecTimeMap, avgLateArrivalTimeMap)
 	if err != nil {
-		return err
+		return fmt.Errorf("generateAvgsDataFiles() failed: %s", err)
 	}
 
 	return runGnuplot(gnuplotScript, outputDir)

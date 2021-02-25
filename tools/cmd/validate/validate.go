@@ -63,6 +63,12 @@ type Test struct {
 	expectedExecTimeFiles          []string
 	expectedLateArrivalFiles       []string
 	expectedBacktraceFiles         []string
+	profilerStepsToExecute         string
+}
+
+type testCfg struct {
+	tempDir string
+	cfg     Test
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -231,13 +237,13 @@ func validateDatasetProfiler(codeBaseDir string, testName string, dir string, st
 	return profiler.AnalyzeDataset(codeBaseDir, dir, profiler.DefaultBinThreshold, profiler.DefaultMsgSizeThreshold, steps)
 }
 
-func validateTestPostmortemResults(codeBaseDir string, testName string, dir string) error {
+func validateTestPostmortemResults(codeBaseDir string, testName string, dir string, steps string) error {
 	err := validateTestSRCountsAnalyzer(testName, dir)
 	if err != nil {
 		return err
 	}
 
-	err = validateDatasetProfiler(codeBaseDir, testName, dir, profiler.DefaultSteps)
+	err = validateDatasetProfiler(codeBaseDir, testName, dir, steps)
 	if err != nil {
 		return err
 	}
@@ -245,18 +251,20 @@ func validateTestPostmortemResults(codeBaseDir string, testName string, dir stri
 	return nil
 }
 
-func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[string]string) error {
-	for source, dir := range profilerResults {
-		err := validateTestPostmortemResults(codeBaseDir, source, dir)
+func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[string]*testCfg) error {
+	for source, testCfg := range profilerResults {
+		err := validateTestPostmortemResults(codeBaseDir, source, testCfg.tempDir, testCfg.cfg.profilerStepsToExecute)
 		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, dir)
+			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, testCfg.tempDir)
 			return err
 		}
 	}
 
+	fmt.Println("All done")
+
 	// If successful, we can then delete all the directory that were created
-	for _, dir := range profilerResults {
-		os.RemoveAll(dir)
+	for _, cfg := range profilerResults {
+		os.RemoveAll(cfg.tempDir)
 	}
 
 	return nil
@@ -265,7 +273,7 @@ func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[str
 // validateProfiler runs the profiler against examples and compare the resuls to the results output.
 // If keepResults is set to true, the results are *not* removed after execution. They can then be used
 // later on to validate postmortem analysis.
-func validateProfiler(keepResults bool, fullValidation bool) (map[string]string, error) {
+func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
 		{
@@ -282,6 +290,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
 		},
 		{
 			np:                             3,
@@ -297,6 +306,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
 		},
 		{
 			np:                             4,
@@ -312,6 +322,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
+			profilerStepsToExecute:   profiler.DefaultSteps, // Heat map for traces with multiple communicators is creating problems
 		},
 		{
 			np:                             4,
@@ -327,6 +338,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
 		},
 	}
 
@@ -346,6 +358,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+				profilerStepsToExecute:   profiler.DefaultSteps, // The profiler still does not support cases with a huge amount of alltoallv calls.
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
@@ -384,9 +397,9 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 
 	// Create a map to store the data about all the directories where
 	// results are created when the results need to be kept
-	var results map[string]string
+	var results map[string]*testCfg
 	if keepResults {
-		results = make(map[string]string)
+		results = make(map[string]*testCfg)
 	}
 
 	for _, tt := range validationTests {
@@ -397,7 +410,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		if keepResults {
-			results[tt.binary] = tempDir
+			cfg := new(testCfg)
+			cfg.tempDir = tempDir
+			cfg.cfg = tt
+			results[tt.binary] = cfg
 		}
 
 		// Run the profiler
@@ -489,10 +505,7 @@ func main() {
 	}
 
 	if *postmortem {
-		var err error
-		profilerValidationResults := make(map[string]string)
-
-		profilerValidationResults, err = validateProfiler(true, *full)
+		profilerValidationResults, err := validateProfiler(true, *full)
 		if err != nil || profilerValidationResults == nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)

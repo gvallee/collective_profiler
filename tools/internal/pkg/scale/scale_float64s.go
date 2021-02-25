@@ -7,6 +7,7 @@
 package scale
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
@@ -61,8 +62,13 @@ func float64sCompute(op int, values []float64) []float64 {
 	return newValues
 }
 
-func Float64s(unitID string, values []float64) (string, []float64) {
+// Float64s scales an array of float64
+func Float64s(unitID string, values []float64) (string, []float64, error) {
 	var sortedValues []float64
+
+	if len(values) == 0 {
+		return "", nil, fmt.Errorf("map is empty")
+	}
 
 	// Copy and sort the values to figure out what can be done
 	for _, v := range values {
@@ -72,7 +78,7 @@ func Float64s(unitID string, values []float64) (string, []float64) {
 
 	// If all values are 0 nothing can be done
 	if allZerosFloat64s(sortedValues) {
-		return unitID, values
+		return unitID, values, nil
 	}
 
 	if sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
@@ -83,6 +89,10 @@ func Float64s(unitID string, values []float64) (string, []float64) {
 
 		unitType, unitScale, newValues := float64sScaleDown(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
+		if unit.IsMin(unitType, unitScale) {
+			return newUnitID, newValues, nil
+		}
+
 		return Float64s(newUnitID, newValues)
 	}
 
@@ -91,12 +101,15 @@ func Float64s(unitID string, values []float64) (string, []float64) {
 
 		// Translate the human reading unit into something we can inteprete
 		unitType, unitScale := unit.FromString(unitID)
-
 		unitType, unitScale, newValues := float64sScaleUp(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
+		if unit.IsMax(unitType, unitScale) {
+			return newUnitID, newValues, nil
+		}
+
 		return Float64s(newUnitID, newValues)
 	}
 
 	// Nothing to do, just return the same
-	return unitID, values
+	return unitID, values, nil
 }

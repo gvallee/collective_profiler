@@ -7,6 +7,7 @@
 package scale
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
@@ -61,8 +62,13 @@ func mapFloat64sCompute(op int, values map[int]float64) map[int]float64 {
 	return newValues
 }
 
-func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64) {
+// MapFloat64s scales a map of float64
+func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64, error) {
 	var sortedValues []float64
+
+	if len(values) == 0 {
+		return "", nil, fmt.Errorf("map is empty")
+	}
 
 	// Copy and sort the values to figure out what can be done
 	for _, v := range values {
@@ -72,7 +78,7 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 
 	// If all values are 0 nothing can be done
 	if allZerosFloat64s(sortedValues) {
-		return unitID, values
+		return unitID, values, nil
 	}
 
 	if len(sortedValues) >= 2 && sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
@@ -83,12 +89,14 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 		unitType, unitScale, newValues := mapFloat64sScaleDown(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
 		if newUnitID != unitID {
-			// It actually scaled down one level, can we do one more?
+			if unit.IsMin(unitType, unitScale) {
+				return newUnitID, newValues, nil
+			}
 			return MapFloat64s(newUnitID, newValues)
-		} else {
-			// Nothing could be down returning...
-			return newUnitID, newValues
 		}
+
+		// Nothing could be down returning...
+		return newUnitID, newValues, nil
 	}
 
 	if len(sortedValues) > 0 && sortedValues[0] >= 1000 {
@@ -99,9 +107,13 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 
 		unitType, unitScale, newValues := mapFloat64sScaleUp(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
+		if unit.IsMax(unitType, unitScale) {
+			return newUnitID, newValues, nil
+		}
+
 		return MapFloat64s(newUnitID, newValues)
 	}
 
 	// Nothing to do, just return the same
-	return unitID, values
+	return unitID, values, nil
 }
