@@ -4,7 +4,7 @@
 # See LICENSE.txt for license information
 #
 
-all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c alltoall_demo alltoall_simple_c alltoall_bigcounts_c
+all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c alltoall_demo alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c
 
 alltoall_demo: alltoall_demo.c
 	mpicc -g alltoall_demo.c -o alltoall_demo
@@ -14,6 +14,12 @@ alltoall_simple_c: alltoall_simple_c.c
   
 alltoall_bigcounts_c: alltoall_bigcounts_c.c
 	mpicc -g alltoall_bigcounts_c.c -o alltoall_bigcounts_c
+
+alltoall_multicomms_c: alltoall_multicomms_c.c
+	mpicc -g alltoall_multicomms_c.c -o alltoall_multicomms_c
+
+alltoall_dt_c: alltoall_dt_c.c
+	mpicc -g alltoall_dt_c.c -o alltoall_dt_c
 
 alltoallv_c: alltoallv.c
 	mpicc -g alltoallv.c -o alltoallv_c
