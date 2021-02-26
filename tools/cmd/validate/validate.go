@@ -45,6 +45,23 @@ const (
 	exampleBinaryMulticommC = "alltoallv_multicomms_c"
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
+
+	// constants for alltoall tests
+	sharedLibAlltoallBacktraceEqual       = "liballtoall_backtrace.so"
+	sharedLibAlltoallCountsCompactEqual   = "liballtoall_counts_compact.so"
+	sharedLibAlltoallCountsEqual          = "liballtoall_counts.so"
+	sharedLibAlltoallExecTimingsEqual	  = "liballtoall_exec_timings.so"
+	sharedLibAlltoallLateArrivalEqual 	  = "liballtoall_late_arrival.so"
+	sharedLibAlltoallLocationEqual        = "liballtoall_location.so"
+	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts? 
+	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so" \
+	sharedLibAlltoallCountsCompactUnequal = "liballtoall_counts_unequal_compact.so"
+	sharedLibAlltoallCountsUnequal	      = "liballtoall_counts_unequal.so"
+	sharedLibAlltoallExecTimingsUnequal	  = "liballtoall_exec_timings_counts_unequal.so"
+	sharedLibAlltoallLateArrivalUnequal	  = "liballtoall_late_arrival_counts_unequal.so"
+	sharedLibAlltoallLocationUnequal	  = "liballtoall_location_counts_unequal.so"
+
+
 )
 
 // Test gathers all the information required to run a specific test
