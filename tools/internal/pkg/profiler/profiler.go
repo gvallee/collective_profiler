@@ -731,21 +731,51 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 		return fmt.Errorf("profiler.plotCallsData(): lateArrivalTimes is undefined")
 	}
 
+	log.Printf("Data from %d communicator(s) need to be analyzed\n", len(callMaps))
 	for i := 0; i < len(allCallsData); i++ {
-		b := progress.NewBar(len(allCallsData), "Plotting data for alltoallv calls")
-		defer progress.EndBar(b)
 		leadRank := allCallsData[i].LeadRank
+		b := progress.NewBar(len(allCallsData), fmt.Sprintf("Plotting data for alltoallv calls on communicator led by %d", leadRank))
+		defer progress.EndBar(b)
 		for callID := range allCallsData[i].CallData {
 			b.Increment(1)
 
 			if rankFileData[leadRank].HostMap == nil {
-				return fmt.Errorf("host map is undefined for communicator led by %d", leadRank)
+				return fmt.Errorf("host map for call %d is undefined for communicator led by %d", i, leadRank)
 			}
-			if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[i] == nil {
-				return fmt.Errorf("Send heat map isundefined for communicator led by %d", leadRank)
-			}
-			if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[i] == nil {
-				return fmt.Errorf("Receive heat map is undefined for communicator led by %d", leadRank)
+
+			// Some sanity checks to make sure everything is coherent. The situation is quite
+			// drastically different when we have to deal with multiple communicators.
+			if len(callMaps) == 0 {
+				// We are dealing with a single communicator so we can expect to find all the calls in the same
+				// map
+				if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[i] == nil {
+					return fmt.Errorf("Send heat map for call %d is undefined for communicator led by %d", i, leadRank)
+				}
+				if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[i] == nil {
+					return fmt.Errorf("Receive heat map for call %d is undefined for communicator led by %d", i, leadRank)
+				}
+			} else {
+				// We have multiple communicators in which case we cannot know in advance where a specific call (unique)
+				// across all data files will be
+
+				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] != nil) &&
+					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] == nil) {
+					// We found send data but not receive data, corruption
+					return fmt.Errorf("inconsistent data: we found send data but not receive data")
+				}
+
+				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] == nil) &&
+					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] != nil) {
+					// We found receive data but not send data, corruption
+					return fmt.Errorf("inconsistent data: we found receive data but not send data")
+				}
+
+				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] == nil) &&
+					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] == nil) {
+					// we do not have data for that call for both send and receive, we assume the call
+					// is not on that communicator.
+					continue
+				}
 			}
 
 			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
