@@ -13,7 +13,7 @@ export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling
 declare -a EQUAL_SAMPLING_LIBS
 declare -a UNEQUAL_SAMPLING_LIBS
-EQUAL_SAMPLING_LIBS=( liballtoall_backtrace.so \
+EQUAL_SAMPLING_LIBS=(   liballtoall_backtrace.so \
                         liballtoall_counts_compact.so \
                         liballtoall_counts.so \
                         liballtoall_exec_timings.so \
@@ -69,14 +69,42 @@ do
     done
 done 
 
-if [[ "$AN_MPI_ERROR" == "no-error" ]]; then
-    # create folders for test answers
+#if [[ "$AN_MPI_ERROR" == "no-error" ]]; then
     for EXAMPLE_PROG in ${EXAMPLE_PROGS[@]}
     do
-        mkdir -p $PROJECT_ROOT/tests/alltoall/equalcounts/$EXAMPLE_PROG
-        mkdir -p $PROJECT_ROOT/tests/alltoall/unequalcounts/$EXAMPLE_PROG
-    fi
+        # create folders for test answers
+        mkdir -p $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/unequalcounts/unchecked
+        mkdir -p $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/equalcounts/unchecked
+        # clean out any old content
+        rm -f $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/unequalcounts/unchecked/*
+        rm -f $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/equalcounts/unchecked/*
+        # populate those folders with the test answers
+        for SAMPLING_LIB in ${UNEQUAL_SAMPLING_LIBS[@]}
+        do
+            if [[ "$SAMPLING_LIB" == "liballtoall_counts_unequal.so" ]]; then
+                cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/counts.rank0_call0.md \
+                $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/unequalcounts/unchecked
+            else
+                cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/* \
+                $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/unequalcounts/unchecked
+            fi        
 
-    # populate those folders with the test answers
-
-fi
+        done
+        for SAMPLING_LIB in ${EQUAL_SAMPLING_LIBS[@]}
+        do
+            if [[ "$SAMPLING_LIB" == "liballtoall.so" ]]; then 
+            # TODO what do these sampling lib(s) do and what results does it make
+            # for now do noop
+                :
+            else
+                if [[ "$SAMPLING_LIB" == "liballtoall_counts.so" ]]; then
+                    cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/counts.rank0_call0.md \
+                    $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/equalcounts/unchecked
+                else
+                    cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/* \
+                    $PROJECT_ROOT/tests/alltoall_$EXAMPLE_PROG/equalcounts/unchecked
+                fi        
+            fi
+        done
+    done
+#fi
