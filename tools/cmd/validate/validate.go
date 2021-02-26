@@ -54,7 +54,7 @@ const (
 	sharedLibAlltoallLateArrivalEqual 	  = "liballtoall_late_arrival.so"
 	sharedLibAlltoallLocationEqual        = "liballtoall_location.so"
 	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts? 
-	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so" \
+	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so"
 	sharedLibAlltoallCountsCompactUnequal = "liballtoall_counts_unequal_compact.so"
 	sharedLibAlltoallCountsUnequal	      = "liballtoall_counts_unequal.so"
 	sharedLibAlltoallExecTimingsUnequal	  = "liballtoall_exec_timings_counts_unequal.so"
@@ -358,6 +358,28 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		validationTests = append(validationTests, extaTests...)
 	}
 
+	// Tests for alltoall
+	sharedLibrariesAlltoallEequal := []string{sharedLibAlltoallBacktraceEqual, sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual,	sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}
+	sharedLibrariesAlltoallUnEqual := []string{sharedLibAlltoallBacktraceUnequal, sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal}
+	sharedLibrariesAlltoall := append(sharedLibrariesAlltoallUnEqual, sharedLibrariesAlltoallEequal...)
+	validationTestsAlltoAll := []Test{
+		{
+			np:                             4,
+			totalNumCalls:                  1,
+			numCallsPerComm:                []int{1},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallSimpleC,
+			binary:                         exampleBinaryAlltoallSimpleC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
+		}
+	}
+
 	_, filename, _, _ := runtime.Caller(0)
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
@@ -395,8 +417,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	if keepResults {
 		results = make(map[string]string)
 	}
+	// TO DO repeat this compile for alltoall
 
-	for _, tt := range validationTests {
+	// Run alltoallv tests
+	for _, tt := range validationTestsAlltoall {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
 		if err != nil {
@@ -438,6 +462,51 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			os.RemoveAll(tempDir)
 		}
 	}
+
+	// Run alltoall tests
+	for _, tt ttAlltoall := range validationTestsAlltoall {
+		// Create a temporary directory where to store the results
+		tempDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			return nil, err
+		}
+
+		if keepResults {
+			results[tt.binary] = tempDir
+		}
+
+		// Run the profiler
+		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
+		var stdout, stderr bytes.Buffer
+		for _, lib := range sharedLibrariesAlltoAll {
+			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
+			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", ttAlltoall.binary, pathToLib)
+			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(ttAlltoall.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", ttAlltoall.binary))
+			cmd.Env = append(os.Environ(),
+				"LD_PRELOAD="+pathToLib,
+				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+			cmd.Dir = tempDir
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			err = cmd.Run()
+			if err != nil {
+				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+			}
+		}
+
+		// Check the results
+		err = checkOutput(codeBaseDir, tempDir, ttAlltoall)
+		if err != nil {
+			return nil, err
+		}
+
+		// We clean up *only* when tests are successful and
+		// if results do not need to be kept
+		if !keepResults {
+			os.RemoveAll(tempDir)
+		}
+	}
+
 
 	// Return the map describing the data resulting from the tests only
 	// when the results need to be kept to later on validate postmortem
