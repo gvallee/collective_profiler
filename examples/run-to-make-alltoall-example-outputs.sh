@@ -69,6 +69,7 @@ do
     done
 done 
 
+# TODO reinstate commented if below when code fixed so that all mpirun above run without error
 #if [[ "$AN_MPI_ERROR" == "no-error" ]]; then
     for EXAMPLE_PROG in ${EXAMPLE_PROGS[@]}
     do
@@ -108,3 +109,5 @@ done
         done
     done
 #fi
+
+# TODO tidy up by deleting temp files created above.
