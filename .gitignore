@@ -108,3 +108,6 @@ tools/cmd/profilerrun/profilerrun
 examples/alltoall_dt_c
 examples/alltoall_multicomms_c
 examples/alltoall_muticomms_c
+
+# results files before approval are held in unchecked/
+tests/alltoall_*/*/unchecked/*
