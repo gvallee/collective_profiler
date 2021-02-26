@@ -19,7 +19,7 @@ EQUAL_SAMPLING_LIBS=(   liballtoall_backtrace.so \
                         liballtoall_exec_timings.so \
                         liballtoall_late_arrival.so \
                         liballtoall_location.so \
-                        liballtoall.so )
+                        liballtoall.so )  # TO DO - what is this library for - is it equal or unequal counts? 
 UNEQUAL_SAMPLING_LIBS=( liballtoall_backtrace_counts_unequal.so \
                         liballtoall_counts_unequal_compact.so \
                         liballtoall_counts_unequal.so \

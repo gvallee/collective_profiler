@@ -61,6 +61,15 @@ const (
 	sharedLibAlltoallLateArrivalUnequal	  = "liballtoall_late_arrival_counts_unequal.so"
 	sharedLibAlltoallLocationUnequal	  = "liballtoall_location_counts_unequal.so"
 
+	exampleFileAlltoallSimpleC        = "alltoall_simple_c.c"
+	exampleFileAlltoallBigCountsC     = "alltoall_bigcounts_c.c"
+	exampleFileAlltoallDtC            = "alltoall_dt_c.c"
+	exampleFileAlltoallMulticommsC    = "alltoall_multicomms_c.c" 
+
+	exampleBinaryAlltoallSimpleC      = "alltoall_simple_c"
+	exampleBinaryAlltoallBigCountsC   = "alltoall_bigcounts_c.c"
+	exampleBinaryAlltoallDtC          = "alltoall_dt_c.c"
+	exampleBinaryAlltoallMulticommsC  = "alltoall_multicomms_c.c"
 
 )
 
