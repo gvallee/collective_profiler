@@ -9,6 +9,7 @@ package format
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -115,4 +116,19 @@ func CheckDataFormatLineFromProfileFile(line string, codeBaseDir string) (bool, 
 	}
 
 	return true, nil
+}
+
+// WriteDataFormat includes the data format to a file using a file descriptor.
+func WriteDataFormat(codeBaseDir string, fd *os.File) error {
+	formatVersion, err := GetDataFormatVersion(codeBaseDir)
+	if err != nil {
+		return err
+	}
+
+	_, err = fd.WriteString(DataFormatHeader + strconv.Itoa(formatVersion) + "\n\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

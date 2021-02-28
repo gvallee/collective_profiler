@@ -60,7 +60,9 @@ func main() {
 	_, filename, _, _ := runtime.Caller(0)
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
-	err := profiler.AnalyzeDataset(codeBaseDir, *dir, *binThresholds, *sizeThreshold, *steps)
+	collectiveName := "alltoallv" // hardcoded for now detection coming soon
+
+	err := profiler.AnalyzeDataset(codeBaseDir, collectiveName, *dir, *binThresholds, *sizeThreshold, *steps)
 	if err != nil {
 		fmt.Printf("profiler.AnalyzeDataset() failed: %s\n", err)
 		os.Exit(1)

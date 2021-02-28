@@ -66,6 +66,15 @@ var allPatterns map[int]patterns.Data
 var allCallsData []counts.CommDataT
 var rankFileData map[int]*location.RankFileData
 var callMaps map[int]maps.CallsDataT
+
+// callsSendHeatMap represents the heat on a per-call basis.
+// The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value a map with the key being a rank and the value its ordered counts
+var callsSendHeatMap map[int]map[int]map[int]int
+
+// callsRecvHeatMap represents the heat on a per-call basis. The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value to amount of data received
+// The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value a map with the key being a rank and the value its ordered counts
+var callsRecvHeatMap map[int]map[int]map[int]int
+
 var globalSendHeatMap map[int]int
 var globalRecvHeatMap map[int]int
 var rankNumCallsMap map[int]int
@@ -148,19 +157,34 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if callsSendHeatMap == nil {
+		callsSendHeatMap = make(map[int]map[int]map[int]int)
+	}
+	if callsRecvHeatMap == nil {
+		callsRecvHeatMap = make(map[int]map[int]map[int]int)
+	}
+
 	// Make sure the graph is ready
 	if !plot.CallFilesExist(datasetBasedir, leadRank, callID) {
 		if allDataAvailable(collectiveName, datasetBasedir, leadRank, commID, jobID, callID) {
-			// Load all the data and generate the file
-			callSendHeatMap, err := maps.LoadCallFileHeatMap(filepath.Join(datasetBasedir, fmt.Sprintf("%s%d-send.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID)))
-			if err != nil {
-				log.Printf("ERROR: %s", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+			if callsSendHeatMap[leadRank] == nil {
+				sendHeatMapFilename := maps.GetSendCallsHeatMapFilename(datasetBasedir, collectiveName, leadRank)
+				sendHeatMap, err := maps.LoadCallsFileHeatMap(codeBaseDir, sendHeatMapFilename)
+				if err != nil {
+					log.Printf("ERROR: %s", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				callsSendHeatMap[leadRank] = sendHeatMap
 			}
-			callRecvHeatMap, err := maps.LoadCallFileHeatMap(filepath.Join(datasetBasedir, fmt.Sprintf("%s%d-recv.call%d.txt", maps.CallHeatMapPrefix, leadRank, callID)))
-			if err != nil {
-				log.Printf("ERROR: %s", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+
+			if callsRecvHeatMap[leadRank] == nil {
+				recvHeatMapFilename := maps.GetRecvCallsHeatMapFilename(datasetBasedir, collectiveName, leadRank)
+				recvHeatMap, err := maps.LoadCallsFileHeatMap(codeBaseDir, recvHeatMapFilename)
+				if err != nil {
+					log.Printf("ERROR: %s", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				callsRecvHeatMap[leadRank] = recvHeatMap
 			}
 
 			execTimingsFile := timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID)
@@ -182,7 +206,7 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			pngFile, err := plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, hostMap, callSendHeatMap, callRecvHeatMap, callExecTimings, callLateArrivalTimings)
+			pngFile, err := plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, hostMap, callsSendHeatMap[leadRank][callID], callsRecvHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
 			if err != nil {
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -193,7 +217,7 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			if callMaps == nil {
-				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(codeBaseDir, maps.Heat, datasetBasedir, allCallsData)
+				rankFileData, callMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, err = maps.Create(codeBaseDir, collectiveName, maps.Heat, datasetBasedir, allCallsData)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}

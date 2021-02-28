@@ -64,6 +64,12 @@ type Test struct {
 	expectedLateArrivalFiles       []string
 	expectedBacktraceFiles         []string
 	profilerStepsToExecute         string
+
+	// Expected output from the postmortem analysis
+	checkContentHeatMap      bool
+	expectedSendHeatMapFiles []string
+	expectedRecvHeatMapFiles []string
+	expectedHostHeatMapFiles []string
 }
 
 type testCfg struct {
@@ -233,17 +239,63 @@ func validateTestSRCountsAnalyzer(testName string, dir string) error {
 	return nil
 }
 
-func validateDatasetProfiler(codeBaseDir string, testName string, dir string, steps string) error {
-	return profiler.AnalyzeDataset(codeBaseDir, dir, profiler.DefaultBinThreshold, profiler.DefaultMsgSizeThreshold, steps)
-}
-
-func validateTestPostmortemResults(codeBaseDir string, testName string, dir string, steps string) error {
-	err := validateTestSRCountsAnalyzer(testName, dir)
+func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
+	err := profiler.AnalyzeDataset(codeBaseDir, collectiveName, testCfg.tempDir, profiler.DefaultBinThreshold, profiler.DefaultMsgSizeThreshold, testCfg.cfg.profilerStepsToExecute)
 	if err != nil {
 		return err
 	}
 
-	err = validateDatasetProfiler(codeBaseDir, testName, dir, steps)
+	expectedOutputDir := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput")
+
+	if testCfg.cfg.checkContentHeatMap {
+		// Check whether the heap map files have been successfully created
+		fmt.Printf("Checking if %s exist(s)...\n", testCfg.cfg.expectedSendHeatMapFiles)
+		err = checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedSendHeatMapFiles)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Checking if %s exist(s)...\n", testCfg.cfg.expectedRecvHeatMapFiles)
+		err = checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedRecvHeatMapFiles)
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, heatMapFile := range testCfg.cfg.expectedSendHeatMapFiles {
+			expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+			if !util.FileExists(expectedFile) {
+				return fmt.Errorf("expected file %s is missing", expectedFile)
+			}
+		}
+
+		for _, heatMapFile := range testCfg.cfg.expectedRecvHeatMapFiles {
+			expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+			if !util.FileExists(expectedFile) {
+				return fmt.Errorf("expected file %s is missing", expectedFile)
+			}
+		}
+
+	}
+
+	// For the files for which the content cannot be predicted, we checks if the file exists
+	// and we try to parse the file
+	for _, heatMapFile := range testCfg.cfg.expectedHostHeatMapFiles {
+		expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+		if !util.FileExists(expectedFile) {
+			return fmt.Errorf("expected file %s is missing", expectedFile)
+		}
+	}
+
+	return nil
+}
+
+func validateTestPostmortemResults(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
+	err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
+	if err != nil {
+		return err
+	}
+
+	err = validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
 	if err != nil {
 		return err
 	}
@@ -251,11 +303,11 @@ func validateTestPostmortemResults(codeBaseDir string, testName string, dir stri
 	return nil
 }
 
-func validatePostmortemAnalysisTools(codeBaseDir string, profilerResults map[string]*testCfg) error {
+func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
 	for source, testCfg := range profilerResults {
-		err := validateTestPostmortemResults(codeBaseDir, source, testCfg.tempDir, testCfg.cfg.profilerStepsToExecute)
+		err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
 		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, testCfg.tempDir)
+			fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
 			return err
 		}
 	}
@@ -291,6 +343,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
 		},
 		{
 			np:                             3,
@@ -307,6 +363,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
 			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
 		},
 		{
 			np:                             4,
@@ -323,6 +383,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
 			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md", "alltoallv_heat-map.rank2-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md", "alltoallv_heat-map.rank2-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md", "alltoallv_hosts-heat-map.rank2-recv.md", "alltoallv_hosts-heat-map.rank2-send.md"},
 		},
 		{
 			np:                             4,
@@ -339,6 +403,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
 			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
 		},
 	}
 
@@ -358,7 +426,11 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
-				profilerStepsToExecute:   profiler.DefaultSteps, // The profiler still does not support cases with a huge amount of alltoallv calls.
+				profilerStepsToExecute:   profiler.DefaultSteps, // Skip the steps that generate a file per call which create I/O issues (plots)
+				checkContentHeatMap:      false,                 // heat maps for that test are too big to be in the repo
+				expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+				expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+				expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
@@ -496,6 +568,8 @@ func main() {
 	_, filename, _, _ := runtime.Caller(0)
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
+	collectiveName := "alltoallv" // hardcoded for now, detection coming soon
+
 	if *profiler && !*postmortem {
 		_, err := validateProfiler(false, *full)
 		if err != nil {
@@ -511,7 +585,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = validatePostmortemAnalysisTools(codeBaseDir, profilerValidationResults)
+		err = validatePostmortemAnalysisTools(codeBaseDir, collectiveName, profilerValidationResults)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
 			os.Exit(1)

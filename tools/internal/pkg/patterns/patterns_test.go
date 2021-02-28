@@ -85,11 +85,11 @@ func TestParsingCounts(t *testing.T) {
 
 	for _, tt := range tests {
 		var patterns Data
-		sendStats, err := counts.AnalyzeCounts(tt.sendCounts, 200, 8)
+		sendStats, _, err := counts.AnalyzeCounts(tt.sendCounts, 200, 8)
 		if err != nil {
 			t.Fatalf("AnalyzeCounts() failed: %s", err)
 		}
-		recvStats, err := counts.AnalyzeCounts(tt.recvCounts, 200, 8)
+		recvStats, _, err := counts.AnalyzeCounts(tt.recvCounts, 200, 8)
 		if err != nil {
 			t.Fatalf("AnalyzeCounts() failed: %s", err)
 		}
@@ -187,7 +187,7 @@ func TestParseFile(t *testing.T) {
 			sizeThreshold:  200,
 			expectedOutput: Data{
 				AllPatterns: []*CallData{
-					&CallData{
+					{
 						Send: map[int]int{
 							1023: 1024,
 						},
@@ -199,7 +199,7 @@ func TestParseFile(t *testing.T) {
 					},
 				},
 				NToN: []*CallData{
-					&CallData{
+					{
 						Send: map[int]int{
 							1023: 1024,
 						},

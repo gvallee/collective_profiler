@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -28,7 +28,7 @@ const (
 
 func sortHostMapKeys(m map[string][]int) []string {
 	var array []string
-	for k, _ := range m {
+	for k := range m {
 		array = append(array, k)
 	}
 	sort.Strings(array)
@@ -246,7 +246,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	}
 
 	var a []int
-	for key, _ := range values {
+	for key := range values {
 		a = append(a, key)
 	}
 	sort.Ints(a)
@@ -401,7 +401,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	}
 
 	var a []int
-	for key, _ := range values {
+	for key := range values {
 		a = append(a, key)
 	}
 	sort.Ints(a)
