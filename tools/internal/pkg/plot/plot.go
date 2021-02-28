@@ -245,12 +245,7 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		emptyLines += len(hostMap[hostname])
 	}
 
-	var a []int
-	for key := range values {
-		a = append(a, key)
-	}
-	sort.Ints(a)
-	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
+	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
 	}
@@ -479,7 +474,7 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 		return "", "", err
 	}
 
-	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
+	err = write(fd, numRanks, maxValue, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", "", err
 	}
@@ -487,7 +482,7 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 	return targetPlotFile, plotScriptFile, nil
 }
 
-func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
+func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
 	plotScriptFile := filepath.Join(outputDir, "profiler_avgs.gnuplot")
 	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -503,7 +498,7 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 	if err != nil {
 		return "", err
 	}
-	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
+	err = write(fd, numRanks, maxValue, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", err
 	}

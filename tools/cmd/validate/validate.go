@@ -435,7 +435,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
-				profilerStepsToExecute:   profiler.AllSteps,
+				profilerStepsToExecute:   profiler.DefaultSteps,
 				checkContentHeatMap:      false, // heat maps for that test are too big to be in the repo
 				expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 				expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},

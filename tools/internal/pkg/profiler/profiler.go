@@ -44,7 +44,7 @@ const (
 	DefaultBinThreshold = "200,1024,2048,4096"
 
 	// DefaultSteps is the list of the predefined step the profiler follows by default when analyzing a dataset
-	DefaultSteps = "1-4" // Other steps are still too expensive to run on larger datasets
+	DefaultSteps = "1-6" // Other steps are still too expensive to run on larger datasets
 
 	// AllSteps is the string representing all the available steps of the profiler
 	AllSteps = "1-7"
