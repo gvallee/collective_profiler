@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	// Header is the string used as a prefix to indicate raw counters in the count files
 	Header = "# Raw counters"
 
 	compactCountsFileHeader    = "# Raw counters\n\n"
@@ -90,6 +91,7 @@ type CallData struct {
 	RecvData Data
 }
 
+// Stats represent the stats related to counts of a specific collective operation
 type Stats struct {
 	// DatatypeSize is the size of the datatype
 	DatatypeSize int
@@ -149,8 +151,13 @@ type Data struct {
 	// CountsMetadata is the metadata associated to the counts
 	CountsMetadata HeaderT
 
-	// RawCounts is the string representing all the send counts
+	// RawCounts is the string representing all the send counts. Used for instance by the webui
 	RawCounts []string
+
+	// Counts are the counts for all ranks involved in the operation
+	// For the outer map: The key is the call ID
+	// For the inner map: The key is the rank sending/receiving the data and the value an array of integers representing counts for each destination/source
+	Counts map[int]map[int][]int
 
 	// Statistics is all the statistics we could gather while parsing the count file
 	Statistics Stats

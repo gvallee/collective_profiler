@@ -44,7 +44,7 @@ const (
 	DefaultBinThreshold = "200,1024,2048,4096"
 
 	// DefaultSteps is the list of the predefined step the profiler follows by default when analyzing a dataset
-	DefaultSteps = "1-2,4" // Other steps are still too expensive to run on larger datasets
+	DefaultSteps = "1-4" // Other steps are still too expensive to run on larger datasets
 
 	// AllSteps is the string representing all the available steps of the profiler
 	AllSteps = "1-7"
@@ -363,11 +363,11 @@ func GetCallData(codeBaseDir string, collectiveName string, dir string, commid i
 	}
 	info.CountsData.RecvData.Statistics.DatatypeSize = countsHeader.DatatypeSize
 
-	info.SendStats, err = counts.AnalyzeCounts(info.CountsData.SendData.RawCounts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)
+	info.SendStats, _, err = counts.AnalyzeCounts(info.CountsData.SendData.RawCounts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)
 	if err != nil {
 		return info, err
 	}
-	info.RecvStats, err = counts.AnalyzeCounts(info.CountsData.RecvData.RawCounts, msgSizeThreshold, info.CountsData.RecvData.Statistics.DatatypeSize)
+	info.RecvStats, _, err = counts.AnalyzeCounts(info.CountsData.RecvData.RawCounts, msgSizeThreshold, info.CountsData.RecvData.Statistics.DatatypeSize)
 	if err != nil {
 		return info, err
 	}
@@ -734,7 +734,7 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 	log.Printf("Data from %d communicator(s) need to be analyzed\n", len(callMaps))
 	for i := 0; i < len(allCallsData); i++ {
 		leadRank := allCallsData[i].LeadRank
-		b := progress.NewBar(len(allCallsData), fmt.Sprintf("Plotting data for alltoallv calls on communicator led by %d", leadRank))
+		b := progress.NewBar(len(allCallsData[i].CallData), fmt.Sprintf("Plotting data for alltoallv calls on communicator led by %d", leadRank))
 		defer progress.EndBar(b)
 		for callID := range allCallsData[i].CallData {
 			b.Increment(1)
@@ -828,7 +828,7 @@ func displayStepsToBeExecuted(requestedSteps map[int]bool) {
 }
 
 // AnalyzeDataset is a high-level function to trigger the post-mortem analysis of the dataset
-func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeThreshold int, steps string) error {
+func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binThresholds string, sizeThreshold int, steps string) error {
 	var err error
 	// We isolate results for each step to clearly see the dependencies between the steps
 	var resultsStep1 *step1ResultsT
@@ -916,7 +916,7 @@ func AnalyzeDataset(codeBaseDir string, dir string, binThresholds string, sizeTh
 		}
 		t := timer.Start()
 		resultsStep3 = new(step3ResultsT)
-		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(codeBaseDir, maps.Heat, dir, resultsStep1.allCallsData)
+		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(codeBaseDir, collectiveName, maps.Heat, dir, resultsStep1.allCallsData)
 		if err != nil {
 			return fmt.Errorf("unable to create heat map: %s", err)
 		}

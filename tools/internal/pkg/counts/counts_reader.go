@@ -31,7 +31,7 @@ const (
 )
 
 // AnalyzeCounts analyses the count from a count file
-func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, error) {
+func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, map[int][]int, error) {
 	var stats Stats
 	stats.Min = -1
 	stats.Max = -1
@@ -43,6 +43,8 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 	stats.MsgSizeThreshold = msgSizeThreshold
 	stats.TotalZeroCounts = 0
 	stats.TotalNonZeroCounts = 0
+
+	data := make(map[int][]int)
 
 	zeros := 0
 	nonZeros := 0
@@ -56,8 +58,9 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 		c = strings.ReplaceAll(c, "Rank(s) ", "")
 		numberOfRanks, err := notation.GetNumberOfRanksFromCompressedNotation(c)
 		if err != nil {
-			return stats, err
+			return stats, nil, err
 		}
+		ranks, err := notation.ConvertCompressedCallListToIntSlice(c)
 
 		zeros = 0
 		nonZeros = 0
@@ -73,7 +76,10 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 			count, err := strconv.Atoi(w)
 			if err != nil {
 				log.Printf("unable to parse %s (%s): %s", w, tokens[1], err)
-				return stats, err
+				return stats, nil, err
+			}
+			for _, rank := range ranks {
+				data[rank] = append(data[rank], count)
 			}
 			stats.Sum += count
 
@@ -137,7 +143,7 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 		}
 	}
 
-	return stats, nil
+	return stats, data, nil
 }
 
 // GetHeader reads and parses a specific header from a send or receive count profile in the compact format
@@ -255,6 +261,7 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 	return header, nil
 }
 
+// GetCounters returns the counts using the provided reader
 func GetCounters(reader *bufio.Reader) ([]string, error) {
 	var callCounters []string
 
@@ -429,6 +436,7 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 	return counters, datatypeSize, found, fmt.Errorf("unable to find data for rank %d in call %d", rank, callNum)
 }
 
+// LoadCallsData parses the count files and load all the data about all the calls.
 func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThreshold int) (map[int]*CallData, error) {
 	var readerErr error
 
@@ -461,7 +469,8 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 		}
 		cd.SendData.File = sendCountsFile
 
-		cd.SendData.Statistics, err = AnalyzeCounts(cd.SendData.RawCounts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
+		var sendCounts map[int][]int
+		cd.SendData.Statistics, sendCounts, err = AnalyzeCounts(cd.SendData.RawCounts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
@@ -469,6 +478,10 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 
 		for _, callID := range cd.SendData.CountsMetadata.CallIDs {
 			callData[callID] = cd
+			if cd.SendData.Counts == nil {
+				cd.SendData.Counts = make(map[int]map[int][]int)
+			}
+			cd.SendData.Counts[callID] = sendCounts
 		}
 
 		if readerErr == io.EOF {
@@ -497,7 +510,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 			return nil, fmt.Errorf("unavle to reader counts from %s: %w", recvCountsFile, readerErr)
 		}
 
-		stats, err := AnalyzeCounts(counts, msgSizeThreshold, header.DatatypeSize)
+		stats, data, err := AnalyzeCounts(counts, msgSizeThreshold, header.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
@@ -513,6 +526,10 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 			cb.RecvData.File = recvCountsFile
 			cb.RecvData.Statistics.DatatypeSize = header.DatatypeSize
 			callData[callID] = cb
+			if cb.RecvData.Counts == nil {
+				cb.RecvData.Counts = make(map[int]map[int][]int)
+			}
+			cb.RecvData.Counts[callID] = data
 		}
 
 		if readerErr == io.EOF {
