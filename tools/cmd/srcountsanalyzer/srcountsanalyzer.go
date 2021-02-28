@@ -63,10 +63,10 @@ func main() {
 	}
 
 	outputFileInfo, err := profiler.GetCountProfilerFileDesc(*outputDir, *jobid, *rank)
+	defer outputFileInfo.Cleanup()
 	if err != nil {
 		log.Fatalf("unable to open output files: %s", err)
 	}
-	defer outputFileInfo.Cleanup()
 
 	sendCountsFile, recvCountsFile := counts.GetFiles(*jobid, *rank)
 	sendCountsFile = filepath.Join(*dir, sendCountsFile)

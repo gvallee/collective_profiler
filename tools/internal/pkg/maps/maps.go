@@ -473,6 +473,7 @@ func createRankFile(dir string, hm *location.RankFileData) error {
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 
 	_, err = fd.WriteString(fmt.Sprintf("Total of %d nodes\n", len(hm.HostMap)))
 	if err != nil {

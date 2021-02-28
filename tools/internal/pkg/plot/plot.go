@@ -296,10 +296,6 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 		return "", "", err
 	}
 
-	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
-	// is the same scale all the time. It might not be true so we really need to figure out the
-	// scale based on sendHeatMapUnit and recvHeatMapUnit and force it to be used later when
-	// calculating the bandwidth
 	sBWUnit := ""
 	rBWUnit := ""
 
@@ -414,8 +410,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	return pngFile, gnuplotScript, nil
 }
 
-// fixme: values is not currently used, by removing it, the code would become much simpler.
-func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
+func write(fd *os.File, numRanks int, maxValue int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("empty list of hosts")
 	}
@@ -431,12 +426,6 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	if err != nil {
 		return err
 	}
-	/*
-		_, err = fd.WriteString(fmt.Sprintf("set ytics (%s)\n", notation.IntSliceToString(values)))
-		if err != nil {
-			return err
-		}
-	*/
 	_, err = fd.WriteString("\nshow label\n\n")
 	if err != nil {
 		return err

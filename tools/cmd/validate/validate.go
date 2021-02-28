@@ -240,7 +240,16 @@ func validateTestSRCountsAnalyzer(testName string, dir string) error {
 }
 
 func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
-	err := profiler.AnalyzeDataset(codeBaseDir, collectiveName, testCfg.tempDir, profiler.DefaultBinThreshold, profiler.DefaultMsgSizeThreshold, testCfg.cfg.profilerStepsToExecute)
+	postmortemCfg := profiler.PostmortemConfig{
+		CodeBaseDir:    codeBaseDir,
+		CollectiveName: collectiveName,
+		Steps:          testCfg.cfg.profilerStepsToExecute,
+		DatasetDir:     testCfg.tempDir,
+		BinThresholds:  profiler.DefaultBinThreshold,
+		SizeThreshold:  profiler.DefaultMsgSizeThreshold,
+		CallsToPlot:    fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs),
+	}
+	err := postmortemCfg.Analyze()
 	if err != nil {
 		return err
 	}
@@ -426,8 +435,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
-				profilerStepsToExecute:   profiler.DefaultSteps, // Skip the steps that generate a file per call which create I/O issues (plots)
-				checkContentHeatMap:      false,                 // heat maps for that test are too big to be in the repo
+				profilerStepsToExecute:   profiler.AllSteps,
+				checkContentHeatMap:      false, // heat maps for that test are too big to be in the repo
 				expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 				expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
 				expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
