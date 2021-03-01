@@ -247,7 +247,7 @@ func (a *analyzer) Parse() error {
 			}
 
 			if strings.HasPrefix(line, "END DATA") {
-				for key, _ := range a.realEndpoints {
+				for key := range a.realEndpoints {
 					fmt.Printf("alltoallv call(s) #%s (%d calls): %d ranks (%s) communicate with %d other ranks \n", countsHeader.CallIDsStr, len(countsHeader.CallIDs), a.realEndpoints[key], a.ranksComm[key], key)
 				}
 				break

@@ -22,6 +22,7 @@ import (
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
@@ -230,15 +231,29 @@ func CallHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			comms, err := comm.GetData(codeBaseDir, datasetBasedir)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
 			for i := 0; i < len(allCallsData); i++ {
 				if allCallsData[i].LeadRank == leadRank {
 					opTimings := operationsTimings[collectiveName]
 					opExecTimings := opTimings.ExecTimes
 					opLateArrivalTimings := opTimings.LateArrivalTimes
 
-					_, err = plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], opExecTimings[commID][i], opLateArrivalTimings[commID][i])
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
+					for leadRank, listComms := range comms.LeadMap {
+						for _, c := range listComms {
+							id := timings.CommT{
+								CommID:   c,
+								LeadRank: leadRank,
+							}
+
+							_, err = plot.CallData(datasetBasedir, datasetBasedir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], opExecTimings[id][i], opLateArrivalTimings[id][i])
+							if err != nil {
+								http.Error(w, err.Error(), http.StatusInternalServerError)
+							}
+						}
 					}
 					break
 				}

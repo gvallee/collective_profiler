@@ -1093,7 +1093,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		MPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
 		if (my_comm_rank == 0)
 		{
-			int rc = commit_rank_locations(collective_name, comm, comm_size, world_rank, pids, world_comm_ranks, hostnames, avCalls);
+			int rc = commit_rank_locations(collective_name, comm, comm_size, world_rank, my_comm_rank, pids, world_comm_ranks, hostnames, avCalls);
 			if (rc)
 			{
 				fprintf(stderr, "save_rank_locations() failed: %d", rc);
@@ -1132,7 +1132,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 #if ENABLE_EXEC_TIMING
 			int jobid = get_job_id();
-			int rc = commit_timings(comm, collective_name, world_rank, jobid, op_exec_times, comm_size, avCalls);
+			int rc = commit_timings(comm, collective_name, world_rank, my_comm_rank, jobid, op_exec_times, comm_size, avCalls);
 			if (rc)
 			{
 				fprintf(stderr, "commit_timings() failed: %d\n", rc);
@@ -1142,7 +1142,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 #if ENABLE_LATE_ARRIVAL_TIMING
 			int jobid = get_job_id();
-			int rc = commit_timings(comm, collective_name, world_rank, jobid, late_arrival_timings, comm_size, avCalls);
+			int rc = commit_timings(comm, collective_name, world_rank, my_comm_rank, jobid, late_arrival_timings, comm_size, avCalls);
 			if (rc)
 			{
 				fprintf(stderr, "commit_timings() failed: %d\n", rc);

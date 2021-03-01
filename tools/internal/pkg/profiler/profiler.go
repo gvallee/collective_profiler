@@ -22,6 +22,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/analyzer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
@@ -44,13 +45,29 @@ const (
 	DefaultBinThreshold = "200,1024,2048,4096"
 
 	// DefaultSteps is the list of the predefined step the profiler follows by default when analyzing a dataset
-	DefaultSteps = "1-4" // Other steps are still too expensive to run on larger datasets
+	DefaultSteps = "1-6" // Other steps are still too expensive to run on larger datasets
 
 	// AllSteps is the string representing all the available steps of the profiler
 	AllSteps = "1-7"
 
 	maxSteps = 7
+
+	// DefaultNumGeneratedGraphs is the default number of graphs generated during the
+	// execution of the post-mortem analysis. It specifies how many of the first calls
+	// will be plotted
+	DefaultNumGeneratedGraphs = 100
 )
+
+// PostmortemConfig represents the configuration for a postmortem analysis of a dataset
+type PostmortemConfig struct {
+	CodeBaseDir    string
+	CollectiveName string
+	DatasetDir     string
+	BinThresholds  string
+	SizeThreshold  int
+	Steps          string
+	CallsToPlot    string
+}
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
 type OutputFileInfo struct {
@@ -469,6 +486,18 @@ func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileIn
 	var info OutputFileInfo
 	var err error
 
+	info.Cleanup = func() {
+		if info.defaultFd != nil {
+			info.defaultFd.Close()
+		}
+		if info.patternsFd != nil {
+			info.patternsFd.Close()
+		}
+		if info.patternsSummaryFd != nil {
+			info.patternsSummaryFd.Close()
+		}
+	}
+
 	info.defaultOutputFile = datafilereader.GetStatsFilePath(basedir, jobid, rank)
 	info.patternsOutputFile = patterns.GetFilePath(basedir, jobid, rank)
 	info.patternsSummaryOutputFile = patterns.GetSummaryFilePath(basedir, jobid, rank)
@@ -485,12 +514,6 @@ func GetCountProfilerFileDesc(basedir string, jobid int, rank int) (OutputFileIn
 	info.patternsSummaryFd, err = os.OpenFile(info.patternsSummaryOutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return info, fmt.Errorf("unable to create %s: %s", info.patternsSummaryOutputFile, err)
-	}
-
-	info.Cleanup = func() {
-		info.defaultFd.Close()
-		info.patternsFd.Close()
-		info.patternsSummaryFd.Close()
 	}
 
 	log.Println("Results are saved in:")
@@ -562,6 +585,9 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 
 	outputFilesInfo, err := GetCountProfilerFileDesc(basedir, jobid, rank)
 	defer outputFilesInfo.Cleanup()
+	if err != nil {
+		return cs, sendRecvStats, p, err
+	}
 
 	err = SaveStats(outputFilesInfo, sendRecvStats, p, numCalls, sizeThreshold)
 	if err != nil {
@@ -710,7 +736,7 @@ func FindRawCountFiles(dir string) RawCountsFilesInfoT {
 	return rawCountFilesInfo
 }
 
-func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, a2aExecutionTimes map[int]map[int]map[int]float64, lateArrivalTimes map[int]map[int]map[int]float64) error {
+func plotCallsData(codeBaseDir string, dir string, listCalls []int, allCallsData []counts.CommDataT, rankFileData map[int]*location.RankFileData, callMaps map[int]maps.CallsDataT, executionTimes map[timings.CommT]map[int]map[int]float64, lateArrivalTimes map[timings.CommT]map[int]map[int]float64) error {
 	if allCallsData == nil {
 		return fmt.Errorf("profiler.plotCallsData(): allCallsData is undefined")
 	}
@@ -723,7 +749,7 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 		return fmt.Errorf("profiler.plotCallsData(): callMaps is undefined")
 	}
 
-	if a2aExecutionTimes == nil {
+	if executionTimes == nil {
 		return fmt.Errorf("profiler.plotCallsData(): a2aExecutionTimes is undefined")
 	}
 
@@ -734,53 +760,115 @@ func plotCallsData(dir string, allCallsData []counts.CommDataT, rankFileData map
 	log.Printf("Data from %d communicator(s) need to be analyzed\n", len(callMaps))
 	for i := 0; i < len(allCallsData); i++ {
 		leadRank := allCallsData[i].LeadRank
-		b := progress.NewBar(len(allCallsData[i].CallData), fmt.Sprintf("Plotting data for alltoallv calls on communicator led by %d", leadRank))
+
+		num := 0
+		nOps := len(allCallsData[i].CallData)
+		if len(listCalls) < nOps {
+			nOps = len(listCalls)
+			fmt.Printf("[INFO] Only %d out of the %d calls will have their associated graphs created", nOps, len(allCallsData[i].CallData))
+		}
+		exitChannel := make(chan bool)
+		errChannel := make(chan error)
+
+		b := progress.NewBar(nOps, "Plotting graphs")
 		defer progress.EndBar(b)
 		for callID := range allCallsData[i].CallData {
 			b.Increment(1)
 
-			if rankFileData[leadRank].HostMap == nil {
-				return fmt.Errorf("host map for call %d is undefined for communicator led by %d", i, leadRank)
+			go func(codeBaseDir string, leaderRank int, callID int, num int) {
+				var err error
+				err = nil
+
+				if rankFileData[leadRank].HostMap == nil {
+					err = fmt.Errorf("host map for call %d is undefined for communicator led by %d", callID, leadRank)
+					errChannel <- err
+				}
+
+				// Some sanity checks to make sure everything is coherent. The situation is quite
+				// drastically different when we have to deal with multiple communicators.
+				if len(callMaps) == 0 {
+					// We are dealing with a single communicator so we can expect to find all the calls in the same
+					// map
+					if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[callID] == nil {
+						err = fmt.Errorf("Send heat map for call %d is undefined for communicator led by %d", i, leadRank)
+						errChannel <- err
+					}
+					if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[callID] == nil {
+						err = fmt.Errorf("Receive heat map for call %d is undefined for communicator led by %d", i, leadRank)
+						errChannel <- err
+					}
+				} else {
+					// We have multiple communicators in which case we cannot know in advance where a specific call (unique)
+					// across all data files will be
+					if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[callID] != nil) &&
+						(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[callID] == nil) {
+						// We found send data but not receive data, corruption
+						err = fmt.Errorf("inconsistent data: we found send data but not receive data")
+						errChannel <- err
+					}
+					if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[callID] == nil) &&
+						(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[callID] != nil) {
+						// We found receive data but not send data, corruption
+						err = fmt.Errorf("inconsistent data: we found receive data but not send data")
+						errChannel <- err
+					}
+					if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[callID] == nil) &&
+						(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[callID] == nil) {
+						// we do not have data for that call for both send and receive, we assume the call
+						// is not on that communicator.
+						exitChannel <- true
+					}
+				}
+
+				// Not all the files generated by the profiler yet support full communicator tracking so we need to tramslate commID -> leadRank
+				comms, err := comm.GetData(codeBaseDir, dir)
+				if err != nil {
+					errChannel <- err
+				}
+
+				for leadRank, listComms := range comms.LeadMap {
+					for _, c := range listComms {
+						id := timings.CommT{
+							CommID:   c,
+							LeadRank: leadRank,
+						}
+						// The call we are looking for may not be on that communicator
+						if executionTimes[id][callID] != nil {
+							_, err = plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[callID], callMaps[leadRank].RecvHeatMap[callID], executionTimes[id][callID], lateArrivalTimes[id][callID])
+							if err != nil {
+								err = fmt.Errorf("plot.CallData() failed for call %d on comm %d: %s", callID, leadRank, err)
+								errChannel <- err
+							}
+						}
+					}
+				}
+
+				exitChannel <- true
+			}(codeBaseDir, leadRank, callID, num)
+
+			num++
+			if nOps == num {
+				break
 			}
+		}
 
-			// Some sanity checks to make sure everything is coherent. The situation is quite
-			// drastically different when we have to deal with multiple communicators.
-			if len(callMaps) == 0 {
-				// We are dealing with a single communicator so we can expect to find all the calls in the same
-				// map
-				if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[i] == nil {
-					return fmt.Errorf("Send heat map for call %d is undefined for communicator led by %d", i, leadRank)
-				}
-				if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[i] == nil {
-					return fmt.Errorf("Receive heat map for call %d is undefined for communicator led by %d", i, leadRank)
-				}
-			} else {
-				// We have multiple communicators in which case we cannot know in advance where a specific call (unique)
-				// across all data files will be
-
-				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] != nil) &&
-					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] == nil) {
-					// We found send data but not receive data, corruption
-					return fmt.Errorf("inconsistent data: we found send data but not receive data")
-				}
-
-				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] == nil) &&
-					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] != nil) {
-					// We found receive data but not send data, corruption
-					return fmt.Errorf("inconsistent data: we found receive data but not send data")
-				}
-
-				if (callMaps[leadRank].SendHeatMap != nil && callMaps[leadRank].SendHeatMap[i] == nil) &&
-					(callMaps[leadRank].RecvHeatMap != nil && callMaps[leadRank].RecvHeatMap[i] == nil) {
-					// we do not have data for that call for both send and receive, we assume the call
-					// is not on that communicator.
-					continue
-				}
+		routinesDone := 0
+		generatedPlots := 0
+		var routineErr error
+		for {
+			select {
+			case routineErr = <-errChannel:
+				routinesDone++
+			case <-exitChannel:
+				generatedPlots++ // A Go routine exited successfully
+				routinesDone++
 			}
+			if routinesDone == nOps {
+				// All done!
+				close(exitChannel)
+				close(errChannel)
 
-			_, err := plot.CallData(dir, dir, leadRank, callID, rankFileData[leadRank].HostMap, callMaps[leadRank].SendHeatMap[i], callMaps[leadRank].RecvHeatMap[i], a2aExecutionTimes[leadRank][i], lateArrivalTimes[leadRank][i])
-			if err != nil {
-				return fmt.Errorf("plot.CallData() failed: %s", err)
+				return routineErr
 			}
 		}
 	}
@@ -827,21 +915,21 @@ func displayStepsToBeExecuted(requestedSteps map[int]bool) {
 	fmt.Printf("\n")
 }
 
-// AnalyzeDataset is a high-level function to trigger the post-mortem analysis of the dataset
-func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binThresholds string, sizeThreshold int, steps string) error {
+// Analyze is a high-level function to trigger the post-mortem analysis of the dataset
+func (cfg *PostmortemConfig) Analyze() error {
 	var err error
 	// We isolate results for each step to clearly see the dependencies between the steps
 	var resultsStep1 *step1ResultsT
 	var resultsStep3 *step3ResultsT
 	var resultsStep4 *step4ResultsT
 
-	listBins := bins.GetFromInputDescr(binThresholds)
+	listBins := bins.GetFromInputDescr(cfg.BinThresholds)
 
 	totalNumSteps := maxSteps
-	if steps == "" {
-		steps = AllSteps
+	if cfg.Steps == "" {
+		cfg.Steps = AllSteps
 	}
-	listSteps, err := notation.ConvertCompressedCallListToIntSlice(steps)
+	listSteps, err := notation.ConvertCompressedCallListToIntSlice(cfg.Steps)
 
 	// Transform the list of steps in a map to make it easier to handle
 	requestedSteps := make(map[int]bool)
@@ -879,7 +967,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 		fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
 		t := timer.Start()
 		resultsStep1 = new(step1ResultsT)
-		resultsStep1.totalNumCalls, resultsStep1.stats, resultsStep1.allPatterns, resultsStep1.allCallsData, err = HandleCountsFiles(dir, sizeThreshold, listBins)
+		resultsStep1.totalNumCalls, resultsStep1.stats, resultsStep1.allPatterns, resultsStep1.allCallsData, err = HandleCountsFiles(cfg.DatasetDir, cfg.SizeThreshold, listBins)
 		duration := t.Stop()
 		if err != nil {
 			return fmt.Errorf("unable to analyze counts: %s", err)
@@ -897,7 +985,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
 		}
 		t := timer.Start()
-		err = AnalyzeSubCommsResults(dir, resultsStep1.stats, resultsStep1.allPatterns)
+		err = AnalyzeSubCommsResults(cfg.DatasetDir, resultsStep1.stats, resultsStep1.allPatterns)
 		duration := t.Stop()
 		if err != nil {
 			return fmt.Errorf("unable to analyze sub-communicators results: %s", err)
@@ -916,7 +1004,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 		}
 		t := timer.Start()
 		resultsStep3 = new(step3ResultsT)
-		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(codeBaseDir, collectiveName, maps.Heat, dir, resultsStep1.allCallsData)
+		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(cfg.CodeBaseDir, cfg.CollectiveName, maps.Heat, cfg.DatasetDir, resultsStep1.allCallsData)
 		if err != nil {
 			return fmt.Errorf("unable to create heat map: %s", err)
 		}
@@ -937,7 +1025,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 		}
 		t := timer.Start()
 		resultsStep4 = new(step4ResultsT)
-		resultsStep4.collectiveOpsTimings, resultsStep4.totalA2AExecutionTimes, resultsStep4.totalLateArrivalTimes, err = timings.HandleTimingFiles(codeBaseDir, dir, resultsStep1.totalNumCalls)
+		resultsStep4.collectiveOpsTimings, resultsStep4.totalA2AExecutionTimes, resultsStep4.totalLateArrivalTimes, err = timings.HandleTimingFiles(cfg.CodeBaseDir, cfg.DatasetDir, resultsStep1.totalNumCalls)
 		if err != nil {
 			return fmt.Errorf("unable to parse timing data: %s", err)
 		}
@@ -950,6 +1038,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 
 	// STEP 5
 	if requestedSteps[currentStep] == true {
+		t := timer.Start()
 		fmt.Printf("\n* Step %d/%d: Calculate stats over entire dataset...\n", currentStep, totalNumSteps)
 		if resultsStep3 == nil {
 			return fmt.Errorf("step %d requires results for step 3 which are undefined", currentStep)
@@ -965,16 +1054,25 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 			return fmt.Errorf("step %d: total late time from step 4 is empty", currentStep)
 		}
 
+		fmt.Println("Calculating averages on some specific metrics")
+		ops := 0
 		resultsStep4.avgExecutionTimes = make(map[int]float64)
 		for rank, execTime := range resultsStep4.totalA2AExecutionTimes {
 			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
 			resultsStep4.avgExecutionTimes[rank] = execTime / float64(rankNumCalls)
+			ops++
+		}
+		fmt.Printf("%d operations completed\n", ops)
+		if len(resultsStep4.avgExecutionTimes) == 0 {
+			os.Exit(69)
 		}
 		resultsStep4.avgLateArrivalTimes = make(map[int]float64)
 		for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
 			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
 			resultsStep4.avgLateArrivalTimes[rank] = lateTime / float64(rankNumCalls)
 		}
+		duration := t.Stop()
+		fmt.Printf("Step completed in %s\n", duration)
 	} else {
 		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
 	}
@@ -1001,11 +1099,16 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 			}
 			t := timer.Start()
 
-			err = plotCallsData(dir, resultsStep1.allCallsData, resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep4.collectiveOpsTimings["alltoallv"].ExecTimes, resultsStep4.collectiveOpsTimings["alltoallv"].LateArrivalTimes)
+			listCalls, err := notation.ConvertCompressedCallListToIntSlice(cfg.CallsToPlot)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("* Generating graphs for calls: %d\n", listCalls)
+			err = plotCallsData(cfg.CodeBaseDir, cfg.DatasetDir, listCalls, resultsStep1.allCallsData, resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep4.collectiveOpsTimings["alltoallv"].ExecTimes, resultsStep4.collectiveOpsTimings["alltoallv"].LateArrivalTimes)
 			if err != nil {
 				return fmt.Errorf("unable to plot data, plotCallsData() failed: %s", err)
 			}
-			err = plot.Avgs(dir, dir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
+			err = plot.Avgs(cfg.DatasetDir, cfg.DatasetDir, len(resultsStep3.rankFileData[0].RankMap), resultsStep3.rankFileData[0].HostMap, resultsStep3.avgSendHeatMap, resultsStep3.avgRecvHeatMap, resultsStep4.avgExecutionTimes, resultsStep4.avgLateArrivalTimes)
 			if err != nil {
 				return fmt.Errorf("unable to plot average data: %s", err)
 			}
@@ -1026,7 +1129,7 @@ func AnalyzeDataset(codeBaseDir string, collectiveName string, dir string, binTh
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
 		}
 		for _, callData := range resultsStep1.allCallsData {
-			err := CreateBinsFromCounts(dir, callData.LeadRank, callData.CallData, listBins)
+			err := CreateBinsFromCounts(cfg.DatasetDir, callData.LeadRank, callData.CallData, listBins)
 			if err != nil {
 				return err
 			}

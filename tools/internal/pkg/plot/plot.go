@@ -134,10 +134,6 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	if err != nil {
 		return "", fmt.Errorf("scale.MapFloat64s() on avgExecTimeMap failed(): %s", err)
 	}
-	// debug
-	if avgLateArrivalTimeMap == nil {
-		return "", fmt.Errorf("TOTO avgLateArrivalTimeMap is undefined")
-	}
 	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap, err := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
 	if err != nil {
 		return "", fmt.Errorf("scale.MapFloat64s() on avgLateArrivalTimeMap failed(): %s", err)
@@ -245,17 +241,20 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 		emptyLines += len(hostMap[hostname])
 	}
 
-	var a []int
-	for key := range values {
-		a = append(a, key)
-	}
-	sort.Ints(a)
-	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, a, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
+	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
 	if err != nil {
 		return "", err
 	}
 
 	return gnuplotScript, nil
+}
+
+func getPlotFilename(leadRank int, callID int) string {
+	return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
+}
+
+func getPlotDataFilePath(outputDir string, leadRank int, callID int, hostname string) string {
+	return filepath.Join(outputDir, fmt.Sprintf("data_rank%d_call%d_%s.txt", leadRank, callID, hostname))
 }
 
 func generateCallDataFiles(dir string, outputDir string, leadRank int, callID int, hostMap map[string][]int, sendHeatMap map[int]int, recvHeatMap map[int]int, execTimeMap map[int]float64, lateArrivalMap map[int]float64) (string, string, error) {
@@ -296,18 +295,14 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 		return "", "", err
 	}
 
-	// fixme: atm we assume that all BW data is homogeneous so once we figure out a scale, it
-	// is the same scale all the time. It might not be true so we really need to figure out the
-	// scale based on sendHeatMapUnit and recvHeatMapUnit and force it to be used later when
-	// calculating the bandwidth
 	sBWUnit := ""
 	rBWUnit := ""
 
 	emptyLines := 0
 	for _, hostname := range hosts {
-		hostFile := filepath.Join(outputDir, hostname+".txt")
+		dataFile := getPlotDataFilePath(outputDir, leadRank, callID, hostname)
 
-		fd, err := os.OpenFile(hostFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		fd, err := os.OpenFile(dataFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			return "", "", err
 		}
@@ -414,8 +409,7 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	return pngFile, gnuplotScript, nil
 }
 
-// fixme: values is not currently used, by removing it, the code would become much simpler.
-func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
+func write(fd *os.File, dataFiles []string, numRanks int, maxValue int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateArrivalTimeUnit string, sendBWUnit string, recvBWUnit string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("empty list of hosts")
 	}
@@ -431,12 +425,6 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	if err != nil {
 		return err
 	}
-	/*
-		_, err = fd.WriteString(fmt.Sprintf("set ytics (%s)\n", notation.IntSliceToString(values)))
-		if err != nil {
-			return err
-		}
-	*/
 	_, err = fd.WriteString("\nshow label\n\n")
 	if err != nil {
 		return err
@@ -447,17 +435,17 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	}
 
 	// Special for the first node
-	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 title \"data sent (%s)\", \\\n", hosts[0], sendUnit))
-	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 title \"data received (%s)\", \\\n", hosts[0], recvUnit))
-	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 title \"execution time (%s)\", \\\n", hosts[0], execTimeUnit))
-	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 title \"late arrival timing (%s)\", \\\n", hosts[0], lateArrivalTimeUnit))
-	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 title \"bandwidth (%s)\", \\\n", hosts[0], sendBWUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 title \"data sent (%s)\", \\\n", dataFiles[0] /*filepath.Base(getPlotDataFilePath(outputDir, leadRank, callID, hosts[0]))*/, sendUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 title \"data received (%s)\", \\\n", dataFiles[0] /*filepath.Base(getPlotDataFilePath(outputDir, leadRank, callID, hosts[0]))*/, recvUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 title \"execution time (%s)\", \\\n", dataFiles[0] /*filepath.Base(getPlotDataFilePath(outputDir, leadRank, callID, hosts[0]))*/, execTimeUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 title \"late arrival timing (%s)\", \\\n", dataFiles[0] /*filepath.Base(getPlotDataFilePath(outputDir, leadRank, callID, hosts[0]))*/, lateArrivalTimeUnit))
+	str += fmt.Sprintf(fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 title \"bandwidth (%s)\", \\\n", dataFiles[0] /*filepath.Base(getPlotDataFilePath(outputDir, leadRank, callID, hosts[0]))*/, sendBWUnit))
 	for i := 1; i < len(hosts); i++ {
-		str += fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 notitle, \\\n", hosts[i])
-		str += fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 notitle, \\\n", hosts[i])
-		str += fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 notitle, \\\n", hosts[i])
-		str += fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 notitle, \\\n", hosts[i])
-		str += fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 notitle, \\\n", hosts[i])
+		str += fmt.Sprintf("\"%s.txt\" using 2:xtic(1) with points ls 1 notitle, \\\n", dataFiles[i])
+		str += fmt.Sprintf("\"%s.txt\" using 3 with points ls 2 notitle, \\\n", dataFiles[i])
+		str += fmt.Sprintf("\"%s.txt\" using 4 with points ls 3 notitle, \\\n", dataFiles[i])
+		str += fmt.Sprintf("\"%s.txt\" using 5 with points ls 4 notitle, \\\n", dataFiles[i])
+		str += fmt.Sprintf("\"%s.txt\" using 6 with points ls 5 notitle, \\\n", dataFiles[i])
 	}
 	str = strings.TrimRight(str, ", \\\n")
 	_, err = fd.WriteString(str)
@@ -466,10 +454,6 @@ func write(fd *os.File, numRanks int, maxValue int, values []int, hosts []string
 	}
 
 	return nil
-}
-
-func getPlotFilename(leadRank int, callID int) string {
-	return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
 }
 
 func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, string, error) {
@@ -490,7 +474,11 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 		return "", "", err
 	}
 
-	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
+	var dataFiles []string
+	for _, hostname := range hosts {
+		dataFiles = append(dataFiles, getPlotDataFilePath(outputDir, leadRank, callID, hostname))
+	}
+	err = write(fd, dataFiles, numRanks, maxValue, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", "", err
 	}
@@ -498,7 +486,11 @@ func generateCallPlotScript(outputDir string, leadRank int, callID int, numRanks
 	return targetPlotFile, plotScriptFile, nil
 }
 
-func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, values []int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
+func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, hosts []string, sendUnit string, recvUnit string, execTimeUnit string, lateTimeUnit string, sendBWUnit string, recvBWUnit string) (string, error) {
+	var dataFiles []string
+	for _, hostname := range hosts {
+		dataFiles = append(dataFiles, filepath.Join(outputDir, hostname+"_avgs.txt"))
+	}
 	plotScriptFile := filepath.Join(outputDir, "profiler_avgs.gnuplot")
 	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -514,7 +506,7 @@ func generateGlobalPlotScript(outputDir string, numRanks int, maxValue int, valu
 	if err != nil {
 		return "", err
 	}
-	err = write(fd, numRanks, maxValue, values, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
+	err = write(fd, dataFiles, numRanks, maxValue, hosts, sendUnit, recvUnit, execTimeUnit, lateTimeUnit, sendBWUnit, recvBWUnit)
 	if err != nil {
 		return "", err
 	}

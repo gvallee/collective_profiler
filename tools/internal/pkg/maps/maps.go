@@ -314,6 +314,7 @@ func createHeatMap(codeBaseDir string, collectiveName string, dir string, leadRa
 		}
 	}
 
+	fmt.Println("\nSaving maps...")
 	callSendHeatMapFilePath := GetSendCallsHeatMapFilename(dir, collectiveName, leadRank)
 	err = saveCallsHeatMap(codeBaseDir, callsData.SendHeatMap, callSendHeatMapFilePath)
 	if err != nil {
@@ -473,6 +474,7 @@ func createRankFile(dir string, hm *location.RankFileData) error {
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 
 	_, err = fd.WriteString(fmt.Sprintf("Total of %d nodes\n", len(hm.HostMap)))
 	if err != nil {

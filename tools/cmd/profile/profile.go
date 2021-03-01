@@ -36,6 +36,8 @@ func main() {
 		"\t6 - plot graphs;\n"+
 		"\t7 - create bins;\n")
 	sizeThreshold := flag.Int("size-threshold", profiler.DefaultMsgSizeThreshold, "Size to differentiate small and big messages")
+	plotCalls := flag.String("plot", "0-1000", "Range of calls for which the tool will generate graphs.\n"+
+		"To specify calls, it is possible to list specific steps through a comma separated list or a rang of steps (e.g., \"1-3\").\n")
 	binThresholds := flag.String("bins", profiler.DefaultBinThreshold, "Comma-separated list of thresholds to use for the creation of bins")
 
 	flag.Parse()
@@ -62,7 +64,16 @@ func main() {
 
 	collectiveName := "alltoallv" // hardcoded for now detection coming soon
 
-	err := profiler.AnalyzeDataset(codeBaseDir, collectiveName, *dir, *binThresholds, *sizeThreshold, *steps)
+	profilerCfg := profiler.PostmortemConfig{
+		CodeBaseDir:    codeBaseDir,
+		CollectiveName: collectiveName,
+		DatasetDir:     *dir,
+		BinThresholds:  *binThresholds,
+		SizeThreshold:  *sizeThreshold,
+		Steps:          *steps,
+		CallsToPlot:    *plotCalls,
+	}
+	err := profilerCfg.Analyze()
 	if err != nil {
 		fmt.Printf("profiler.AnalyzeDataset() failed: %s\n", err)
 		os.Exit(1)

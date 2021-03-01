@@ -16,12 +16,12 @@
 comm_timing_logger_t *timing_loggers_head = NULL;
 comm_timing_logger_t *timing_loggers_tail = NULL;
 
-int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int jobid, comm_timing_logger_t **logger)
+int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int comm_rank, int jobid, comm_timing_logger_t **logger)
 {
     int rc;
 
     uint32_t comm_id;
-    GET_COMM_LOGGER(comm_id);
+    GET_COMM_LOGGER(comm, world_rank, comm_rank, comm_id);
 
     comm_timing_logger_t *new_logger = malloc(sizeof(comm_timing_logger_t));
     assert(new_logger);
@@ -108,7 +108,8 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
 
 int fini_time_tracking(comm_timing_logger_t **logger)
 {
-    if ((*logger)->fd) {
+    if ((*logger)->fd)
+    {
         fclose((*logger)->fd);
         (*logger)->fd = NULL;
     }
@@ -132,7 +133,7 @@ int release_time_loggers()
     return 0;
 }
 
-int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, double *times, int comm_size, uint64_t n_call)
+int commit_timings(MPI_Comm comm, char *collective_name, int world_rank, int comm_rank, int jobid, double *times, int comm_size, uint64_t n_call)
 {
     assert(times);
     comm_timing_logger_t *logger;
@@ -144,7 +145,7 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         rc = lookup_comm(comm, &comm_id);
         if (rc)
         {
-            rc = add_comm(comm, &comm_id);
+            rc = add_comm(comm, world_rank, comm_rank, &comm_id);
             if (rc)
             {
                 fprintf(stderr, "unable to add communicator\n");
@@ -153,7 +154,7 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         }
 
         // Now we know the communicator, create a logger for it
-        rc = init_time_tracking(comm, collective_name, rank, jobid, &logger);
+        rc = init_time_tracking(comm, collective_name, world_rank, comm_rank, jobid, &logger);
         if (rc || logger == NULL)
         {
             fprintf(stderr, "unable to initialize time tracking (rc: %d)\n", rc);
