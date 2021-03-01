@@ -164,7 +164,7 @@ static inline int _close_backtrace_file(backtrace_logger_t *logger)
 int init_backtrace_context(MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, trace_context_t **trace_ctxt)
 {
     uint32_t comm_id;
-    GET_COMM_LOGGER(comm_id);
+    GET_COMM_LOGGER(comm, world_rank, comm_rank, comm_id);
 
     trace_context_t *new_ctxt = malloc(sizeof(trace_context_t));
     assert(new_ctxt);
@@ -320,7 +320,7 @@ int insert_caller_data(char *collective_name, char **trace, size_t trace_size, M
     rc = lookup_comm(comm, &comm_id);
     if (rc)
     {
-        rc = add_comm(comm, &comm_id);
+        rc = add_comm(comm, world_rank, comm_rank, &comm_id);
         if (rc)
         {
             fprintf(stderr, "add_comm() failed: %d\n", rc);

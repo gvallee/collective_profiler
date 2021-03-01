@@ -314,6 +314,7 @@ func createHeatMap(codeBaseDir string, collectiveName string, dir string, leadRa
 		}
 	}
 
+	fmt.Println("\nSaving maps...")
 	callSendHeatMapFilePath := GetSendCallsHeatMapFilename(dir, collectiveName, leadRank)
 	err = saveCallsHeatMap(codeBaseDir, callsData.SendHeatMap, callSendHeatMapFilePath)
 	if err != nil {

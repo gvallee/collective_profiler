@@ -35,7 +35,7 @@ backtrace.o: backtrace.c backtrace.h format.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
 
 comm.o: comm.c comm.h
-	mpicc -I../ -fPIC -c comm.c
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c comm.c
 
 timings.o: timings.c timings.h comm.o 
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c timings.c -o timings.o 

@@ -61,15 +61,21 @@ type Metadata struct {
 	NumRanks      int
 }
 
+// CommT is the data required to identify a communicator in a unique manner
+type CommT struct {
+	LeadRank int
+	CommID   int
+}
+
 // CollectiveTimings is the data structure used to store all the timing data for a specific collective (e.g., alltoallv, alltoall)
 type CollectiveTimings struct {
 	execFiles           []string
 	lateArrivalFiles    []string
 	execTimesMetadata   *Metadata
 	lateArrivalMetadata *Metadata
-	// ExecTimes is a hash of a hash of a hash: commID -> callID -> rank
-	ExecTimes        map[int]map[int]map[int]float64
-	LateArrivalTimes map[int]map[int]map[int]float64
+	// ExecTimes is a hash of a hash of a hash: leadRank/commID -> callID -> rank
+	ExecTimes        map[CommT]map[int]map[int]float64
+	LateArrivalTimes map[CommT]map[int]map[int]float64
 	execStats        Stats
 	lateArrivalStats Stats
 }
@@ -110,6 +116,7 @@ func (s *Stats) groupTimings() error {
 	return nil
 }
 
+// getMetadataFromFilename returns the metadata contained in the name of a timing file, i.e., the lead rank, communicator ID, job ID
 func getMetadataFromFilename(filename string) (int, int, int, error) {
 	idx := strings.LastIndex(filename, "rank")
 	rankStr := filename[idx+4:]
@@ -336,9 +343,9 @@ func ParseTimingFile(filePath string, codeBaseDir string) (*Metadata, map[int]ma
 }
 
 func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string, dir string, collectiveName string, totalExecutionTimes map[int]float64, totalLateArrivalTimes map[int]float64) error {
-	// comm-centric maps where the keys are: commID, callID and world rank; the value an array of time
-	collectiveInfo.ExecTimes = make(map[int]map[int]map[int]float64)
-	collectiveInfo.LateArrivalTimes = make(map[int]map[int]map[int]float64)
+	// comm-centric maps where the keys are: CommT, callID and world rank; the value an array of time
+	collectiveInfo.ExecTimes = make(map[CommT]map[int]map[int]float64)
+	collectiveInfo.LateArrivalTimes = make(map[CommT]map[int]map[int]float64)
 
 	numFilesToParse := 0
 	for _, execFile := range collectiveInfo.execFiles {
@@ -359,7 +366,7 @@ func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string,
 	for _, execFile := range collectiveInfo.execFiles {
 		if util.FileExists(execFile) {
 			bar.Increment(1)
-			_, commid, _, err := getMetadataFromFilename(execFile)
+			leadRank, commid, _, err := getMetadataFromFilename(execFile)
 			if err != nil {
 				return err
 			}
@@ -368,7 +375,11 @@ func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string,
 				return err
 			}
 			collectiveInfo.execTimesMetadata = execTimesMetadata
-			collectiveInfo.ExecTimes[commid] = execTimes
+			commIdentifier := CommT{
+				CommID:   commid,
+				LeadRank: leadRank,
+			}
+			collectiveInfo.ExecTimes[commIdentifier] = execTimes
 
 			for rank, time := range execRankTimeMap {
 				totalExecutionTimes[rank] += time
@@ -379,7 +390,7 @@ func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string,
 	for _, lateArrivalFile := range collectiveInfo.lateArrivalFiles {
 		if util.FileExists(lateArrivalFile) {
 			bar.Increment(1)
-			_, commid, _, err := getMetadataFromFilename(lateArrivalFile)
+			leadRank, commid, _, err := getMetadataFromFilename(lateArrivalFile)
 			if err != nil {
 				return err
 			}
@@ -388,7 +399,11 @@ func (collectiveInfo *CollectiveTimings) analyzeTimingsFiles(codeBaseDir string,
 				return err
 			}
 			collectiveInfo.lateArrivalMetadata = lateArrivalMetadata
-			collectiveInfo.LateArrivalTimes[commid] = lateTimes
+			commIdentifier := CommT{
+				CommID:   commid,
+				LeadRank: leadRank,
+			}
+			collectiveInfo.LateArrivalTimes[commIdentifier] = lateTimes
 
 			for rank, time := range lateArrivalRankTimeMap {
 				totalLateArrivalTimes[rank] += time

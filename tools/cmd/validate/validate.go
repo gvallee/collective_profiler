@@ -384,8 +384,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			numRanksPerComm:                []int{2, 4},
 			source:                         exampleFileMulticommC,
 			binary:                         exampleBinaryMulticommC,
-			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
-			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt", "send-counters.job0.rank2.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt", "recv-counters.job0.rank2.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md", "alltoallv_locations_comm1_rank0.md", "alltoallv_locations_comm0_rank2.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
