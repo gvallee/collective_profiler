@@ -36,7 +36,8 @@ func main() {
 		"\t6 - plot graphs;\n"+
 		"\t7 - create bins;\n")
 	sizeThreshold := flag.Int("size-threshold", profiler.DefaultMsgSizeThreshold, "Size to differentiate small and big messages")
-	plotCalls := flag.String("plot", "0-1000", "Range of calls for which the tool will generate graphs.\n"+
+	graphList := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
+	plotCalls := flag.String("plot", graphList, "Range of calls for which the tool will generate graphs.\n"+
 		"To specify calls, it is possible to list specific steps through a comma separated list or a rang of steps (e.g., \"1-3\").\n")
 	binThresholds := flag.String("bins", profiler.DefaultBinThreshold, "Comma-separated list of thresholds to use for the creation of bins")
 
