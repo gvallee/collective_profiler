@@ -201,7 +201,7 @@ int release_location_loggers()
     return 0;
 }
 
-int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, int world_rank, int *pids, int *world_comm_ranks, char *hostnames, uint64_t n_call)
+int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, int world_rank, int comm_rank, int *pids, int *world_comm_ranks, char *hostnames, uint64_t n_call)
 {
     int i;
     int rc;
@@ -212,7 +212,7 @@ int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, i
     if (rc)
     {
         // We save the communicator
-        rc = add_comm(comm, &comm_id);
+        rc = add_comm(comm, world_rank, comm_rank, &comm_id);
         if (rc)
         {
             fprintf(stderr, "unabel to add communicator\n");
