@@ -85,6 +85,234 @@ func getMax(max int, values map[int]bool, rank int, sendHeatMap map[int]int, rec
 	return max, values
 }
 
+type plotData struct {
+	outputDir                   string
+	hostMap                     map[string][]int
+	values                      map[int]bool
+	sendRankBW                  map[int]float64
+	recvRankBW                  map[int]float64
+	scaledSendRankBW            map[int]float64
+	scaledRecvRankBW            map[int]float64
+	avgSendScaledHeatMap        map[int]int
+	avgRecvScaledHeatMap        map[int]int
+	avgExecScaledTimeMap        map[int]float64
+	avgLateArrivalScaledTimeMap map[int]float64
+	sendScaledHeatMap           map[int]int
+	recvScaledHeatMap           map[int]int
+	execScaledTimeMap           map[int]float64
+	lateArrivalScaledTimeMap    map[int]float64
+	emptyLines                  int
+	avgSendHeatMap              map[int]int
+	avgRecvHeatMap              map[int]int
+	avgExecTimeMap              map[int]float64
+	avgLateArrivalTimeMap       map[int]float64
+	sendHeatMap                 map[int]int
+	recvHeatMap                 map[int]int
+	execTimeMap                 map[int]float64
+	lateArrivalTimeMap          map[int]float64
+	maxValue                    int
+	sBWUnit                     string
+	rBWUnit                     string
+	avgSendHeatMapUnit          string
+	avgRecvHeatMapUnit          string
+	avgExecTimeMapUnit          string
+	avgLateArrivalTimeMapUnit   string
+	sendHeatMapUnit             string
+	recvHeatMapUnit             string
+	execTimeMapUnit             string
+	lateArrivalTimeMapUnit      string
+	numRanks                    int
+}
+
+func (d *plotData) generateRanksMap(idx int, hostname string) (int, int, error) {
+	hostRankFile := filepath.Join(d.outputDir, "ranks_map_"+hostname+".txt")
+
+	fd2, err := os.OpenFile(hostRankFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer fd2.Close()
+
+	for i := 0; i < d.emptyLines; i++ {
+		_, err := fd2.WriteString("0\n")
+		if err != nil {
+			return 0, 0, err
+		}
+		idx++
+	}
+	for i := 0; i < len(d.hostMap[hostname]); i++ {
+		_, err := fd2.WriteString(fmt.Sprintf("%d\n", d.maxValue))
+		if err != nil {
+			return 0, 0, err
+		}
+		idx++
+	}
+	for i := idx; i < d.numRanks; i++ {
+		_, err := fd2.WriteString("0\n")
+		if err != nil {
+			return 0, 0, err
+		}
+		idx++
+	}
+	return len(d.hostMap[hostname]), idx, err
+}
+
+func (d *plotData) generateHostCallData(hostname string, idx int) (int, error) {
+	hostRankFile := filepath.Join(d.outputDir, "ranks_map_"+hostname+".txt")
+
+	fd2, err := os.OpenFile(hostRankFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return idx, err
+	}
+	defer fd2.Close()
+
+	for i := 0; i < d.emptyLines; i++ {
+		_, err := fd2.WriteString("0\n")
+		if err != nil {
+			return idx, err
+		}
+		idx++
+	}
+	for i := 0; i < len(d.hostMap[hostname]); i++ {
+		_, err := fd2.WriteString(fmt.Sprintf("%d\n", d.maxValue))
+		if err != nil {
+			return idx, err
+		}
+		idx++
+	}
+	for i := idx; i < d.numRanks; i++ {
+		_, err := fd2.WriteString("0\n")
+		if err != nil {
+			return idx, err
+		}
+		idx++
+	}
+	return idx, nil
+}
+
+func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) error {
+	dataFile := getPlotDataFilePath(d.outputDir, leadRank, callID, hostname)
+
+	fd, err := os.OpenFile(dataFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	_, err = fd.WriteString("# Rank send_size recv_size exec_time late_time send_bw recv_bw\n")
+	if err != nil {
+		return err
+	}
+
+	ranks := d.hostMap[hostname]
+	d.numRanks += len(ranks)
+	sort.Ints(ranks)
+	for i := 0; i < d.emptyLines; i++ {
+		_, err = fd.WriteString("- - - - - - -\n")
+		if err != nil {
+			return err
+		}
+	}
+	for _, rank := range ranks {
+		d.sendRankBW[rank] = float64(d.sendHeatMap[rank]) / d.execTimeMap[rank]
+		d.recvRankBW[rank] = float64(d.recvHeatMap[rank]) / d.execTimeMap[rank]
+		scaledSendRankBWUnit, scaledSendRankBW, err := scale.MapFloat64s("B/s", d.sendRankBW)
+		if err != nil {
+			return err
+		}
+		scaledRecvRankBWUnit, scaledRecvRankBW, err := scale.MapFloat64s("B/s", d.recvRankBW)
+		if err != nil {
+			return err
+		}
+		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.sBWUnit == "" {
+			d.sBWUnit = scaledSendRankBWUnit
+		}
+		if d.rBWUnit == "" {
+			d.rBWUnit = scaledRecvRankBWUnit
+		}
+
+		_, d.values = getMax(d.maxValue, d.values, rank, d.sendScaledHeatMap, d.recvScaledHeatMap, d.execScaledTimeMap, d.lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
+		_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, d.sendScaledHeatMap[rank], d.recvScaledHeatMap[rank], d.execScaledTimeMap[rank], d.lateArrivalScaledTimeMap[rank], scaledSendRankBW[rank], scaledRecvRankBW[rank]))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *plotData) generateHostAvgs(hostname string) error {
+	hostFile := filepath.Join(d.outputDir, hostname+"_avgs.txt")
+
+	fd, err := os.OpenFile(hostFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	_, err = fd.WriteString("# Rank send_size recv_size exec_time late_time send_bw recv_bw\n")
+	if err != nil {
+		return err
+	}
+
+	ranks := d.hostMap[hostname]
+	d.numRanks = len(ranks)
+	sort.Ints(ranks)
+	for i := 0; i < d.emptyLines; i++ {
+		_, err = fd.WriteString("- - - - - - -\n")
+		if err != nil {
+			return err
+		}
+	}
+	for _, rank := range ranks {
+		d.sendRankBW[rank] = float64(d.avgSendHeatMap[rank]) / d.avgExecTimeMap[rank]
+		d.recvRankBW[rank] = float64(d.avgRecvHeatMap[rank]) / d.avgExecTimeMap[rank]
+		var scaledSendRankBWUnit string
+		var scaledRecvRankBWUnit string
+		scaledSendRankBWUnit, scaledSendBW, err := scale.Float64s("B/s", []float64{d.sendRankBW[rank]})
+		if err != nil {
+			return err
+		}
+		d.scaledSendRankBW[rank] = scaledSendBW[0]
+		scaledRecvRankBWUnit, scaledRecvBW, err := scale.Float64s("B/s", []float64{d.recvRankBW[rank]})
+		if err != nil {
+			return err
+		}
+		d.scaledRecvRankBW[rank] = scaledRecvBW[0]
+		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
+			return fmt.Errorf("detected different scales for BW data")
+		}
+		if d.sBWUnit == "" {
+			d.sBWUnit = scaledSendRankBWUnit
+		}
+		if d.rBWUnit == "" {
+			d.rBWUnit = scaledRecvRankBWUnit
+		}
+
+		_, d.values = getMax(d.maxValue, d.values, rank, d.avgSendScaledHeatMap, d.avgRecvScaledHeatMap, d.avgExecScaledTimeMap, d.avgLateArrivalScaledTimeMap, d.sendRankBW[rank], d.recvRankBW[rank])
+		_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, d.avgSendScaledHeatMap[rank], d.avgRecvScaledHeatMap[rank], d.avgExecScaledTimeMap[rank], d.avgLateArrivalScaledTimeMap[rank], d.sendRankBW[0], d.recvRankBW[1]))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // fixme: too similar to generateCallDataFiles
 func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) (string, error) {
 	if avgSendHeatMap == nil {
@@ -114,27 +342,36 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	}
 
 	hosts := sortHostMapKeys(hostMap)
-	maxValue := 1000 // We automatically scale the data, the max is always 1000
-	numRanks := 0
-	values := make(map[int]bool)
-	sendRankBW := make(map[int]float64)
-	recvRankBW := make(map[int]float64)
-	scaledSendRankBW := make(map[int]float64)
-	scaledRecvRankBW := make(map[int]float64)
+	data := plotData{
+		outputDir:             outputDir,
+		hostMap:               hostMap,
+		avgSendHeatMap:        avgSendHeatMap,
+		avgRecvHeatMap:        avgRecvHeatMap,
+		avgExecTimeMap:        avgExecTimeMap,
+		avgLateArrivalTimeMap: avgLateArrivalTimeMap,
+		maxValue:              1000, // We automatically scale the data, the max is always 1000
+		values:                make(map[int]bool),
+		sendRankBW:            make(map[int]float64),
+		recvRankBW:            make(map[int]float64),
+		scaledSendRankBW:      make(map[int]float64),
+		scaledRecvRankBW:      make(map[int]float64),
+		emptyLines:            0,
+	}
 
-	avgSendHeatMapUnit, avgSendScaledHeatMap, err := scale.MapInts("B", avgSendHeatMap)
+	var err error
+	data.avgSendHeatMapUnit, data.avgSendScaledHeatMap, err = scale.MapInts("B", avgSendHeatMap)
 	if err != nil {
 		return "", fmt.Errorf("scale.MapInts() on avgSendHeatMap failed(): %s", err)
 	}
-	avgRecvHeatMapUnit, avgRecvScaledHeatMap, err := scale.MapInts("B", avgRecvHeatMap)
+	data.avgRecvHeatMapUnit, data.avgRecvScaledHeatMap, err = scale.MapInts("B", avgRecvHeatMap)
 	if err != nil {
 		return "", fmt.Errorf("scale.MapInts() on avgRecvHeatMap failed(): %s", err)
 	}
-	avgExecTimeMapUnit, avgExecScaledTimeMap, err := scale.MapFloat64s("seconds", avgExecTimeMap)
+	data.avgExecTimeMapUnit, data.avgExecScaledTimeMap, err = scale.MapFloat64s("seconds", avgExecTimeMap)
 	if err != nil {
 		return "", fmt.Errorf("scale.MapFloat64s() on avgExecTimeMap failed(): %s", err)
 	}
-	avgLateArrivalTimeMapUnit, avgLateArrivalScaledTimeMap, err := scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
+	data.avgLateArrivalTimeMapUnit, data.avgLateArrivalScaledTimeMap, err = scale.MapFloat64s("seconds", avgLateArrivalTimeMap)
 	if err != nil {
 		return "", fmt.Errorf("scale.MapFloat64s() on avgLateArrivalTimeMap failed(): %s", err)
 	}
@@ -143,105 +380,30 @@ func generateAvgsDataFiles(dir string, outputDir string, hostMap map[string][]in
 	// is the same scale all the time. It might not be true so we really need to figure out the
 	// scale based on sendHeatMapUnit and recvHeatMapUnit and force it to be used later when
 	// calculating the bandwidth
-	sBWUnit := ""
-	rBWUnit := ""
+	data.sBWUnit = ""
+	data.rBWUnit = ""
 
-	emptyLines := 0
+	data.emptyLines = 0
 	for _, hostname := range hosts {
-		hostFile := filepath.Join(outputDir, hostname+"_avgs.txt")
-
-		fd, err := os.OpenFile(hostFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		err = data.generateHostAvgs(hostname)
 		if err != nil {
 			return "", err
 		}
-		defer fd.Close()
-
-		_, err = fd.WriteString("# Rank send_size recv_size exec_time late_time send_bw recv_bw\n")
-		if err != nil {
-			return "", err
-		}
-
-		ranks := hostMap[hostname]
-		numRanks += len(ranks)
-		sort.Ints(ranks)
-		for i := 0; i < emptyLines; i++ {
-			_, err = fd.WriteString("- - - - - - -\n")
-			if err != nil {
-				return "", err
-			}
-		}
-		for _, rank := range ranks {
-			sendRankBW[rank] = float64(avgSendHeatMap[rank]) / avgExecTimeMap[rank]
-			recvRankBW[rank] = float64(avgRecvHeatMap[rank]) / avgExecTimeMap[rank]
-			var scaledSendRankBWUnit string
-			var scaledRecvRankBWUnit string
-			scaledSendRankBWUnit, scaledSendBW, err := scale.Float64s("B/s", []float64{sendRankBW[rank]})
-			if err != nil {
-				return "", err
-			}
-			scaledSendRankBW[rank] = scaledSendBW[0]
-			scaledRecvRankBWUnit, scaledRecvBW, err := scale.Float64s("B/s", []float64{recvRankBW[rank]})
-			if err != nil {
-				return "", err
-			}
-			scaledRecvRankBW[rank] = scaledRecvBW[0]
-			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
-				return "", fmt.Errorf("detected different scales for BW data")
-			}
-			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
-				return "", fmt.Errorf("detected different scales for BW data")
-			}
-			if sBWUnit == "" {
-				sBWUnit = scaledSendRankBWUnit
-			}
-			if rBWUnit == "" {
-				rBWUnit = scaledRecvRankBWUnit
-			}
-
-			_, values = getMax(maxValue, values, rank, avgSendScaledHeatMap, avgRecvScaledHeatMap, avgExecScaledTimeMap, avgLateArrivalScaledTimeMap, sendRankBW[rank], recvRankBW[rank])
-			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, avgSendScaledHeatMap[rank], avgRecvScaledHeatMap[rank], avgExecScaledTimeMap[rank], avgLateArrivalScaledTimeMap[rank], sendRankBW[0], recvRankBW[1]))
-			if err != nil {
-				return "", err
-			}
-		}
-		emptyLines += len(ranks)
+		data.emptyLines += data.numRanks
 	}
 
-	emptyLines = 0
+	data.emptyLines = 0
 	idx := 0
 	for _, hostname := range hosts {
-		hostRankFile := filepath.Join(outputDir, "ranks_map_"+hostname+".txt")
-
-		fd2, err := os.OpenFile(hostRankFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		n, i, err := data.generateRanksMap(idx, hostname)
 		if err != nil {
-			return "", err
+			return "", nil
 		}
-		defer fd2.Close()
-		for i := 0; i < emptyLines; i++ {
-			_, err := fd2.WriteString("0\n")
-			if err != nil {
-				return "", err
-			}
-			idx++
-		}
-		for i := 0; i < len(hostMap[hostname]); i++ {
-			_, err := fd2.WriteString(fmt.Sprintf("%d\n", maxValue))
-			if err != nil {
-				return "", err
-			}
-			idx++
-		}
-		for i := idx; i < numRanks; i++ {
-			_, err := fd2.WriteString("0\n")
-			if err != nil {
-				return "", err
-			}
-			idx++
-		}
-		emptyLines += len(hostMap[hostname])
+		idx = i
+		data.emptyLines += n
 	}
 
-	gnuplotScript, err := generateGlobalPlotScript(outputDir, numRanks, maxValue, hosts, avgSendHeatMapUnit, avgRecvHeatMapUnit, avgExecTimeMapUnit, avgLateArrivalTimeMapUnit, sBWUnit, rBWUnit)
+	gnuplotScript, err := generateGlobalPlotScript(outputDir, data.numRanks, data.maxValue, hosts, data.avgSendHeatMapUnit, data.avgRecvHeatMapUnit, data.avgExecTimeMapUnit, data.avgLateArrivalTimeMapUnit, data.sBWUnit, data.rBWUnit)
 	if err != nil {
 		return "", err
 	}
@@ -272,136 +434,69 @@ func generateCallDataFiles(dir string, outputDir string, leadRank int, callID in
 	}
 
 	hosts := sortHostMapKeys(hostMap)
-	maxValue := 1000 // We scale the data the maximum is always 1000
-	numRanks := 0
-	values := make(map[int]bool)
-	sendRankBW := make(map[int]float64)
-	recvRankBW := make(map[int]float64)
-
-	sendHeatMapUnit, sendScaledHeatMap, err := scale.MapInts("B", sendHeatMap)
-	if err != nil {
-		return "", "", err
-	}
-	recvHeatMapUnit, recvScaledHeatMap, err := scale.MapInts("B", recvHeatMap)
-	if err != nil {
-		return "", "", err
-	}
-	execTimeMapUnit, execScaledTimeMap, err := scale.MapFloat64s("seconds", execTimeMap)
-	if err != nil {
-		return "", "", err
-	}
-	lateArrivalTimeMapUnit, lateArrivalScaledTimeMap, err := scale.MapFloat64s("seconds", lateArrivalMap)
-	if err != nil {
-		return "", "", err
+	data := plotData{
+		outputDir:          outputDir,
+		hostMap:            hostMap,
+		sendHeatMap:        sendHeatMap,
+		recvHeatMap:        recvHeatMap,
+		execTimeMap:        execTimeMap,
+		lateArrivalTimeMap: lateArrivalMap,
+		maxValue:           1000, // We automatically scale the data, the max is always 1000
+		values:             make(map[int]bool),
+		sendRankBW:         make(map[int]float64),
+		recvRankBW:         make(map[int]float64),
+		scaledSendRankBW:   make(map[int]float64),
+		scaledRecvRankBW:   make(map[int]float64),
+		emptyLines:         0,
 	}
 
-	sBWUnit := ""
-	rBWUnit := ""
+	var err error
+	data.sendHeatMapUnit, data.sendScaledHeatMap, err = scale.MapInts("B", sendHeatMap)
+	if err != nil {
+		return "", "", err
+	}
+	data.recvHeatMapUnit, data.recvScaledHeatMap, err = scale.MapInts("B", recvHeatMap)
+	if err != nil {
+		return "", "", err
+	}
+	data.execTimeMapUnit, data.execScaledTimeMap, err = scale.MapFloat64s("seconds", execTimeMap)
+	if err != nil {
+		return "", "", err
+	}
+	data.lateArrivalTimeMapUnit, data.lateArrivalScaledTimeMap, err = scale.MapFloat64s("seconds", lateArrivalMap)
+	if err != nil {
+		return "", "", err
+	}
 
-	emptyLines := 0
+	data.sBWUnit = ""
+	data.rBWUnit = ""
+
+	data.emptyLines = 0
 	for _, hostname := range hosts {
-		dataFile := getPlotDataFilePath(outputDir, leadRank, callID, hostname)
-
-		fd, err := os.OpenFile(dataFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		err := data.generateCallsAvgs(hostname, leadRank, callID)
 		if err != nil {
 			return "", "", err
 		}
-		defer fd.Close()
-
-		_, err = fd.WriteString("# Rank send_size recv_size exec_time late_time send_bw recv_bw\n")
-		if err != nil {
-			return "", "", err
-		}
-
-		ranks := hostMap[hostname]
-		numRanks += len(ranks)
-		sort.Ints(ranks)
-		for i := 0; i < emptyLines; i++ {
-			_, err = fd.WriteString("- - - - - - -\n")
-			if err != nil {
-				return "", "", err
-			}
-		}
-		for _, rank := range ranks {
-			sendRankBW[rank] = float64(sendHeatMap[rank]) / execTimeMap[rank]
-			recvRankBW[rank] = float64(recvHeatMap[rank]) / execTimeMap[rank]
-			scaledSendRankBWUnit, scaledSendRankBW, err := scale.MapFloat64s("B/s", sendRankBW)
-			if err != nil {
-				return "", "", err
-			}
-			scaledRecvRankBWUnit, scaledRecvRankBW, err := scale.MapFloat64s("B/s", recvRankBW)
-			if err != nil {
-				return "", "", err
-			}
-			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
-				return "", "", fmt.Errorf("detected different scales for BW data")
-			}
-			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
-				return "", "", fmt.Errorf("detected different scales for BW data")
-			}
-			if sBWUnit != "" && sBWUnit != scaledSendRankBWUnit {
-				return "", "", fmt.Errorf("detected different scales for BW data")
-			}
-			if rBWUnit != "" && rBWUnit != scaledRecvRankBWUnit {
-				return "", "", fmt.Errorf("detected different scales for BW data")
-			}
-			if sBWUnit == "" {
-				sBWUnit = scaledSendRankBWUnit
-			}
-			if rBWUnit == "" {
-				rBWUnit = scaledRecvRankBWUnit
-			}
-
-			_, values = getMax(maxValue, values, rank, sendScaledHeatMap, recvScaledHeatMap, execScaledTimeMap, lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
-			_, err = fd.WriteString(fmt.Sprintf("%d %d %d %f %f %f %f\n", rank, sendScaledHeatMap[rank], recvScaledHeatMap[rank], execScaledTimeMap[rank], lateArrivalScaledTimeMap[rank], scaledSendRankBW[rank], scaledRecvRankBW[rank]))
-			if err != nil {
-				return "", "", err
-			}
-		}
-		emptyLines += len(ranks)
+		data.emptyLines += data.numRanks
 	}
 
-	emptyLines = 0
+	data.emptyLines = 0
 	idx := 0
 	for _, hostname := range hosts {
-		hostRankFile := filepath.Join(outputDir, "ranks_map_"+hostname+".txt")
-
-		fd2, err := os.OpenFile(hostRankFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		idx, err = data.generateHostCallData(hostname, idx)
 		if err != nil {
 			return "", "", err
 		}
-		defer fd2.Close()
-		for i := 0; i < emptyLines; i++ {
-			_, err := fd2.WriteString("0\n")
-			if err != nil {
-				return "", "", err
-			}
-			idx++
-		}
-		for i := 0; i < len(hostMap[hostname]); i++ {
-			_, err := fd2.WriteString(fmt.Sprintf("%d\n", maxValue))
-			if err != nil {
-				return "", "", err
-			}
-			idx++
-		}
-		for i := idx; i < numRanks; i++ {
-			_, err := fd2.WriteString("0\n")
-			if err != nil {
-				return "", "", err
-			}
-			idx++
-		}
-		emptyLines += len(hostMap[hostname])
+		data.emptyLines += len(hostMap[hostname])
 	}
 
 	var a []int
-	for key := range values {
+	for key := range data.values {
 		a = append(a, key)
 	}
 	sort.Ints(a)
 
-	pngFile, gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, numRanks, maxValue, a, hosts, sendHeatMapUnit, recvHeatMapUnit, execTimeMapUnit, lateArrivalTimeMapUnit, sBWUnit, rBWUnit)
+	pngFile, gnuplotScript, err := generateCallPlotScript(outputDir, leadRank, callID, data.numRanks, data.maxValue, a, hosts, data.sendHeatMapUnit, data.recvHeatMapUnit, data.execTimeMapUnit, data.lateArrivalTimeMapUnit, data.sBWUnit, data.rBWUnit)
 	if err != nil {
 		return "", "", fmt.Errorf("plot.generateCallPlotScript() failed: %s", err)
 	}

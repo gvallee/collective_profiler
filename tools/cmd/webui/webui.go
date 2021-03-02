@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -53,6 +54,8 @@ const (
 	sizeThreshold = 200
 	binThresholds = "200,1024,2048,4096"
 )
+
+var l net.Listener
 
 // The webUI is designed at the moment to support only alltoallv over a single communicator
 // so we hardcode corresponding data
@@ -395,13 +398,16 @@ func PatternsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-
 	indexTemplate, err := template.New("index.html").ParseFiles(filepath.Join(codeBaseDir, "tools", "cmd", "webui", "templates", "index.html"))
 	err = indexTemplate.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
+}
+
+func stopHandler(w http.ResponseWriter, r *http.Request) {
+	l.Close()
 }
 
 func displayUI(codeBaseDir string, basedir string, name string) error {
@@ -413,7 +419,18 @@ func displayUI(codeBaseDir string, basedir string, name string) error {
 	http.HandleFunc("/calls", CallsLayoutHandler)
 	http.HandleFunc("/patterns", PatternsHandler)
 	http.HandleFunc("/call", CallHandler)
-	http.ListenAndServe(":8080", nil)
+	http.HandleFunc("/stop", stopHandler)
+	//http.ListenAndServe(":8080", nil)
+	var err error
+	l, err = net.Listen("tcp", ":8080")
+	if err != nil {
+		return err
+	}
+
+	err = http.Serve(l, nil)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
