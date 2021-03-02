@@ -58,7 +58,8 @@ clean:
 	cd tests && make clean
 	cd doc && make clean
 
-validate: clean check_gnuplot all
+validate: clean check_gnuplot all check
+	# webui validates the profiler's capabilities, postmortem analysis as well as the webui
 	# postmortem validates both the profiler's capabilities and postmortem analysis
 	cd tools/cmd/validate; ./validate -postmortem
 

@@ -1,5 +1,7 @@
 github.com/gomarkdown/markdown v0.0.0-20200609195525-3f9352745725 h1:X6sZdr+t2E2jwajTy/FfXbmAKPFTYxEq9hiFgzMiuPQ=
 github.com/gomarkdown/markdown v0.0.0-20200609195525-3f9352745725/go.mod h1:aii0r/K0ZnHv7G0KF7xy1v0A7s2Ljrb5byB7MO5p6TU=
+github.com/gvallee/go_exec v0.0.4 h1:6xJ9iMMGP7gWFLWET6XpIdzov/9SqpZ9zpjHczSH24Q=
+github.com/gvallee/go_exec v0.0.4/go.mod h1:4AwegK9oPhkgwkd0rjlTwxRw//8cW4pPcCSFLZ6+LZg=
 github.com/gvallee/go_util v1.0.1 h1:Ch/PpAlHrHNmL2Upaxif/Nt4CqtaazDyTXh5fIhutJo=
 github.com/gvallee/go_util v1.0.1/go.mod h1:fTexpwdH/n05Ziu0TXJIQsr7E+46QpBxNdeOOsyC0/s=
 golang.org/dl v0.0.0-20190829154251-82a15e2f2ead/go.mod h1:IUMfjQLJQd4UTqG1Z90tenwKoCX93Gn3MAQJMOSBsDQ=

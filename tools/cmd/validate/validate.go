@@ -25,6 +25,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/go_exec/pkg/advexec"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -64,6 +65,7 @@ type Test struct {
 	expectedLateArrivalFiles       []string
 	expectedBacktraceFiles         []string
 	profilerStepsToExecute         string
+	listGraphsToGenerate           []string
 
 	// Expected output from the postmortem analysis
 	checkContentHeatMap      bool
@@ -240,18 +242,20 @@ func validateTestSRCountsAnalyzer(testName string, dir string) error {
 }
 
 func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
-	postmortemCfg := profiler.PostmortemConfig{
-		CodeBaseDir:    codeBaseDir,
-		CollectiveName: collectiveName,
-		Steps:          testCfg.cfg.profilerStepsToExecute,
-		DatasetDir:     testCfg.tempDir,
-		BinThresholds:  profiler.DefaultBinThreshold,
-		SizeThreshold:  profiler.DefaultMsgSizeThreshold,
-		CallsToPlot:    fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs),
-	}
-	err := postmortemCfg.Analyze()
-	if err != nil {
-		return err
+	for _, listGraphs := range testCfg.cfg.listGraphsToGenerate {
+		postmortemCfg := profiler.PostmortemConfig{
+			CodeBaseDir:    codeBaseDir,
+			CollectiveName: collectiveName,
+			Steps:          testCfg.cfg.profilerStepsToExecute,
+			DatasetDir:     testCfg.tempDir,
+			BinThresholds:  profiler.DefaultBinThreshold,
+			SizeThreshold:  profiler.DefaultMsgSizeThreshold,
+			CallsToPlot:    listGraphs,
+		}
+		err := postmortemCfg.Analyze()
+		if err != nil {
+			return err
+		}
 	}
 
 	expectedOutputDir := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput")
@@ -259,7 +263,7 @@ func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg 
 	if testCfg.cfg.checkContentHeatMap {
 		// Check whether the heap map files have been successfully created
 		fmt.Printf("Checking if %s exist(s)...\n", testCfg.cfg.expectedSendHeatMapFiles)
-		err = checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedSendHeatMapFiles)
+		err := checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedSendHeatMapFiles)
 		if err != nil {
 			return err
 		}
@@ -321,20 +325,26 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 		}
 	}
 
-	fmt.Println("All done")
-
-	// If successful, we can then delete all the directory that were created
-	for _, cfg := range profilerResults {
-		os.RemoveAll(cfg.tempDir)
-	}
-
 	return nil
+}
+
+func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+	webUIBin := filepath.Join(codeBaseDir, "tools", "src", "webui", "webui")
+	var cmd advexec.Advcmd
+	cmd.BinPath = webUIBin
+	res := cmd.Run()
+	if res.Err != nil {
+		return fmt.Errorf("unable to correctly start the webui: %s (stdout: %s, stderr: %s)", res.Err, res.Stdout, res.Stderr)
+	}
+	return fmt.Errorf("not implemented")
 }
 
 // validateProfiler runs the profiler against examples and compare the resuls to the results output.
 // If keepResults is set to true, the results are *not* removed after execution. They can then be used
 // later on to validate postmortem analysis.
 func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
+	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
+	bigListGraphs := "0-999"
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
 		{
@@ -356,6 +366,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
 			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             3,
@@ -376,6 +387,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
 			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             4,
@@ -396,6 +408,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md", "alltoallv_heat-map.rank2-send.md"},
 			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md", "alltoallv_heat-map.rank2-recv.md"},
 			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md", "alltoallv_hosts-heat-map.rank2-recv.md", "alltoallv_hosts-heat-map.rank2-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             4,
@@ -416,6 +429,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
 			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 	}
 
@@ -440,6 +454,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 				expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
 				expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
 				expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+				listGraphsToGenerate:     []string{defaultListGraphs, bigListGraphs},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
@@ -549,6 +564,7 @@ func main() {
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	help := flag.Bool("h", false, "Help message")
+	webui := flag.Bool("webui", false, "Validate the WebUI")
 
 	flag.Parse()
 
@@ -569,8 +585,8 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	if !*counts && !*profiler && !*postmortem {
-		fmt.Println("No validate option select, run '-h' for more details")
+	if !*counts && !*profiler && !*postmortem && !*webui {
+		fmt.Println("No valid option selected, run '-h' for more details")
 		os.Exit(1)
 	}
 
@@ -578,6 +594,10 @@ func main() {
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
 	collectiveName := "alltoallv" // hardcoded for now, detection coming soon
+
+	if *webui {
+		*postmortem = true
+	}
 
 	if *profiler && !*postmortem {
 		_, err := validateProfiler(false, *full)
@@ -599,6 +619,20 @@ func main() {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
 			os.Exit(1)
 		}
+
+		if *webui {
+			err := validateWebUI(codeBaseDir, collectiveName, profilerValidationResults)
+			if err != nil {
+				fmt.Printf("Validation of the WebUI failed: %s", err)
+				os.Exit(1)
+			}
+		}
+
+		// If successful, we can then delete all the directory that were created
+		for _, cfg := range profilerValidationResults {
+			os.RemoveAll(cfg.tempDir)
+		}
+
 	}
 
 	if *counts {
