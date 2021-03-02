@@ -13,11 +13,13 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
@@ -25,7 +27,6 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
-	"github.com/gvallee/go_exec/pkg/advexec"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -328,15 +329,43 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 	return nil
 }
 
-func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
-	webUIBin := filepath.Join(codeBaseDir, "tools", "src", "webui", "webui")
-	var cmd advexec.Advcmd
-	cmd.BinPath = webUIBin
-	res := cmd.Run()
-	if res.Err != nil {
-		return fmt.Errorf("unable to correctly start the webui: %s (stdout: %s, stderr: %s)", res.Err, res.Stdout, res.Stderr)
+func shutdownWebui() error {
+	// At the moment, the stop target does not return anything back
+	// so there is no point in testing the return code: the http server
+	// just silently disappear
+	http.Get("http://localhost:8080/stop")
+	return nil
+}
+
+func validateWebUIForTest(codeBaseDir string, testCfg *testCfg) error {
+	var stdout, stderr bytes.Buffer
+	fmt.Printf("starting webui for %s...\n", testCfg.cfg.binary)
+	webUIBin := filepath.Join(codeBaseDir, "tools", "cmd", "webui", "webui")
+	cmd := exec.Command(webUIBin, "-basedir", testCfg.tempDir)
+	cmd.Dir = testCfg.tempDir
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Start()
+	if err != nil {
+		return fmt.Errorf("webui failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
 	}
-	return fmt.Errorf("not implemented")
+
+	time.Sleep(1 * time.Second)
+	fmt.Println("shutting the webui down")
+	return shutdownWebui()
+}
+
+func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+	fmt.Println("- Validating the webUI")
+
+	for _, testCfg := range profilerResults {
+		err := validateWebUIForTest(codeBaseDir, testCfg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // validateProfiler runs the profiler against examples and compare the resuls to the results output.
