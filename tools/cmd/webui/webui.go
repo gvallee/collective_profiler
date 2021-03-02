@@ -461,6 +461,6 @@ func main() {
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	codeBaseDir = filepath.Dir(filename)
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 	displayUI(codeBaseDir, *basedir, *name)
 }
