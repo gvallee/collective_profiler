@@ -47,30 +47,29 @@ const (
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
 	// constants for alltoall tests
-	sharedLibAlltoallBacktraceEqual       = "liballtoall_backtrace.so"
-	sharedLibAlltoallCountsCompactEqual   = "liballtoall_counts_compact.so"
-	sharedLibAlltoallCountsEqual          = "liballtoall_counts.so"
-	sharedLibAlltoallExecTimingsEqual	  = "liballtoall_exec_timings.so"
-	sharedLibAlltoallLateArrivalEqual 	  = "liballtoall_late_arrival.so"
-	sharedLibAlltoallLocationEqual        = "liballtoall_location.so"
-	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts? 
+	sharedLibAlltoallBacktraceEqual     = "liballtoall_backtrace.so"
+	sharedLibAlltoallCountsCompactEqual = "liballtoall_counts_compact.so"
+	sharedLibAlltoallCountsEqual        = "liballtoall_counts.so"
+	sharedLibAlltoallExecTimingsEqual   = "liballtoall_exec_timings.so"
+	sharedLibAlltoallLateArrivalEqual   = "liballtoall_late_arrival.so"
+	sharedLibAlltoallLocationEqual      = "liballtoall_location.so"
+	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts?
 	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so"
 	sharedLibAlltoallCountsCompactUnequal = "liballtoall_counts_unequal_compact.so"
-	sharedLibAlltoallCountsUnequal	      = "liballtoall_counts_unequal.so"
-	sharedLibAlltoallExecTimingsUnequal	  = "liballtoall_exec_timings_counts_unequal.so"
-	sharedLibAlltoallLateArrivalUnequal	  = "liballtoall_late_arrival_counts_unequal.so"
-	sharedLibAlltoallLocationUnequal	  = "liballtoall_location_counts_unequal.so"
+	sharedLibAlltoallCountsUnequal        = "liballtoall_counts_unequal.so"
+	sharedLibAlltoallExecTimingsUnequal   = "liballtoall_exec_timings_counts_unequal.so"
+	sharedLibAlltoallLateArrivalUnequal   = "liballtoall_late_arrival_counts_unequal.so"
+	sharedLibAlltoallLocationUnequal      = "liballtoall_location_counts_unequal.so"
 
-	exampleFileAlltoallSimpleC        = "alltoall_simple_c.c"
-	exampleFileAlltoallBigCountsC     = "alltoall_bigcounts_c.c"
-	exampleFileAlltoallDtC            = "alltoall_dt_c.c"
-	exampleFileAlltoallMulticommsC    = "alltoall_multicomms_c.c" 
+	exampleFileAlltoallSimpleC     = "alltoall_simple_c.c"
+	exampleFileAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
+	exampleFileAlltoallDtC         = "alltoall_dt_c.c"
+	exampleFileAlltoallMulticommsC = "alltoall_multicomms_c.c"
 
-	exampleBinaryAlltoallSimpleC      = "alltoall_simple_c"
-	exampleBinaryAlltoallBigCountsC   = "alltoall_bigcounts_c.c"
-	exampleBinaryAlltoallDtC          = "alltoall_dt_c.c"
-	exampleBinaryAlltoallMulticommsC  = "alltoall_multicomms_c.c"
-
+	exampleBinaryAlltoallSimpleC     = "alltoall_simple_c"
+	exampleBinaryAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
+	exampleBinaryAlltoallDtC         = "alltoall_dt_c.c"
+	exampleBinaryAlltoallMulticommsC = "alltoall_multicomms_c.c"
 )
 
 // Test gathers all the information required to run a specific test
@@ -141,8 +140,8 @@ func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls
 	return nil
 }
 
-func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
-	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, "expectedOutput")
+func checkOutput(codeBaseDir string, tempDir string, tt Test, subDir string) error {
+	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, subDir, "expectedOutput")
 
 	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedSendCompactCountsFiles)
 	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
@@ -359,10 +358,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	}
 
 	// Tests for alltoall
-	sharedLibrariesAlltoallEequal := []string{sharedLibAlltoallBacktraceEqual, sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual,	sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}
-	sharedLibrariesAlltoallUnEqual := []string{sharedLibAlltoallBacktraceUnequal, sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal}
-	sharedLibrariesAlltoall := append(sharedLibrariesAlltoallUnEqual, sharedLibrariesAlltoallEequal...)
-	validationTestsAlltoAll := []Test{
+	sharedLibrariesAlltoallEqual := []string{sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual, sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}             // sharedLibAlltoallBacktraceEqual, <- not working yet
+	sharedLibrariesAlltoallUnEqual := []string{sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal} //sharedLibAlltoallBacktraceUnequal, <- not working yet
+	// sharedLibrariesAlltoall := append(sharedLibrariesAlltoallUnEqual, sharedLibrariesAlltoallEequal...)
+	validationTestsAlltoall := []Test{
 		{
 			np:                             4,
 			totalNumCalls:                  1,
@@ -376,8 +375,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
 			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
-			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
-		}
+			// TODO expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
+		},
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
@@ -396,7 +395,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	}
 
 	// Compile both the profiler libraries and the example
-	log.Println("Building libraries and tests...")
+	log.Println("Building libraries and tests for alltoallv ...")
 	cmd := exec.Command(makeBin, "clean", "all")
 	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoallv")
 	err = cmd.Run()
@@ -404,6 +403,16 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		return nil, err
 	}
 
+	// Repeat for alltoall
+	log.Println("Building libraries and tests for alltoall...")
+	cmd = exec.Command(makeBin, "clean", "all")
+	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoall")
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	// Now the examples: those for alltoallv and alltoall are in the same directory
 	cmd = exec.Command(makeBin, "clean", "all")
 	cmd.Dir = filepath.Join(codeBaseDir, "examples")
 	err = cmd.Run()
@@ -417,10 +426,9 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	if keepResults {
 		results = make(map[string]string)
 	}
-	// TO DO repeat this compile for alltoall
 
 	// Run alltoallv tests
-	for _, tt := range validationTestsAlltoall {
+	for _, tt := range validationTests {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
 		if err != nil {
@@ -451,7 +459,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, tt)
+		err = checkOutput(codeBaseDir, tempDir, tt, "")
 		if err != nil {
 			return nil, err
 		}
@@ -464,7 +472,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 	}
 
 	// Run alltoall tests
-	for _, tt ttAlltoall := range validationTestsAlltoall {
+	for _, ttAlltoall := range validationTestsAlltoall {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
 		if err != nil {
@@ -472,14 +480,14 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		if keepResults {
-			results[tt.binary] = tempDir
+			results[ttAlltoall.binary] = tempDir
 		}
 
-		// Run the profiler
+		// Run the profiler - for libraries using the (correct) assumpution that alltoall transmisison counts may differ by node in one alltoall call
 		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
 		var stdout, stderr bytes.Buffer
-		for _, lib := range sharedLibrariesAlltoAll {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
+		for _, lib := range sharedLibrariesAlltoallUnEqual {
+			pathToLib := filepath.Join(codeBaseDir, "src", "alltoall", lib)
 			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", ttAlltoall.binary, pathToLib)
 			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(ttAlltoall.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", ttAlltoall.binary))
 			cmd.Env = append(os.Environ(),
@@ -495,7 +503,31 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, ttAlltoall)
+		err = checkOutput(codeBaseDir, tempDir, ttAlltoall, "unequalcounts")
+		if err != nil {
+			return nil, err
+		}
+
+		// Run the profiler - for libraries using the assumpution that alltoall transmisison counts may do not differ by node (but which may well often be the case)
+		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
+		for _, lib := range sharedLibrariesAlltoallEqual {
+			pathToLib := filepath.Join(codeBaseDir, "src", "alltoall", lib)
+			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", ttAlltoall.binary, pathToLib)
+			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(ttAlltoall.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", ttAlltoall.binary))
+			cmd.Env = append(os.Environ(),
+				"LD_PRELOAD="+pathToLib,
+				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+			cmd.Dir = tempDir
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			err = cmd.Run()
+			if err != nil {
+				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+			}
+		}
+
+		// Check the results
+		err = checkOutput(codeBaseDir, tempDir, ttAlltoall, "equalcounts")
 		if err != nil {
 			return nil, err
 		}
@@ -506,7 +538,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			os.RemoveAll(tempDir)
 		}
 	}
-
 
 	// Return the map describing the data resulting from the tests only
 	// when the results need to be kept to later on validate postmortem
