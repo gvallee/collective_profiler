@@ -16,12 +16,12 @@
 comm_timing_logger_t *timing_loggers_head = NULL;
 comm_timing_logger_t *timing_loggers_tail = NULL;
 
-int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int jobid, comm_timing_logger_t **logger)
+int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int comm_rank, int jobid, comm_timing_logger_t **logger)
 {
     int rc;
 
     uint32_t comm_id;
-    GET_COMM_LOGGER(comm_id);
+    GET_COMM_LOGGER(comm, world_rank, comm_rank, comm_id);
 
     comm_timing_logger_t *new_logger = malloc(sizeof(comm_timing_logger_t));
     assert(new_logger);
@@ -70,6 +70,9 @@ int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int
     assert(new_logger->fd);
     // Write the format version at the begining of the file
     FORMAT_VERSION_WRITE(new_logger->fd);
+    fclose(new_logger->fd);
+    new_logger->fd = NULL;
+
     *logger = new_logger;
 
     return 0;
@@ -95,6 +98,7 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
             *logger = ptr;
             return 0;
         }
+        ptr = ptr->next;
     }
 
     // We could find data about the communicator but no associated logger
@@ -104,18 +108,11 @@ int lookup_timing_logger(MPI_Comm comm, comm_timing_logger_t **logger)
 
 int fini_time_tracking(comm_timing_logger_t **logger)
 {
-    if (timing_loggers_head == *logger)
-        timing_loggers_head = (*logger)->next;
-
-    if (timing_loggers_tail == *logger)
-        timing_loggers_tail = (*logger)->prev;
-
-    if ((*logger)->prev != NULL)
+    if ((*logger)->fd)
     {
-        (*logger)->prev->next = (*logger)->next;
+        fclose((*logger)->fd);
+        (*logger)->fd = NULL;
     }
-
-    fclose((*logger)->fd);
     free((*logger)->filename);
     free((*logger));
     *logger = NULL;
@@ -128,13 +125,15 @@ int release_time_loggers()
     while (timing_loggers_head)
     {
         comm_timing_logger_t *ptr = timing_loggers_head->next;
-        free(timing_loggers_head);
+        fini_time_tracking(&timing_loggers_head);
         timing_loggers_head = ptr;
+        if (ptr != NULL)
+            ptr->prev = NULL;
     }
     return 0;
 }
 
-int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, double *times, int comm_size, uint64_t n_call)
+int commit_timings(MPI_Comm comm, char *collective_name, int world_rank, int comm_rank, int jobid, double *times, int comm_size, uint64_t n_call)
 {
     assert(times);
     comm_timing_logger_t *logger;
@@ -146,16 +145,16 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         rc = lookup_comm(comm, &comm_id);
         if (rc)
         {
-            rc = add_comm(comm, &comm_id);
+            rc = add_comm(comm, world_rank, comm_rank, &comm_id);
             if (rc)
             {
-                fprintf(stderr, "unabel to add communicator\n");
+                fprintf(stderr, "unable to add communicator\n");
                 return rc;
             }
         }
 
         // Now we know the communicator, create a logger for it
-        rc = init_time_tracking(comm, collective_name, rank, jobid, &logger);
+        rc = init_time_tracking(comm, collective_name, world_rank, comm_rank, jobid, &logger);
         if (rc || logger == NULL)
         {
             fprintf(stderr, "unable to initialize time tracking (rc: %d)\n", rc);
@@ -163,6 +162,12 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         }
     }
     assert(logger);
+
+    if (logger->fd == NULL)
+    {
+        assert(logger->filename);
+        logger->fd = fopen(logger->filename, "a");
+    }
     assert(logger->fd);
 
     // We know from here we have a correct logger
@@ -173,6 +178,9 @@ int commit_timings(MPI_Comm comm, char *collective_name, int rank, int jobid, do
         fprintf(logger->fd, "%f\n", times[i]);
     }
     fprintf(logger->fd, "\n");
-    fflush(logger->fd);
+    // We experienced some unexpected IO problems when we do not close the file
+    // after the each alltoallv operation.
+    fclose(logger->fd);
+    logger->fd = NULL;
     return 0;
 }

@@ -32,7 +32,7 @@ typedef struct location_logger
     struct location_logger *prev;
 } location_logger_t;
 
-int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, int world_rank, int *pids, int *world_comm_ranks, char *hostnames, uint64_t n_call);
+int commit_rank_locations(char *collective_name, MPI_Comm comm, int comm_size, int world_rank, int comm_rank, int *pids, int *world_comm_ranks, char *hostnames, uint64_t n_call);
 int release_location_loggers();
 
 

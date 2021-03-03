@@ -462,6 +462,10 @@ void logger_fini(logger_t **l)
 {
     int rc;
 
+    // Calling the function multiple times is allowed
+    if (l == NULL || *l == NULL)
+        return;
+
     rc = release_time_loggers();
     if (rc)
     {
@@ -480,7 +484,7 @@ void logger_fini(logger_t **l)
         fprintf(stderr, "release_location_loggers() failed: %d\n", rc);
     }
 
-    rc = release_comm_data();
+    rc = release_comm_data((*l)->collective_name, (*l)->rank);
     if (rc)
     {
         fprintf(stderr, "release_comm_data() failed: %d\n", rc);
