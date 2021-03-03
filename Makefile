@@ -60,7 +60,7 @@ clean:
 
 validate: clean check_gnuplot all check
 	# webui validates the profiler's capabilities, postmortem analysis as well as the webui
-	cd tools/cmd/validate; ./validate -webui
+	cd tools/cmd/validate; ./validate -webui; ./validate -webui -alltoalltest
 
 install-go:
 ifndef GOCMD

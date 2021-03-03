@@ -76,6 +76,9 @@ const (
 	exampleBinaryAlltoallMulticommsC = "alltoall_multicomms_c.c"
 )
 
+// for suppressing tests other than for alltoall
+var global_alltoalltest bool
+
 // Test gathers all the information required to run a specific test
 type Test struct {
 	np                             int
@@ -607,6 +610,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	}
 
 	// Run alltoallv tests
+	if global_alltoalltest == false {
 	for _, tt := range validationTests {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
@@ -652,8 +656,13 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			os.RemoveAll(tempDir)
 		}
 	}
+	}  // section omitted by global_alltoalltest	
+
 
 	// Run alltoall tests
+	if global_alltoalltest == true {
+	fmt.Println("Running the ALLTOALL validation tests")
+		
 	for _, ttAlltoall := range validationTestsAlltoall {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
@@ -662,7 +671,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		}
 
 		if keepResults {
-			results[ttAlltoall.binary] = tempDir
+			cfg := new(testCfg)
+			cfg.tempDir = tempDir
+			cfg.cfg = ttAlltoall
+			results[ttAlltoall.binary] = cfg
 		}
 
 		// Run the profiler - for libraries using the (correct) assumpution that alltoall transmisison counts may differ by node in one alltoall call
@@ -719,7 +731,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		if !keepResults {
 			os.RemoveAll(tempDir)
 		}
-	}
+	} 
+	} // end of section allowed to run by global_alltoalltest
 
 	// Return the map describing the data resulting from the tests only
 	// when the results need to be kept to later on validate postmortem
@@ -742,8 +755,12 @@ func main() {
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	help := flag.Bool("h", false, "Help message")
 	webui := flag.Bool("webui", false, "Validate the WebUI")
+	// useful while testing alltoall parts of this code
+	alltoalltest := flag.Bool("alltoalltest", false, "Validate only the alltoall collective")
 
 	flag.Parse()
+
+	if *alltoalltest { global_alltoalltest = true} else { global_alltoalltest = false }
 
 	cmdName := filepath.Base(os.Args[0])
 	if *help {
@@ -790,7 +807,7 @@ func main() {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
 		}
-
+		if global_alltoalltest == false {
 		err = validatePostmortemAnalysisTools(codeBaseDir, collectiveName, profilerValidationResults)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
@@ -804,6 +821,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
+		} // end of section suppressed by global_alltoalltest - remove when this section works
 
 		// If successful, we can then delete all the directory that were created
 		for _, cfg := range profilerValidationResults {
