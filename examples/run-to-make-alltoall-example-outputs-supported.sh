@@ -30,7 +30,7 @@ declare -a SAMPLING_LIBS
 SAMPLING_LIBS=( "${EQUAL_SAMPLING_LIBS[@]}" "${UNEQUAL_SAMPLING_LIBS[@]}" )
 # the test programs and sample libraryies 
 #SAMPLING_LIBS=(liballtoall_counts_compact.so)
-EXAMPLE_PROGS=(alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c)
+EXAMPLE_PROGS=(alltoall_simple_c) # alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c
 
 
 # mpi stuff
@@ -48,6 +48,7 @@ AN_MPI_ERROR=no_error
 # loop round the programs and libs
 for EXAMPLE_PROG in ${EXAMPLE_PROGS[@]}
 do
+    # run the test program against the samplers
     for SAMPLING_LIB in ${SAMPLING_LIBS[@]}
     do
         # export JOB_NOW=$( date +%Y%m%d-%H%M%S )
@@ -70,7 +71,6 @@ do
     done
 done 
 
-# TODO reinstate commented if below when code fixed so that all mpirun above run without error
 if [[ "$AN_MPI_ERROR" == "no_error" ]]; then
     echo "Copying results to unchecked directories at tests/alltoall*"
     for EXAMPLE_PROG in ${EXAMPLE_PROGS[@]}
@@ -113,6 +113,13 @@ if [[ "$AN_MPI_ERROR" == "no_error" ]]; then
                 fi        
             fi
         done
+        # run srcountsanalyzer on the results 
+        $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/ \
+                                                       -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/ \
+                                                       -jobid 0 -rank 0
+        $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
+                                                       -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
+                                                       -jobid 0 -rank 0
     done
 else
     echo "NOT Copying results to unchecked directories at tests/alltoall* - because there was an error in the mpiruns"
