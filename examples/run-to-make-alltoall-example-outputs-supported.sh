@@ -17,6 +17,7 @@ EQUAL_SAMPLING_LIBS=(   liballtoall_counts_compact.so \
                         liballtoall_counts.so \
                         liballtoall_exec_timings.so \
                         liballtoall_late_arrival.so \
+                        liballtoall_backtrace.so \
                         liballtoall_location.so) 
                         # liballtoall.so )  # TO DO - what is this library for - is it equal or unequal counts? 
                         # liballtoall_backtrace.so \ failing at the moment with multicomms
@@ -24,6 +25,7 @@ UNEQUAL_SAMPLING_LIBS=( liballtoall_counts_unequal_compact.so \
                         liballtoall_counts_unequal.so \
                         liballtoall_exec_timings_counts_unequal.so \
                         liballtoall_late_arrival_counts_unequal.so \
+                        liballtoall_backtrace_counts_unequal.so
                         liballtoall_location_counts_unequal.so )
                         # liballtoall_backtrace_counts_unequal.so \ failing at the moment with multicomms
 declare -a SAMPLING_LIBS
