@@ -7,6 +7,7 @@
 package scale
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
@@ -61,8 +62,13 @@ func intsCompute(op int, values []int) []int {
 	return newValues
 }
 
-func Ints(unitID string, values []int) (string, []int) {
+// Ints scales an array of Int
+func Ints(unitID string, values []int) (string, []int, error) {
 	var sortedValues []int
+
+	if len(values) == 0 {
+		return "", nil, fmt.Errorf("map is empty")
+	}
 
 	// Copy and sort the values to figure out what can be done
 	for _, v := range values {
@@ -72,7 +78,7 @@ func Ints(unitID string, values []int) (string, []int) {
 
 	// If all values are 0 nothing can be done
 	if allZerosInts(sortedValues) {
-		return unitID, values
+		return unitID, values, nil
 	}
 
 	/* We deal with integers so this does not make much sense i think
@@ -96,9 +102,13 @@ func Ints(unitID string, values []int) (string, []int) {
 
 		unitType, unitScale, newValues := intsScaleUp(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)
+		if unit.IsMax(unitType, unitScale) {
+			return newUnitID, newValues, nil
+		}
+
 		return Ints(newUnitID, newValues)
 	}
 
 	// Nothing to do, just return the same
-	return unitID, values
+	return unitID, values, nil
 }

@@ -58,9 +58,9 @@ clean:
 	cd tests && make clean
 	cd doc && make clean
 
-validate: clean check_gnuplot all
-	# postmortem validates both the profiler's capabilities and postmortem analysis
-	cd tools/cmd/validate; ./validate -postmortem
+validate: clean check_gnuplot all check
+	# webui validates the profiler's capabilities, postmortem analysis as well as the webui
+	cd tools/cmd/validate; ./validate -webui
 
 install-go:
 ifndef GOCMD

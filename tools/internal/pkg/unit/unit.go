@@ -107,3 +107,43 @@ func IsValidScale(unitType int, newUnitScale int) bool {
 
 	return false
 }
+
+// IsMax checks if a unit can be scaled up further
+func IsMax(unitType int, unitScale int) bool {
+	switch unitType {
+	case DATA:
+		internalUnitData := getDataUnits()
+		_, ok := internalUnitData[unitScale+1]
+		return ok
+	case TIME:
+		internalUnitData := getTimeUnits()
+		_, ok := internalUnitData[unitScale+1]
+		return ok
+	case BW:
+		internalUnitData := getBWUnits()
+		_, ok := internalUnitData[unitScale+1]
+		return ok
+	}
+
+	return false
+}
+
+// IsMin checks if a unit can be scaled down further
+func IsMin(unitType int, unitScale int) bool {
+	switch unitType {
+	case DATA:
+		internalUnitData := getDataUnits()
+		_, ok := internalUnitData[unitScale-1]
+		return ok
+	case TIME:
+		internalUnitData := getTimeUnits()
+		_, ok := internalUnitData[unitScale-1]
+		return ok
+	case BW:
+		internalUnitData := getBWUnits()
+		_, ok := internalUnitData[unitScale-1]
+		return ok
+	}
+
+	return false
+}

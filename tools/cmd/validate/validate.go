@@ -13,17 +13,21 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/webui"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -87,6 +91,19 @@ type Test struct {
 	expectedExecTimeFiles          []string
 	expectedLateArrivalFiles       []string
 	expectedBacktraceFiles         []string
+	profilerStepsToExecute         string
+	listGraphsToGenerate           []string
+
+	// Expected output from the postmortem analysis
+	checkContentHeatMap      bool
+	expectedSendHeatMapFiles []string
+	expectedRecvHeatMapFiles []string
+	expectedHostHeatMapFiles []string
+}
+
+type testCfg struct {
+	tempDir string
+	cfg     Test
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -219,7 +236,7 @@ func checkOutput(codeBaseDir string, tempDir string, tt Test, subDir string) err
 	return nil
 }
 
-func validateTestPostmortemResults(testName string, dir string) error {
+func validateTestSRCountsAnalyzer(testName string, dir string) error {
 	toolName := "srcountsanalyzer"
 	_, filename, _, _ := runtime.Caller(0)
 	basedir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
@@ -251,18 +268,148 @@ func validateTestPostmortemResults(testName string, dir string) error {
 	return nil
 }
 
-func validatePostmortemAnalysisTools(profilerResults map[string]string) error {
-	for source, dir := range profilerResults {
-		err := validateTestPostmortemResults(source, dir)
+func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
+	for _, listGraphs := range testCfg.cfg.listGraphsToGenerate {
+		postmortemCfg := profiler.PostmortemConfig{
+			CodeBaseDir:    codeBaseDir,
+			CollectiveName: collectiveName,
+			Steps:          testCfg.cfg.profilerStepsToExecute,
+			DatasetDir:     testCfg.tempDir,
+			BinThresholds:  profiler.DefaultBinThreshold,
+			SizeThreshold:  profiler.DefaultMsgSizeThreshold,
+			CallsToPlot:    listGraphs,
+		}
+		err := postmortemCfg.Analyze()
 		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed\n", source, dir)
 			return err
 		}
 	}
 
-	// If successful, we can then delete all the directory that were created
-	for _, dir := range profilerResults {
-		os.RemoveAll(dir)
+	expectedOutputDir := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput")
+
+	if testCfg.cfg.checkContentHeatMap {
+		// Check whether the heap map files have been successfully created
+		fmt.Printf("Checking if %s exist(s)...\n", testCfg.cfg.expectedSendHeatMapFiles)
+		err := checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedSendHeatMapFiles)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Checking if %s exist(s)...\n", testCfg.cfg.expectedRecvHeatMapFiles)
+		err = checkOutputFiles(expectedOutputDir, testCfg.tempDir, testCfg.cfg.expectedRecvHeatMapFiles)
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, heatMapFile := range testCfg.cfg.expectedSendHeatMapFiles {
+			expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+			if !util.FileExists(expectedFile) {
+				return fmt.Errorf("expected file %s is missing", expectedFile)
+			}
+		}
+
+		for _, heatMapFile := range testCfg.cfg.expectedRecvHeatMapFiles {
+			expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+			if !util.FileExists(expectedFile) {
+				return fmt.Errorf("expected file %s is missing", expectedFile)
+			}
+		}
+
+	}
+
+	// For the files for which the content cannot be predicted, we checks if the file exists
+	// and we try to parse the file
+	for _, heatMapFile := range testCfg.cfg.expectedHostHeatMapFiles {
+		expectedFile := filepath.Join(testCfg.tempDir, heatMapFile)
+		if !util.FileExists(expectedFile) {
+			return fmt.Errorf("expected file %s is missing", expectedFile)
+		}
+	}
+
+	return nil
+}
+
+func validateTestPostmortemResults(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
+	err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
+	if err != nil {
+		return err
+	}
+
+	err = validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+	for source, testCfg := range profilerResults {
+		err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
+		if err != nil {
+			fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func webUIQueryCallData() error {
+	resp, err := http.Get("http://localhost:8080") // ?jobid=0&callID=0&leadRank=0
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+	fmt.Printf("checkme: %s\n", bs)
+	return fmt.Errorf("not implemented")
+}
+
+func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error {
+	//var stdout, stderr bytes.Buffer
+	fmt.Printf("starting webui for %s on port %d...\n", testCfg.cfg.binary, port)
+
+	cfg := webui.Init()
+	cfg.Name = testCfg.cfg.binary
+	cfg.DatasetDir = testCfg.tempDir
+	cfg.Port = port
+	err := cfg.Start()
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+
+	/*
+		err = webUIQueryCallData()
+		if err != nil {
+			shutdownWebui()
+			return err
+		}
+	*/
+
+	fmt.Println("shutting the webui down")
+	err = cfg.Stop()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+	fmt.Println("- Validating the webUI")
+	port := webui.DefaultPort
+
+	for _, testCfg := range profilerResults {
+		err := validateWebUIForTest(codeBaseDir, testCfg, port)
+		if err != nil {
+			return err
+		}
+		port++
 	}
 
 	return nil
@@ -271,7 +418,9 @@ func validatePostmortemAnalysisTools(profilerResults map[string]string) error {
 // validateProfiler runs the profiler against examples and compare the resuls to the results output.
 // If keepResults is set to true, the results are *not* removed after execution. They can then be used
 // later on to validate postmortem analysis.
-func validateProfiler(keepResults bool, fullValidation bool) (map[string]string, error) {
+func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
+	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
+	bigListGraphs := "0-999"
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
 		{
@@ -288,6 +437,12 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             3,
@@ -303,6 +458,12 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             4,
@@ -311,13 +472,19 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			numRanksPerComm:                []int{2, 4},
 			source:                         exampleFileMulticommC,
 			binary:                         exampleBinaryMulticommC,
-			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
-			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt", "send-counters.job0.rank2.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt", "recv-counters.job0.rank2.txt"},
 			// todo: expectedCountsFiles
 			expectedLocationFiles:    []string{"alltoallv_locations_comm0_rank0.md", "alltoallv_locations_comm1_rank0.md", "alltoallv_locations_comm0_rank2.md"},
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md", "alltoallv_execution_times.rank0_comm1_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md", "alltoallv_late_arrival_times.rank0_comm1_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md", "alltoallv_backtrace_rank0_trace2.md", "alltoallv_backtrace_rank2_trace0.md", "alltoallv_backtrace_rank2_trace1.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md", "alltoallv_heat-map.rank2-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md", "alltoallv_heat-map.rank2-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md", "alltoallv_hosts-heat-map.rank2-recv.md", "alltoallv_hosts-heat-map.rank2-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
 			np:                             4,
@@ -333,6 +500,12 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 			expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 			expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 			expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md", "alltoallv_backtrace_rank0_trace1.md"},
+			profilerStepsToExecute:   profiler.AllSteps,
+			checkContentHeatMap:      true,
+			expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+			expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 	}
 
@@ -352,6 +525,12 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 				expectedExecTimeFiles:    []string{"alltoallv_execution_times.rank0_comm0_job0.md"},
 				expectedLateArrivalFiles: []string{"alltoallv_late_arrival_times.rank0_comm0_job0.md"},
 				expectedBacktraceFiles:   []string{"alltoallv_backtrace_rank0_trace0.md"},
+				profilerStepsToExecute:   profiler.DefaultSteps,
+				checkContentHeatMap:      false, // heat maps for that test are too big to be in the repo
+				expectedSendHeatMapFiles: []string{"alltoallv_heat-map.rank0-send.md"},
+				expectedRecvHeatMapFiles: []string{"alltoallv_heat-map.rank0-recv.md"},
+				expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
+				listGraphsToGenerate:     []string{defaultListGraphs, bigListGraphs},
 			},
 		}
 		validationTests = append(validationTests, extaTests...)
@@ -422,9 +601,9 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 
 	// Create a map to store the data about all the directories where
 	// results are created when the results need to be kept
-	var results map[string]string
+	var results map[string]*testCfg
 	if keepResults {
-		results = make(map[string]string)
+		results = make(map[string]*testCfg)
 	}
 
 	// Run alltoallv tests
@@ -436,7 +615,10 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]string,
 		}
 
 		if keepResults {
-			results[tt.binary] = tempDir
+			cfg := new(testCfg)
+			cfg.tempDir = tempDir
+			cfg.cfg = tt
+			results[tt.binary] = cfg
 		}
 
 		// Run the profiler
@@ -559,6 +741,7 @@ func main() {
 	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	help := flag.Bool("h", false, "Help message")
+	webui := flag.Bool("webui", false, "Validate the WebUI")
 
 	flag.Parse()
 
@@ -579,9 +762,18 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	if !*counts && !*profiler && !*postmortem {
-		fmt.Println("No validate option select, run '-h' for more details")
+	if !*counts && !*profiler && !*postmortem && !*webui {
+		fmt.Println("No valid option selected, run '-h' for more details")
 		os.Exit(1)
+	}
+
+	_, filename, _, _ := runtime.Caller(0)
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+
+	collectiveName := "alltoallv" // hardcoded for now, detection coming soon
+
+	if *webui {
+		*postmortem = true
 	}
 
 	if *profiler && !*postmortem {
@@ -593,20 +785,31 @@ func main() {
 	}
 
 	if *postmortem {
-		var err error
-		profilerValidationResults := make(map[string]string)
-
-		profilerValidationResults, err = validateProfiler(true, *full)
+		profilerValidationResults, err := validateProfiler(true, *full)
 		if err != nil || profilerValidationResults == nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
 		}
 
-		err = validatePostmortemAnalysisTools(profilerValidationResults)
+		err = validatePostmortemAnalysisTools(codeBaseDir, collectiveName, profilerValidationResults)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
 			os.Exit(1)
 		}
+
+		if *webui {
+			err := validateWebUI(codeBaseDir, collectiveName, profilerValidationResults)
+			if err != nil {
+				fmt.Printf("Validation of the WebUI failed: %s", err)
+				os.Exit(1)
+			}
+		}
+
+		// If successful, we can then delete all the directory that were created
+		for _, cfg := range profilerValidationResults {
+			os.RemoveAll(cfg.tempDir)
+		}
+
 	}
 
 	if *counts {

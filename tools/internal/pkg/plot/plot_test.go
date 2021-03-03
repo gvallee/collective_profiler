@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // See LICENSE.txt for license information
 //
@@ -15,8 +15,8 @@ func TestSortHostMapKeys(t *testing.T) {
 	}{
 		{
 			inputMap: map[string][]int{
-				"node1": []int{1, 3, 5, 7, 9, 11},
-				"node0": []int{0, 2, 4, 6, 8, 10},
+				"node1": {1, 3, 5, 7, 9, 11},
+				"node0": {0, 2, 4, 6, 8, 10},
 			},
 			expectedOutput: []string{"node0", "node1"},
 		},
