@@ -27,6 +27,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/webui"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
@@ -329,40 +330,61 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 	return nil
 }
 
-func shutdownWebui() error {
-	// At the moment, the stop target does not return anything back
-	// so there is no point in testing the return code: the http server
-	// just silently disappear
-	http.Get("http://localhost:8080/stop")
-	return nil
+func webUIQueryCallData() error {
+	resp, err := http.Get("http://localhost:8080") // ?jobid=0&callID=0&leadRank=0
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+	fmt.Printf("checkme: %s\n", bs)
+	return fmt.Errorf("not implemented")
 }
 
-func validateWebUIForTest(codeBaseDir string, testCfg *testCfg) error {
-	var stdout, stderr bytes.Buffer
-	fmt.Printf("starting webui for %s...\n", testCfg.cfg.binary)
-	webUIBin := filepath.Join(codeBaseDir, "tools", "cmd", "webui", "webui")
-	cmd := exec.Command(webUIBin, "-basedir", testCfg.tempDir)
-	cmd.Dir = testCfg.tempDir
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Start()
+func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error {
+	//var stdout, stderr bytes.Buffer
+	fmt.Printf("starting webui for %s on port %d...\n", testCfg.cfg.binary, port)
+
+	cfg := webui.Init()
+	cfg.Name = testCfg.cfg.binary
+	cfg.DatasetDir = testCfg.tempDir
+	cfg.Port = port
+	err := cfg.Start()
 	if err != nil {
-		return fmt.Errorf("webui failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+		return err
 	}
 
 	time.Sleep(1 * time.Second)
+
+	/*
+		err = webUIQueryCallData()
+		if err != nil {
+			shutdownWebui()
+			return err
+		}
+	*/
+
 	fmt.Println("shutting the webui down")
-	return shutdownWebui()
+	err = cfg.Stop()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
 	fmt.Println("- Validating the webUI")
+	port := webui.DefaultPort
 
 	for _, testCfg := range profilerResults {
-		err := validateWebUIForTest(codeBaseDir, testCfg)
+		err := validateWebUIForTest(codeBaseDir, testCfg, port)
 		if err != nil {
 			return err
 		}
+		port++
 	}
 
 	return nil
