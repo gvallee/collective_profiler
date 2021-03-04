@@ -24,6 +24,7 @@ func main() {
 	datasetDir := flag.String("dataset", "", "Base directory of the dataset")
 	name := flag.String("name", "example", "Name of the dataset to display")
 	help := flag.Bool("h", false, "Help message")
+	port := flag.Int("port", webui.DefaultPort, "Port on which to start the WebUI")
 
 	flag.Parse()
 
@@ -54,6 +55,7 @@ func main() {
 	}
 	cfg.DatasetDir = *datasetDir
 	cfg.Name = *name
+	cfg.Port = *port
 
 	err := cfg.Start()
 	if err != nil {
