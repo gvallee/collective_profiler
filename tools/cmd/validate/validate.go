@@ -330,8 +330,9 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 	return nil
 }
 
-func webUIQueryCallData() error {
-	resp, err := http.Get("http://localhost:8080") // ?jobid=0&callID=0&leadRank=0
+func webUIQueryCallData(cfg *webui.Config) error {
+	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+	resp, err := http.Get(url) // ?jobid=0&callID=0&leadRank=0
 	if err != nil {
 		return err
 	}
@@ -340,7 +341,7 @@ func webUIQueryCallData() error {
 	body, err := ioutil.ReadAll(resp.Body)
 	bs := string(body)
 	fmt.Printf("checkme: %s\n", bs)
-	return fmt.Errorf("not implemented")
+	return nil
 }
 
 func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error {
@@ -355,22 +356,24 @@ func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error 
 	if err != nil {
 		return err
 	}
+	defer func(cfg *webui.Config) error {
+		fmt.Println("shutting the webui down")
+		err = cfg.Stop()
+		if err != nil {
+			log.Printf("unable to cleanly stop webui: %s", err)
+			return err
+		}
+		return nil
+	}(cfg)
 
 	time.Sleep(1 * time.Second)
 
-	/*
-		err = webUIQueryCallData()
-		if err != nil {
-			shutdownWebui()
-			return err
-		}
-	*/
-
-	fmt.Println("shutting the webui down")
-	err = cfg.Stop()
+	err = webUIQueryCallData(cfg)
 	if err != nil {
 		return err
 	}
+
+	time.Sleep(1 * time.Second)
 
 	return nil
 }
@@ -382,7 +385,7 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 	for _, testCfg := range profilerResults {
 		err := validateWebUIForTest(codeBaseDir, testCfg, port)
 		if err != nil {
-			return err
+			return fmt.Errorf("validateWebUIForTest() failed: %s", err)
 		}
 		port++
 	}
