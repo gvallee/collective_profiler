@@ -24,7 +24,7 @@ char *get_output_dir()
 	{
 		dirpath = getenv(OUTPUT_DIR_ENVVAR);
 		// if the output directory does not exist, we create it
-		DIR *dir = opendir(dir);
+		DIR *dir = opendir(dirpath);
 		if (dir == NULL && errno == ENOENT)
 		{
 			// The directory does not exist, we try to create it.
