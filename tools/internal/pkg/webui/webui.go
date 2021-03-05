@@ -105,12 +105,6 @@ type Config struct {
 	stopTemplatePath     string
 }
 
-/*
-type indexHandler struct {
-	cfg *Config
-}
-*/
-
 const (
 	sizeThreshold = 200
 	binThresholds = "200,1024,2048,4096"
@@ -259,29 +253,28 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 			}
 
 			if c.operationsTimings == nil {
-				fmt.Println("Loading timing data...")
+				log.Println("Loading timing data...")
 				c.operationsTimings, c.totalExecutionTimes, c.totalLateArrivalTimes, err = timings.HandleTimingFiles(c.codeBaseDir, c.DatasetDir, c.numCalls)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
 			}
 
-			fmt.Printf("CODEBASEDIR: %s\n", c.codeBaseDir)
 			comms, err := comm.GetData(c.codeBaseDir, c.DatasetDir)
 			if err != nil {
-				fmt.Printf("comm.GetData() failed: %s\n", err)
+				log.Printf("comm.GetData() failed: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			if comms == nil {
 				err = fmt.Errorf("undefined list of communicators")
-				fmt.Println(err)
+				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 
 			for leadRank, listComms := range comms.LeadMap {
 				if listComms == nil {
 					err := fmt.Errorf("listComms is nil")
-					fmt.Println(err)
+					log.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
 				for _, commID := range listComms {
@@ -294,7 +287,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 						_, err = plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, c.rankFileData[leadRank].HostMap, c.callMaps[leadRank].SendHeatMap[callID], c.callMaps[leadRank].RecvHeatMap[callID], c.operationsTimings[c.collectiveName].ExecTimes[id][callID], c.operationsTimings[c.collectiveName].LateArrivalTimes[id][callID])
 						if err != nil {
 							err = fmt.Errorf("plot.CallData() failed for call %d on comm %d: %s", callID, leadRank, err)
-							fmt.Println(err)
+							log.Println(err)
 							http.Error(w, err.Error(), http.StatusInternalServerError)
 						}
 					}
@@ -308,44 +301,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 		CallID:    callID,
 		CallsData: c.mainData.Calls,
 	}
-	fmt.Printf("Check len CallData: %d\n", len(c.cpd.CallsData))
 }
-
-/*
-// callHandler is the http handler invoked when details about a specific call are requested
-func (c *Config) callHandler(w http.ResponseWriter, r *http.Request) {
-	c.serviceCallDetailsRequest(w, r)
-
-	templatePath := c.getTemplateFilePath("callDetails")
-
-	callTemplate, err := template.New("callDetails.html").Funcs(template.FuncMap{
-		"displaySendCounts": func(cd []counts.CommDataT, leadRank int, callID int) string {
-			for _, data := range cd {
-				if data.LeadRank == leadRank {
-					return strings.Join(cd[leadRank].CallData[callID].SendData.RawCounts, "<br />")
-				}
-			}
-			return "Call not found"
-		},
-		"displayRecvCounts": func(cd []counts.CommDataT, leadRank int, callID int) string {
-			for _, data := range cd {
-				if data.LeadRank == leadRank {
-					return strings.Join(cd[leadRank].CallData[callID].RecvData.RawCounts, "<br />")
-				}
-			}
-			return "Call not found"
-		},
-		"displayCallPlot": func(leadRank int, callID int) string {
-			return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
-		},
-	}).ParseFiles(templatePath)
-
-	err = callTemplate.Execute(w, c.cpd)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-*/
 
 func (c *Config) loadData() error {
 	if c.stats == nil {
@@ -394,19 +350,6 @@ func (c *Config) serviceCallsRequest(w http.ResponseWriter, r *http.Request) {
 		Calls:     c.allCallsData,
 	}
 }
-
-/*
-func (c *Config) callsLayoutHandler(w http.ResponseWriter, r *http.Request) {
-	//func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.serviceCallsRequest(w, r)
-	templatePath := c.getTemplateFilePath("callsLayout")
-	callsLayoutTemplate, err := template.New("callsLayout.html").ParseFiles(templatePath)
-	err = callsLayoutTemplate.Execute(w, c.mainData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-*/
 
 func findPatternsSummaryFile(c *Config) (string, error) {
 	files, err := ioutil.ReadDir(c.DatasetDir)
@@ -459,53 +402,6 @@ func (c *Config) servicePatternRequest(w http.ResponseWriter, r *http.Request) {
 		Content: htmlContent,
 	}
 }
-
-/*
-func (c *Config) patternsHandler(w http.ResponseWriter, r *http.Request) {
-	// check if the summary file is already there; if not, generate it.
-
-	servicePatternRequest(w, r)
-	templatePath := c.getTemplateFilePath("patterns")
-	patternsTemplate, err := template.New("patterns.html").ParseFiles(templatePath)
-	err = patternsTemplate.Execute(w, patternsSummaryData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-*/
-
-/*
-//func (c *Config) indexHandler(w http.ResponseWriter, r *http.Request) {
-//func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-func indexHandler(cfg *Config) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		if w == nil {
-			err := fmt.Errorf("HTTP response write is undefined")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		if cfg.indexTemplatePath == "" {
-			err := fmt.Errorf("Index template path is empty")
-			panic(err)
-		}
-		fmt.Printf("Template: %s.\n", cfg.indexTemplatePath)
-	}
-	return http.HandlerFunc(fn)
-//		if w == nil {
-//			err := fmt.Errorf("HTTP response write is undefined")
-//			http.Error(w, err.Error(), http.StatusInternalServerError)
-//		}
-//		if h.cfg.indexTemplatePath == "" {
-//			err := fmt.Errorf("Index template path is empty")
-//			panic(err)
-//		}
-//		fmt.Printf("Template: %s.\n", h.cfg.indexTemplatePath)
-//			indexTemplate, err := template.New("index.html").ParseFiles(h.cfg.indexTemplatePath)
-//			err = indexTemplate.Execute(w, nil)
-//			if err != nil {
-//				http.Error(w, err.Error(), http.StatusInternalServerError)
-//			}
-}
-*/
 
 // Stop cleanly terminates a running webUI
 func (c *Config) Stop() error {
@@ -566,7 +462,6 @@ func Init() *Config {
 	cfg.commID = 0
 	_, filename, _, _ := runtime.Caller(0)
 	cfg.codeBaseDir = filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
-	fmt.Printf("codeBaseDir is %s\n", cfg.codeBaseDir)
 
 	cfg.indexTemplatePath = cfg.getTemplateFilePath("index")
 	cfg.callsTemplatePath = cfg.getTemplateFilePath("callsLayout")
@@ -586,14 +481,12 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) calls(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("server.calls()")
 	s.cfg.serviceCallsRequest(w, r)
 	s.callsTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
 }
 
 func (s *server) call(w http.ResponseWriter, r *http.Request) {
 	s.cfg.serviceCallDetailsRequest(w, r)
-	fmt.Printf("Check len CallData: %d\n", len(s.cfg.cpd.CallsData))
 	s.callTemplate.Execute(w, s.cfg.cpd)
 }
 
@@ -650,19 +543,6 @@ func (c *Config) Start() error {
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
-
-	/*
-		ih := indexHandler(c)
-		c.mux.Handle("/", ih)
-	*/
-	/*
-		c.mux.HandleFunc("/", c.indexHandler)
-		c.mux.HandleFunc("/calls", c.callsLayoutHandler)
-		c.mux.HandleFunc("/patterns", c.patternsHandler)
-		c.mux.HandleFunc("/call", c.callHandler)
-		c.mux.HandleFunc("/stop", c.stopHandler)
-		c.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(c.datasetBasedir))))
-	*/
 
 	c.srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", c.Port),

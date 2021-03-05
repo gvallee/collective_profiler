@@ -49,6 +49,8 @@ const (
 	exampleBinaryMulticommC = "alltoallv_multicomms_c"
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
+
+	expectedIndexPageFile = "common_expected_index.html"
 )
 
 // Test gathers all the information required to run a specific test
@@ -330,9 +332,60 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 	return nil
 }
 
-func webUIQueryCallData(cfg *webui.Config) error {
+func compareResultWithFileContent(filePath string, content string) (bool, error) {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return false, err
+	}
+	expectedContent := string(data)
+
+	if content != expectedContent {
+		fmt.Printf("the content returned when accessing the the index page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
+		return false, nil
+	}
+	return true, nil
+}
+
+func checkIndexPageContent(codeBaseDir string, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", expectedIndexPageFile)
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func checkCallPageContent(codeBaseDir string, testCfg *testCfg, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput", "call0.html")
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func checkPatternsPageContent(codeBaseDir string, testCfg *testCfg, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput", "patterns.html")
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func validateIndexPage(codeBaseDir string, cfg *webui.Config) error {
+	fmt.Printf("Validating index page...\n")
 	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
-	resp, err := http.Get(url) // ?jobid=0&callID=0&leadRank=0
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
@@ -340,7 +393,74 @@ func webUIQueryCallData(cfg *webui.Config) error {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	bs := string(body)
-	fmt.Printf("checkme: %s\n", bs)
+	return checkIndexPageContent(codeBaseDir, bs)
+}
+
+func validateCallsPage(codeBaseDir string, cfg *webui.Config) error {
+	fmt.Printf("Validating calls page...\n")
+	url := fmt.Sprintf("http://localhost:%d/calls", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// The list of calls for some test cases is very long so we are checking
+	// anything at the moment, we just check that we do not get an error.
+	return nil
+}
+
+func validateCallPage(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	fmt.Printf("Validating call page...\n")
+	url := fmt.Sprintf("http://localhost:%d/call?leadRank=0&callID=0", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+
+	return checkCallPageContent(codeBaseDir, testCfg, bs)
+}
+
+func validatePatternsPage(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	fmt.Printf("Validating call page...\n")
+	url := fmt.Sprintf("http://localhost:%d/patterns", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+
+	return checkPatternsPageContent(codeBaseDir, testCfg, bs)
+}
+
+func validateWebUIPages(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	err := validateIndexPage(codeBaseDir, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = validateCallsPage(codeBaseDir, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = validateCallPage(codeBaseDir, cfg, testCfg)
+	if err != nil {
+		return err
+	}
+
+	err = validatePatternsPage(codeBaseDir, cfg, testCfg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -368,7 +488,7 @@ func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error 
 
 	time.Sleep(1 * time.Second)
 
-	err = webUIQueryCallData(cfg)
+	err = validateWebUIPages(codeBaseDir, cfg, testCfg)
 	if err != nil {
 		return err
 	}
