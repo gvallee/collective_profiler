@@ -51,10 +51,20 @@ const (
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
 	expectedIndexPageFile = "common_expected_index.html"
+
+	noValidationStep              = 0
+	allValidationSteps            = 1
+	traceGenerationStep           = 2
+	postmortemSRCountAnalyzerStep = 3
+	postmortemProfilerStep        = 4
+	webuiStep                     = 5
 )
 
 // Test gathers all the information required to run a specific test
 type Test struct {
+	collective                     string
+	requestedValidationStepsToRun  []int
+	validationStepsToRun           map[int]bool
 	np                             int
 	source                         string
 	binary                         string
@@ -81,6 +91,32 @@ type Test struct {
 type testCfg struct {
 	tempDir string
 	cfg     Test
+}
+
+func updateValidationStepsDependencies(tt *Test) {
+	tt.validationStepsToRun = make(map[int]bool)
+
+	for _, step := range tt.requestedValidationStepsToRun {
+		if step == allValidationSteps {
+			for i := 0; i < webuiStep; i++ {
+				tt.validationStepsToRun[i] = true
+			}
+		}
+
+		if step == webuiStep {
+			tt.validationStepsToRun[postmortemProfilerStep] = true
+		}
+
+		if step == postmortemProfilerStep || step == postmortemSRCountAnalyzerStep {
+			tt.validationStepsToRun[traceGenerationStep] = true
+		}
+
+		tt.validationStepsToRun[step] = true
+	}
+}
+
+func validationStepIsSet(tt *Test, requestedStep int) bool {
+	return tt.validationStepsToRun[requestedStep]
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -307,14 +343,18 @@ func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg 
 }
 
 func validateTestPostmortemResults(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
-	err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
-	if err != nil {
-		return err
+	if validationStepIsSet(&testCfg.cfg, postmortemSRCountAnalyzerStep) {
+		err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
-	if err != nil {
-		return err
+	if validationStepIsSet(&testCfg.cfg, postmortemProfilerStep) {
+		err := validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -322,10 +362,12 @@ func validateTestPostmortemResults(codeBaseDir string, collectiveName string, te
 
 func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
 	for source, testCfg := range profilerResults {
-		err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
-		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
-			return err
+		if validationStepIsSet(&testCfg.cfg, postmortemSRCountAnalyzerStep) || validationStepIsSet(&testCfg.cfg, postmortemProfilerStep) {
+			err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
+			if err != nil {
+				fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
+				return err
+			}
 		}
 	}
 
@@ -340,7 +382,7 @@ func compareResultWithFileContent(filePath string, content string) (bool, error)
 	expectedContent := string(data)
 
 	if content != expectedContent {
-		fmt.Printf("the content returned when accessing the the index page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
+		fmt.Printf("the content returned when accessing the page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
 		return false, nil
 	}
 	return true, nil
@@ -503,11 +545,13 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 	port := webui.DefaultPort
 
 	for _, testCfg := range profilerResults {
-		err := validateWebUIForTest(codeBaseDir, testCfg, port)
-		if err != nil {
-			return fmt.Errorf("validateWebUIForTest() failed: %s", err)
+		if validationStepIsSet(&testCfg.cfg, webuiStep) {
+			err := validateWebUIForTest(codeBaseDir, testCfg, port)
+			if err != nil {
+				return fmt.Errorf("validateWebUIForTest() failed: %s", err)
+			}
+			port++
 		}
-		port++
 	}
 
 	return nil
@@ -521,7 +565,21 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	bigListGraphs := "0-999"
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
+		/*
+			{
+				collective:                     "alltoall",
+				requestedValidationStepsToRun:  []int{traceGenerationStep},
+				np:                             4,
+				totalNumCalls:                  1,
+				numCallsPerComm:                []int{1},
+				numRanksPerComm:                []int{4},
+				source:                         exampleFileC,
+				binary:                         exampleBinaryC,
+			},
+		*/
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  1,
 			numCallsPerComm:                []int{1},
@@ -543,6 +601,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             3,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -564,6 +624,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  3,
 			numCallsPerComm:                []int{2, 1},
@@ -585,6 +647,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -610,6 +674,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	if fullValidation {
 		extaTests := []Test{
 			{
+				collective:                     "alltoallv",
+				requestedValidationStepsToRun:  []int{allValidationSteps},
 				np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
 				totalNumCalls:                  1000000,
 				numCallsPerComm:                []int{1000000},
@@ -686,35 +752,39 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			results[tt.binary] = cfg
 		}
 
+		updateValidationStepsDependencies(&tt)
+
 		// Run the profiler
 		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
-		var stdout, stderr bytes.Buffer
-		for _, lib := range sharedLibraries {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
-			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
-			cmd.Env = append(os.Environ(),
-				"LD_PRELOAD="+pathToLib,
-				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-			cmd.Dir = tempDir
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+		if validationStepIsSet(&tt, traceGenerationStep) {
+			var stdout, stderr bytes.Buffer
+			for _, lib := range sharedLibraries {
+				pathToLib := filepath.Join(codeBaseDir, "src", tt.collective, lib)
+				fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
+				cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
+				cmd.Env = append(os.Environ(),
+					"LD_PRELOAD="+pathToLib,
+					"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+				cmd.Dir = tempDir
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				err = cmd.Run()
+				if err != nil {
+					return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+				}
 			}
-		}
 
-		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, tt)
-		if err != nil {
-			return nil, err
-		}
+			// Check the results
+			err = checkOutput(codeBaseDir, tempDir, tt)
+			if err != nil {
+				return nil, err
+			}
 
-		// We clean up *only* when tests are successful and
-		// if results do not need to be kept
-		if !keepResults {
-			os.RemoveAll(tempDir)
+			// We clean up *only* when tests are successful and
+			// if results do not need to be kept
+			if !keepResults {
+				os.RemoveAll(tempDir)
+			}
 		}
 	}
 
