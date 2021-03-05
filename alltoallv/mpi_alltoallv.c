@@ -222,14 +222,9 @@ static int extract_patterns_from_counts(int *send_counts, int *recv_counts, int 
 char *alltoallv_get_full_filename(int ctxt, char *id, int jobid, int world_rank)
 {
 	char *filename = NULL;
-	char *dir = NULL;
 	int size;
-
-	if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		dir = getenv(OUTPUT_DIR_ENVVAR);
-	}
-
+	char *dir = get_output_dir();
+	
 	if (ctxt == MAIN_CTX)
 	{
 		if (id == NULL)
