@@ -4,6 +4,11 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
+#include <sys/stat.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <dirent.h>
+
 #include "logger.h"
 #include "grouping.h"
 #include "format.h"
@@ -11,6 +16,26 @@
 #include "timings.h"
 #include "backtrace.h"
 #include "location.h"
+
+char *get_output_dir()
+{
+    char *dirpath = NULL;
+    if (getenv(OUTPUT_DIR_ENVVAR))
+	{
+		dirpath = getenv(OUTPUT_DIR_ENVVAR);
+		// if the output directory does not exist, we create it
+		DIR *dir = opendir(dir);
+		if (dir == NULL && errno == ENOENT)
+		{
+			// The directory does not exist, we try to create it.
+            // We do not check the return code because this is best
+            // effort the value of the environment variable is set
+            // by the user.
+			mkdir(dirpath, 0744);
+		}
+	}
+    return dirpath;
+}
 
 void log_groups(logger_t *logger, group_t *gps, int num_gps)
 {
