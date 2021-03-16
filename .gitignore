@@ -88,3 +88,19 @@ alltoallv-*.log
 
 # VScode specific stuff
 .vscode/
+
+
+alltoallv_*.err
+examples/alltoall_bigcounts_c
+examples/alltoall_demo
+examples/alltoall_dt_c
+examples/alltoall_multicomms_c
+examples/alltoall_muticomms_c
+examples/alltoall_simple_c
+examples/alltoallv_dt_c
+src/alltoall/examples/alltoall
+src/alltoall/examples/results/*
+src/alltoall/examples/results_alltoallv/*
+
+tests/wrapper_test/wrapper_test
+tools/cmd/profilerrun/profilerrun
