@@ -50,37 +50,21 @@ const (
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
-	// constants for alltoall tests
-	sharedLibAlltoallBacktraceEqual     = "liballtoall_backtrace.so"
-	sharedLibAlltoallCountsCompactEqual = "liballtoall_counts_compact.so"
-	sharedLibAlltoallCountsEqual        = "liballtoall_counts.so"
-	sharedLibAlltoallExecTimingsEqual   = "liballtoall_exec_timings.so"
-	sharedLibAlltoallLateArrivalEqual   = "liballtoall_late_arrival.so"
-	sharedLibAlltoallLocationEqual      = "liballtoall_location.so"
-	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts?
-	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so"
-	sharedLibAlltoallCountsCompactUnequal = "liballtoall_counts_unequal_compact.so"
-	sharedLibAlltoallCountsUnequal        = "liballtoall_counts_unequal.so"
-	sharedLibAlltoallExecTimingsUnequal   = "liballtoall_exec_timings_counts_unequal.so"
-	sharedLibAlltoallLateArrivalUnequal   = "liballtoall_late_arrival_counts_unequal.so"
-	sharedLibAlltoallLocationUnequal      = "liballtoall_location_counts_unequal.so"
+	expectedIndexPageFile = "common_expected_index.html"
 
-	exampleFileAlltoallSimpleC     = "alltoall_simple_c.c"
-	exampleFileAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
-	exampleFileAlltoallDtC         = "alltoall_dt_c.c"
-	exampleFileAlltoallMulticommsC = "alltoall_multicomms_c.c"
-
-	exampleBinaryAlltoallSimpleC     = "alltoall_simple_c"
-	exampleBinaryAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
-	exampleBinaryAlltoallDtC         = "alltoall_dt_c.c"
-	exampleBinaryAlltoallMulticommsC = "alltoall_multicomms_c.c"
+	noValidationStep              = 0
+	allValidationSteps            = 1
+	traceGenerationStep           = 2
+	postmortemSRCountAnalyzerStep = 3
+	postmortemProfilerStep        = 4
+	webuiStep                     = 5
 )
-
-// for suppressing tests other than for alltoall
-var global_alltoalltest bool
 
 // Test gathers all the information required to run a specific test
 type Test struct {
+	collective                     string
+	requestedValidationStepsToRun  []int
+	validationStepsToRun           map[int]bool
 	np                             int
 	source                         string
 	binary                         string
@@ -107,6 +91,32 @@ type Test struct {
 type testCfg struct {
 	tempDir string
 	cfg     Test
+}
+
+func updateValidationStepsDependencies(tt *Test) {
+	tt.validationStepsToRun = make(map[int]bool)
+
+	for _, step := range tt.requestedValidationStepsToRun {
+		if step == allValidationSteps {
+			for i := 0; i < webuiStep; i++ {
+				tt.validationStepsToRun[i] = true
+			}
+		}
+
+		if step == webuiStep {
+			tt.validationStepsToRun[postmortemProfilerStep] = true
+		}
+
+		if step == postmortemProfilerStep || step == postmortemSRCountAnalyzerStep {
+			tt.validationStepsToRun[traceGenerationStep] = true
+		}
+
+		tt.validationStepsToRun[step] = true
+	}
+}
+
+func validationStepIsSet(tt *Test, requestedStep int) bool {
+	return tt.validationStepsToRun[requestedStep]
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -160,8 +170,8 @@ func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls
 	return nil
 }
 
-func checkOutput(codeBaseDir string, tempDir string, tt Test, subDir string) error {
-	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, subDir, "expectedOutput")
+func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
+	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, "expectedOutput")
 
 	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedSendCompactCountsFiles)
 	err := checkOutputFiles(expectedOutputDir, tempDir, tt.expectedSendCompactCountsFiles)
@@ -333,24 +343,16 @@ func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg 
 }
 
 func validateTestPostmortemResults(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
-	err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
-	if err != nil {
-		return err
-	}
-
-	err = validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
-	for source, testCfg := range profilerResults {
-		err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
+	if validationStepIsSet(&testCfg.cfg, postmortemSRCountAnalyzerStep) {
+		err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
 		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
+			return err
+		}
+	}
+
+	if validationStepIsSet(&testCfg.cfg, postmortemProfilerStep) {
+		err := validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
+		if err != nil {
 			return err
 		}
 	}
@@ -358,8 +360,74 @@ func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, 
 	return nil
 }
 
-func webUIQueryCallData() error {
-	resp, err := http.Get("http://localhost:8080") // ?jobid=0&callID=0&leadRank=0
+func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+	for source, testCfg := range profilerResults {
+		if validationStepIsSet(&testCfg.cfg, postmortemSRCountAnalyzerStep) || validationStepIsSet(&testCfg.cfg, postmortemProfilerStep) {
+			err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
+			if err != nil {
+				fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func compareResultWithFileContent(filePath string, content string) (bool, error) {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return false, err
+	}
+	expectedContent := string(data)
+
+	if content != expectedContent {
+		fmt.Printf("the content returned when accessing the page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
+		return false, nil
+	}
+	return true, nil
+}
+
+func checkIndexPageContent(codeBaseDir string, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", expectedIndexPageFile)
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func checkCallPageContent(codeBaseDir string, testCfg *testCfg, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput", "call0.html")
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func checkPatternsPageContent(codeBaseDir string, testCfg *testCfg, content string) error {
+	expectedFile := filepath.Join(codeBaseDir, "tests", testCfg.cfg.binary, "expectedOutput", "patterns.html")
+	success, err := compareResultWithFileContent(expectedFile, content)
+	if err != nil {
+		return fmt.Errorf("unable to check the result: %s", err)
+	}
+	if !success {
+		return fmt.Errorf("unexpected output")
+	}
+	return nil
+}
+
+func validateIndexPage(codeBaseDir string, cfg *webui.Config) error {
+	fmt.Printf("Validating index page...\n")
+	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
@@ -367,8 +435,75 @@ func webUIQueryCallData() error {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	bs := string(body)
-	fmt.Printf("checkme: %s\n", bs)
-	return fmt.Errorf("not implemented")
+	return checkIndexPageContent(codeBaseDir, bs)
+}
+
+func validateCallsPage(codeBaseDir string, cfg *webui.Config) error {
+	fmt.Printf("Validating calls page...\n")
+	url := fmt.Sprintf("http://localhost:%d/calls", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// The list of calls for some test cases is very long so we are checking
+	// anything at the moment, we just check that we do not get an error.
+	return nil
+}
+
+func validateCallPage(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	fmt.Printf("Validating call page...\n")
+	url := fmt.Sprintf("http://localhost:%d/call?leadRank=0&callID=0", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+
+	return checkCallPageContent(codeBaseDir, testCfg, bs)
+}
+
+func validatePatternsPage(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	fmt.Printf("Validating call page...\n")
+	url := fmt.Sprintf("http://localhost:%d/patterns", cfg.Port)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	bs := string(body)
+
+	return checkPatternsPageContent(codeBaseDir, testCfg, bs)
+}
+
+func validateWebUIPages(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) error {
+	err := validateIndexPage(codeBaseDir, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = validateCallsPage(codeBaseDir, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = validateCallPage(codeBaseDir, cfg, testCfg)
+	if err != nil {
+		return err
+	}
+
+	err = validatePatternsPage(codeBaseDir, cfg, testCfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error {
@@ -383,22 +518,24 @@ func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error 
 	if err != nil {
 		return err
 	}
+	defer func(cfg *webui.Config) error {
+		fmt.Println("shutting the webui down")
+		err = cfg.Stop()
+		if err != nil {
+			log.Printf("unable to cleanly stop webui: %s", err)
+			return err
+		}
+		return nil
+	}(cfg)
 
 	time.Sleep(1 * time.Second)
 
-	/*
-		err = webUIQueryCallData()
-		if err != nil {
-			shutdownWebui()
-			return err
-		}
-	*/
-
-	fmt.Println("shutting the webui down")
-	err = cfg.Stop()
+	err = validateWebUIPages(codeBaseDir, cfg, testCfg)
 	if err != nil {
 		return err
 	}
+
+	time.Sleep(1 * time.Second)
 
 	return nil
 }
@@ -408,11 +545,13 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 	port := webui.DefaultPort
 
 	for _, testCfg := range profilerResults {
-		err := validateWebUIForTest(codeBaseDir, testCfg, port)
-		if err != nil {
-			return err
+		if validationStepIsSet(&testCfg.cfg, webuiStep) {
+			err := validateWebUIForTest(codeBaseDir, testCfg, port)
+			if err != nil {
+				return fmt.Errorf("validateWebUIForTest() failed: %s", err)
+			}
+			port++
 		}
-		port++
 	}
 
 	return nil
@@ -426,7 +565,21 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	bigListGraphs := "0-999"
 	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
 	validationTests := []Test{
+		/*
+			{
+				collective:                     "alltoall",
+				requestedValidationStepsToRun:  []int{traceGenerationStep},
+				np:                             4,
+				totalNumCalls:                  1,
+				numCallsPerComm:                []int{1},
+				numRanksPerComm:                []int{4},
+				source:                         exampleFileC,
+				binary:                         exampleBinaryC,
+			},
+		*/
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  1,
 			numCallsPerComm:                []int{1},
@@ -448,6 +601,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             3,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -469,6 +624,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  3,
 			numCallsPerComm:                []int{2, 1},
@@ -490,6 +647,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -515,6 +674,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	if fullValidation {
 		extaTests := []Test{
 			{
+				collective:                     "alltoallv",
+				requestedValidationStepsToRun:  []int{allValidationSteps},
 				np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
 				totalNumCalls:                  1000000,
 				numCallsPerComm:                []int{1000000},
@@ -539,28 +700,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		validationTests = append(validationTests, extaTests...)
 	}
 
-	// Tests for alltoall
-	sharedLibrariesAlltoallEqual := []string{sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual, sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}             // sharedLibAlltoallBacktraceEqual, <- not working yet
-	sharedLibrariesAlltoallUnEqual := []string{sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal} //sharedLibAlltoallBacktraceUnequal, <- not working yet
-	// sharedLibrariesAlltoall := append(sharedLibrariesAlltoallUnEqual, sharedLibrariesAlltoallEequal...)
-	validationTestsAlltoall := []Test{
-		{
-			np:                             4,
-			totalNumCalls:                  1,
-			numCallsPerComm:                []int{1},
-			numRanksPerComm:                []int{4},
-			source:                         exampleFileAlltoallSimpleC,
-			binary:                         exampleBinaryAlltoallSimpleC,
-			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
-			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
-			// todo: expectedCountsFiles
-			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
-			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
-			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
-			// TODO expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
-		},
-	}
-
 	_, filename, _, _ := runtime.Caller(0)
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
@@ -577,7 +716,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 	}
 
 	// Compile both the profiler libraries and the example
-	log.Println("Building libraries and tests for alltoallv ...")
+	log.Println("Building libraries and tests...")
 	cmd := exec.Command(makeBin, "clean", "all")
 	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoallv")
 	err = cmd.Run()
@@ -585,16 +724,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		return nil, err
 	}
 
-	// Repeat for alltoall
-	log.Println("Building libraries and tests for alltoall...")
-	cmd = exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoall")
-	err = cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-
-	// Now the examples: those for alltoallv and alltoall are in the same directory
 	cmd = exec.Command(makeBin, "clean", "all")
 	cmd.Dir = filepath.Join(codeBaseDir, "examples")
 	err = cmd.Run()
@@ -609,8 +738,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		results = make(map[string]*testCfg)
 	}
 
-	// Run alltoallv tests
-	if global_alltoalltest == false {
 	for _, tt := range validationTests {
 		// Create a temporary directory where to store the results
 		tempDir, err := ioutil.TempDir("", "")
@@ -625,114 +752,41 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			results[tt.binary] = cfg
 		}
 
+		updateValidationStepsDependencies(&tt)
+
 		// Run the profiler
 		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
-		var stdout, stderr bytes.Buffer
-		for _, lib := range sharedLibraries {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
-			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
-			cmd.Env = append(os.Environ(),
-				"LD_PRELOAD="+pathToLib,
-				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-			cmd.Dir = tempDir
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+		if validationStepIsSet(&tt, traceGenerationStep) {
+			var stdout, stderr bytes.Buffer
+			for _, lib := range sharedLibraries {
+				pathToLib := filepath.Join(codeBaseDir, "src", tt.collective, lib)
+				fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
+				cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
+				cmd.Env = append(os.Environ(),
+					"LD_PRELOAD="+pathToLib,
+					"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+				cmd.Dir = tempDir
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				err = cmd.Run()
+				if err != nil {
+					return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+				}
 			}
-		}
 
-		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, tt, "")
-		if err != nil {
-			return nil, err
-		}
+			// Check the results
+			err = checkOutput(codeBaseDir, tempDir, tt)
+			if err != nil {
+				return nil, err
+			}
 
-		// We clean up *only* when tests are successful and
-		// if results do not need to be kept
-		if !keepResults {
-			os.RemoveAll(tempDir)
+			// We clean up *only* when tests are successful and
+			// if results do not need to be kept
+			if !keepResults {
+				os.RemoveAll(tempDir)
+			}
 		}
 	}
-	}  // section omitted by global_alltoalltest	
-
-
-	// Run alltoall tests
-	if global_alltoalltest == true {
-	fmt.Println("Running the ALLTOALL validation tests")
-		
-	for _, ttAlltoall := range validationTestsAlltoall {
-		// Create a temporary directory where to store the results
-		tempDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			return nil, err
-		}
-
-		if keepResults {
-			cfg := new(testCfg)
-			cfg.tempDir = tempDir
-			cfg.cfg = ttAlltoall
-			results[ttAlltoall.binary] = cfg
-		}
-
-		// Run the profiler - for libraries using the (correct) assumpution that alltoall transmisison counts may differ by node in one alltoall call
-		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
-		var stdout, stderr bytes.Buffer
-		for _, lib := range sharedLibrariesAlltoallUnEqual {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoall", lib)
-			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", ttAlltoall.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(ttAlltoall.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", ttAlltoall.binary))
-			cmd.Env = append(os.Environ(),
-				"LD_PRELOAD="+pathToLib,
-				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-			cmd.Dir = tempDir
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
-			}
-		}
-
-		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, ttAlltoall, "unequalcounts")
-		if err != nil {
-			return nil, err
-		}
-
-		// Run the profiler - for libraries using the assumpution that alltoall transmisison counts may do not differ by node (but which may well often be the case)
-		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
-		for _, lib := range sharedLibrariesAlltoallEqual {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoall", lib)
-			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", ttAlltoall.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(ttAlltoall.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", ttAlltoall.binary))
-			cmd.Env = append(os.Environ(),
-				"LD_PRELOAD="+pathToLib,
-				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-			cmd.Dir = tempDir
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
-			}
-		}
-
-		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, ttAlltoall, "equalcounts")
-		if err != nil {
-			return nil, err
-		}
-
-		// We clean up *only* when tests are successful and
-		// if results do not need to be kept
-		if !keepResults {
-			os.RemoveAll(tempDir)
-		}
-	} 
-	} // end of section allowed to run by global_alltoalltest
 
 	// Return the map describing the data resulting from the tests only
 	// when the results need to be kept to later on validate postmortem
@@ -755,12 +809,8 @@ func main() {
 	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
 	help := flag.Bool("h", false, "Help message")
 	webui := flag.Bool("webui", false, "Validate the WebUI")
-	// useful while testing alltoall parts of this code
-	alltoalltest := flag.Bool("alltoalltest", false, "Validate only the alltoall collective")
 
 	flag.Parse()
-
-	if *alltoalltest { global_alltoalltest = true} else { global_alltoalltest = false }
 
 	cmdName := filepath.Base(os.Args[0])
 	if *help {
@@ -807,7 +857,7 @@ func main() {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
 		}
-		if global_alltoalltest == false {
+
 		err = validatePostmortemAnalysisTools(codeBaseDir, collectiveName, profilerValidationResults)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
@@ -821,7 +871,6 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		} // end of section suppressed by global_alltoalltest - remove when this section works
 
 		// If successful, we can then delete all the directory that were created
 		for _, cfg := range profilerValidationResults {
