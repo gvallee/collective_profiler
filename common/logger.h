@@ -65,4 +65,12 @@ extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCa
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
 
+/**
+ * get_output_dir checks the environment variable used to specify a output directory.
+ * If the environment variable is set, it checks whether the directory exists and if
+ * not, tries to create it and return the value of the environment variable.
+ * If the environment variable is not set, it returns NULL.
+ */
+extern char *get_output_dir();
+
 #endif // LOGGER_H
