@@ -50,6 +50,31 @@ const (
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
+	// constants for alltoall tests
+	sharedLibAlltoallBacktraceEqual     = "liballtoall_backtrace.so"
+	sharedLibAlltoallCountsCompactEqual = "liballtoall_counts_compact.so"
+	sharedLibAlltoallCountsEqual        = "liballtoall_counts.so"
+	sharedLibAlltoallExecTimingsEqual   = "liballtoall_exec_timings.so"
+	sharedLibAlltoallLateArrivalEqual   = "liballtoall_late_arrival.so"
+	sharedLibAlltoallLocationEqual      = "liballtoall_location.so"
+	//sharedLibAlltoall	= liballtoall.so # TO DO - what is this library for - is it equal or unequal counts?
+	sharedLibAlltoallBacktraceUnequal     = "liballtoall_backtrace_counts_unequal.so"
+	sharedLibAlltoallCountsCompactUnequal = "liballtoall_counts_unequal_compact.so"
+	sharedLibAlltoallCountsUnequal        = "liballtoall_counts_unequal.so"
+	sharedLibAlltoallExecTimingsUnequal   = "liballtoall_exec_timings_counts_unequal.so"
+	sharedLibAlltoallLateArrivalUnequal   = "liballtoall_late_arrival_counts_unequal.so"
+	sharedLibAlltoallLocationUnequal      = "liballtoall_location_counts_unequal.so"
+
+	exampleFileAlltoallSimpleC     = "alltoall_simple_c.c"
+	exampleFileAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
+	exampleFileAlltoallDtC         = "alltoall_dt_c.c"
+	exampleFileAlltoallMulticommsC = "alltoall_multicomms_c.c"
+
+	exampleBinaryAlltoallSimpleC     = "alltoall_simple_c"
+	exampleBinaryAlltoallBigCountsC  = "alltoall_bigcounts_c.c"
+	exampleBinaryAlltoallDtC         = "alltoall_dt_c.c"
+	exampleBinaryAlltoallMulticommsC = "alltoall_multicomms_c.c"
+
 	expectedIndexPageFile = "common_expected_index.html"
 
 	noValidationStep              = 0
@@ -563,10 +588,14 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
 	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
 	bigListGraphs := "0-999"
-	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
+	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATimem,
+		                sharedLibAlltoallBacktraceEqual, sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual, sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}
+						/*  TODO more constants for the second version of the alltoall sampling libraries
+           				sharedLibAlltoallBacktraceUnequal, sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal}
+						   */
 	validationTests := []Test{
-		/*
 			{
+				//TODO add new fields like those below
 				collective:                     "alltoall",
 				requestedValidationStepsToRun:  []int{traceGenerationStep},
 				np:                             4,
@@ -576,7 +605,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 				source:                         exampleFileC,
 				binary:                         exampleBinaryC,
 			},
-		*/
 		{
 			collective:                     "alltoallv",
 			requestedValidationStepsToRun:  []int{allValidationSteps},
