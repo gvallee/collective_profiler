@@ -18,18 +18,18 @@ EQUAL_SAMPLING_LIBS=(   liballtoall_counts_compact.so \
                         liballtoall_exec_timings.so \
                         liballtoall_late_arrival.so \
                         liballtoall_backtrace.so \
-                        liballtoall_location.so) 
+                        liballtoall_location.so \
+                        liballtoall_backtrace.so) 
                         # liballtoall.so )  # TO DO - what is this library for - is it equal or unequal counts? 
-                        # liballtoall_backtrace.so \ failing at the moment with multicomms
 UNEQUAL_SAMPLING_LIBS=( liballtoall_counts_unequal_compact.so \
                         liballtoall_counts_unequal.so \
                         liballtoall_exec_timings_counts_unequal.so \
                         liballtoall_late_arrival_counts_unequal.so \
-                        liballtoall_backtrace_counts_unequal.so
-                        liballtoall_location_counts_unequal.so )
-                        # liballtoall_backtrace_counts_unequal.so \ failing at the moment with multicomms
+                        liballtoall_backtrace_counts_unequal.so \
+                        liballtoall_location_counts_unequal.so \
+                        liballtoall_backtrace_counts_unequal.so)
 declare -a SAMPLING_LIBS
-SAMPLING_LIBS=( "${EQUAL_SAMPLING_LIBS[@]}" "${UNEQUAL_SAMPLING_LIBS[@]}" )
+SAMPLING_LIBS=( "${EQUAL_SAMPLING_LIBS[@]}"  )  #"${UNEQUAL_SAMPLING_LIBS[@]}" )
 # the test programs and sample libraryies 
 #SAMPLING_LIBS=(liballtoall_counts_compact.so)
 EXAMPLE_PROGS=(alltoall_simple_c) # alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c
@@ -78,24 +78,20 @@ if [[ "$AN_MPI_ERROR" == "no_error" ]]; then
     for EXAMPLE_PROG in ${EXAMPLE_PROGS[@]}
     do
         # create folders for test answers
-        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked
-        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked
-        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/expectedOutput
-        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/expectedOutput
+        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked
+        mkdir -p $PROJECT_ROOT/tests/$EXAMPLE_PROG/expectedOutput
         # clean out any old content
-        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/*
-        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/*
-        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/expectedOutput/*
-        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/expectedOutput/*
+        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/*
+        rm -f $PROJECT_ROOT/tests/$EXAMPLE_PROG/expectedOutput/*
         # populate those folders with the test answers
         for SAMPLING_LIB in ${UNEQUAL_SAMPLING_LIBS[@]}
         do
             if [[ "$SAMPLING_LIB" == "liballtoall_counts_unequal.so" ]]; then
                 cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/counts.rank0_call0.md \
-                $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/
+                $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/
             else
                 cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/* \
-                $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/
+                $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/
             fi        
 
         done
@@ -108,20 +104,20 @@ if [[ "$AN_MPI_ERROR" == "no_error" ]]; then
             else
                 if [[ "$SAMPLING_LIB" == "liballtoall_counts.so" ]]; then
                     cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/counts.rank0_call0.md \
-                    $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/
+                    $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/
                 else
                     cp $TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB/* \
-                    $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/
+                    $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/
                 fi        
             fi
         done
-        # run srcountsanalyzer on the results 
-        $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/ \
-                                                       -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/ \
-                                                       -jobid 0 -rank 0
-        $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
-                                                       -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
-                                                       -jobid 0 -rank 0
+        # run srcountsanalyzer on the results - this stage of testing not yet supported
+        # $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unchecked/ \
+        #                                                -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/equalcounts/unchecked/ \
+        #                                                -jobid 0 -rank 0
+        # $PROJECT_ROOT/tools/cmd/srcountsanalyzer/srcountsanalyzer -dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
+        #                                                -output-dir $PROJECT_ROOT/tests/$EXAMPLE_PROG/unequalcounts/unchecked/ \
+        #                                                -jobid 0 -rank 0
     done
 else
     echo "NOT Copying results to unchecked directories at tests/alltoall* - because there was an error in the mpiruns"
