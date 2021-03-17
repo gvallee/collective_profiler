@@ -75,7 +75,6 @@ const (
 	exampleBinaryAlltoallDtC         = "alltoall_dt_c.c"
 	exampleBinaryAlltoallMulticommsC = "alltoall_multicomms_c.c"
 
-	expectedIndexPageFile = "common_expected_index.html"
 
 	noValidationStep              = 0
 	allValidationSteps            = 1
@@ -588,7 +587,7 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
 	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
 	bigListGraphs := "0-999"
-	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATimem,
+	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime,
 		                sharedLibAlltoallBacktraceEqual, sharedLibAlltoallCountsCompactEqual, sharedLibAlltoallCountsEqual, sharedLibAlltoallExecTimingsEqual, sharedLibAlltoallLateArrivalEqual, sharedLibAlltoallLocationEqual}
 						/*  TODO more constants for the second version of the alltoall sampling libraries
            				sharedLibAlltoallBacktraceUnequal, sharedLibAlltoallCountsCompactUnequal, sharedLibAlltoallCountsUnequal, sharedLibAlltoallExecTimingsUnequal, sharedLibAlltoallLateArrivalUnequal, sharedLibAlltoallLocationUnequal}

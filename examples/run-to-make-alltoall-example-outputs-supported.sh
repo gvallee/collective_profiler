@@ -53,6 +53,7 @@ do
     # run the test program against the samplers
     for SAMPLING_LIB in ${SAMPLING_LIBS[@]}
     do
+        read -p "Press enter to continue"
         # export JOB_NOW=$( date +%Y%m%d-%H%M%S )
         RESULTS_DIR=$TMPROOT/prog_$EXAMPLE_PROG/sampler_$SAMPLING_LIB  # /runat_$JOB_NOW        
         mkdir -p $RESULTS_DIR
