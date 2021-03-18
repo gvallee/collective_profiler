@@ -26,8 +26,10 @@ UNEQUAL_SAMPLING_LIBS=( liballtoall_counts_unequal_compact.so \
                         liballtoall_late_arrival_counts_unequal.so \
                         liballtoall_location_counts_unequal.so \
                         liballtoall_backtrace_counts_unequal.so) 
+
+# make selection of refernce files to generate
 declare -a SAMPLING_LIBS
-SAMPLING_LIBS=( "${EQUAL_SAMPLING_LIBS[@]}" "${UNEQUAL_SAMPLING_LIBS[@]}" )
+SAMPLING_LIBS=(  "${UNEQUAL_SAMPLING_LIBS[@]}" )  # "${EQUAL_SAMPLING_LIBS[@]}"
 # the test programs and sample libraryies 
 #SAMPLING_LIBS=(liballtoall_counts_compact.so)
 EXAMPLE_PROGS=(alltoall_simple_c) #  alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c)

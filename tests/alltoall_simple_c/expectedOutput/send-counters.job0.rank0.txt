@@ -1,0 +1,14 @@
+# Raw counters
+
+Number of ranks: 4
+Datatype size: 1
+Alltoall calls 0-0
+Count: 1 calls - 0
+
+
+BEGINNING DATA
+Rank(s) 0: 8 
+Rank(s) 1: 8 
+Rank(s) 2: 8 
+Rank(s) 3: 8 
+END DATA

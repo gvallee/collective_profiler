@@ -50,6 +50,17 @@ const (
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
+	sharedLibAlltoAllUnequalCounts        = "liballtoall_counts_unequal.so"
+	sharedLibAlltoAllUnequalCountsCompact = "liballtoall_counts_unequal_compact.so" // an extra one compared to alltoallv ones above
+	sharedLibAlltoAllUnequalBacktrace     = "liballtoall_backtrace_counts_unequal.so"
+	sharedLibAlltoAllUnequalLocation      = "liballtoall_location_counts_unequal.so"
+	sharedLibAlltoAllUnequalLateArrival   = "liballtoall_late_arrival_counts_unequal.so"
+	sharedLibAlltoAllUnequalA2ATime       = "liballtoall_exec_timings_counts_unequal.so"
+
+	exampleFileAlltoallSimpleC = "alltoall_simple_c.c" // TODO add some rows for other alltoall test programs - each will need a test struct below
+
+	exampleBinaryAlltoallSimpleC = "alltoall_simple_c"
+
 	expectedIndexPageFile = "common_expected_index.html"
 
 	noValidationStep              = 0
@@ -563,20 +574,28 @@ func validateWebUI(codeBaseDir string, collectiveName string, profilerResults ma
 func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
 	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
 	bigListGraphs := "0-999"
-	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
+	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime,
+		sharedLibAlltoAllUnequalCounts, sharedLibAlltoAllUnequalCountsCompact, sharedLibAlltoAllUnequalBacktrace,
+		sharedLibAlltoAllUnequalLocation, sharedLibAlltoAllUnequalLateArrival, sharedLibAlltoAllUnequalA2ATime}
 	validationTests := []Test{
-		/*
-			{
-				collective:                     "alltoall",
-				requestedValidationStepsToRun:  []int{traceGenerationStep},
-				np:                             4,
-				totalNumCalls:                  1,
-				numCallsPerComm:                []int{1},
-				numRanksPerComm:                []int{4},
-				source:                         exampleFileC,
-				binary:                         exampleBinaryC,
-			},
-		*/
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  1,
+			numCallsPerComm:                []int{1},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallSimpleC,
+			binary:                         exampleBinaryAlltoallSimpleC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"}, // TODO What about an entry for "alltoall_comm_data_rank0.md", "counts.rank0_call0.md" and "counts.rank0_call0.md"???
+			//profilerStepsToExecute:         profiler.AllSteps,	//??? What is this
+		},
 		{
 			collective:                     "alltoallv",
 			requestedValidationStepsToRun:  []int{allValidationSteps},
