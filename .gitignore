@@ -111,3 +111,4 @@ examples/alltoall_muticomms_c
 
 # results files before approval are held in unchecked/
 tests/alltoall_*/*/unchecked/*
+examples/results_validation/*
