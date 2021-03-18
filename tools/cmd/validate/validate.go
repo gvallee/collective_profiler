@@ -57,9 +57,11 @@ const (
 	sharedLibAlltoAllUnequalLateArrival   = "liballtoall_late_arrival_counts_unequal.so"
 	sharedLibAlltoAllUnequalA2ATime       = "liballtoall_exec_timings_counts_unequal.so"
 
-	exampleFileAlltoallSimpleC = "alltoall_simple_c.c" // TODO add some rows for other alltoall test programs - each will need a test struct below
+	exampleFileAlltoallSimpleC    = "alltoall_simple_c.c" // TODO add some rows for other alltoall test programs - each will need a test struct below
+	exampleFileAlltoallBigcountsC = "alltoall_bigcounts_c.c"
 
-	exampleBinaryAlltoallSimpleC = "alltoall_simple_c"
+	exampleBinaryAlltoallSimpleC    = "alltoall_simple_c"
+	exampleBinaryAlltoallBigcountsC = "alltoall_bigcounts_c"
 
 	expectedIndexPageFile = "common_expected_index.html"
 
@@ -587,6 +589,24 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			numRanksPerComm:                []int{4},
 			source:                         exampleFileAlltoallSimpleC,
 			binary:                         exampleBinaryAlltoallSimpleC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"}, // TODO What about an entry for "alltoall_comm_data_rank0.md", "counts.rank0_call0.md" and "counts.rank0_call0.md"???
+			//profilerStepsToExecute:         profiler.AllSteps,	//??? What is this
+		},
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  1000,
+			numCallsPerComm:                []int{1000},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallBigcountsC,
+			binary:                         exampleBinaryAlltoallBigcountsC,
 			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
 			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
 			// todo: expectedCountsFiles
