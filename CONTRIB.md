@@ -1,0 +1,3 @@
+To submit contributions, developers are required to ensure that two tests can run successfully: 
+1. the CI tests on Github once a Pull Request (PR) is created; these tests are executed automatically and developers just need to ensure they are successful or the PR will not be merged.
+2. run the validation tests by running the `make validate` command from the top directory of the source code. These tests requires to have MPI installed and setup (`PATH` and `LD_LIBRARY_PATH` must be correctly setup to point to the correct MPI implementations).
