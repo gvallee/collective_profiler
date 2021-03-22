@@ -59,9 +59,13 @@ const (
 
 	exampleFileAlltoallSimpleC    = "alltoall_simple_c.c" // TODO add some rows for other alltoall test programs - each will need a test struct below
 	exampleFileAlltoallBigcountsC = "alltoall_bigcounts_c.c"
+	exampleFileAlltoallMulticommC = "alltoall_multicomms_c.c"
+	exampleFileAlltoallDatatypeC  = "alltoall_dt_c.c"
 
 	exampleBinaryAlltoallSimpleC    = "alltoall_simple_c"
 	exampleBinaryAlltoallBigcountsC = "alltoall_bigcounts_c"
+	exampleBinaryAlltoallMulticommC = "alltoall_multicomms_c"
+	exampleBinaryAlltoallDatatypeC  = "alltoall_dt_c"
 
 	expectedIndexPageFile = "common_expected_index.html"
 
@@ -617,6 +621,40 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			//profilerStepsToExecute:         profiler.AllSteps,	//??? What is this
 		},
 		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  2,
+			numCallsPerComm:                []int{1, 1}, // 1, 2, 2, 1, 1, 3, 3},
+			numRanksPerComm:                []int{4, 3}, // 3, 3, 3, 2, 2, 2, 2},
+			source:                         exampleFileAlltoallMulticommC,
+			binary:                         exampleBinaryAlltoallMulticommC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt", "send-counters.job0.rank1.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt", "recv-counters.job0.rank1.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md", "alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md", "alltoall_execution_times.rank1_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md", "alltoall_late_arrival_times.rank1_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md", "alltoall_backtrace_rank1_trace0.md"},
+		},
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  4,
+			numCallsPerComm:                []int{4},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallDatatypeC,
+			binary:                         exampleBinaryAlltoallDatatypeC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
+		},
+		{
 			collective:                     "alltoallv",
 			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
@@ -639,6 +677,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			expectedHostHeatMapFiles: []string{"alltoallv_hosts-heat-map.rank0-recv.md", "alltoallv_hosts-heat-map.rank0-send.md"},
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
+
 		{
 			collective:                     "alltoallv",
 			requestedValidationStepsToRun:  []int{allValidationSteps},
