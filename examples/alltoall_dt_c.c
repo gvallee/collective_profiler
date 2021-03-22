@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
     alltoall_test_node_params_t* param_sets = create_params_sets(rank_sets);
 
     /* to test aggregation of patterns this set should have duplicates */
-    int param_sets_set_count = 1;
-    int param_sets_indices[] = {0};
+    int param_sets_set_count = 4;
+    int param_sets_indices[] = {0, 0, 0, 0};
     
     do_test(param_sets, param_sets_set_count, param_sets_indices, my_rank);
 

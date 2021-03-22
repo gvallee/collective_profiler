@@ -2,8 +2,8 @@
 
 Number of ranks: 4
 Datatype size: 4
-Alltoall calls 0-99
-Count: 100 calls - 0-99
+Alltoall calls 0-999
+Count: 1000 calls - 0-999
 
 
 BEGINNING DATA

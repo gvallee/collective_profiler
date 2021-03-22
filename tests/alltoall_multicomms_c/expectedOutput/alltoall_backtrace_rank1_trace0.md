@@ -1,0 +1,20 @@
+FORMAT_VERSION: 9
+
+stack trace for /global/scratch/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoall_multicomms_c pid=1332995
+
+# Trace
+
+/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoall/liballtoall_backtrace_counts_unequal.so(_mpi_alltoall+0x9c) [0x1536baad9900]
+/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/src/alltoall/liballtoall_backtrace_counts_unequal.so(MPI_Alltoall+0x4a) [0x1536baad9bb1]
+/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoall_multicomms_c() [0x401644]
+/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoall_multicomms_c() [0x401fe3]
+/lib64/libc.so.6(__libc_start_main+0xf3) [0x1536ba20a7b3]
+/global/home/users/cyrusl/placement/expt0070/alltoall_profiling/examples/alltoall_multicomms_c() [0x400bce]
+
+# Context 0
+
+Communicator: 0
+Communicator rank: 0
+COMM_WORLD rank: 1
+Calls: 1
+

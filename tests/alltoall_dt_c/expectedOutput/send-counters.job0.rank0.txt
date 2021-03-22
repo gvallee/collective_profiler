@@ -1,9 +1,9 @@
 # Raw counters
 
 Number of ranks: 4
-Datatype size: 4
-Alltoall calls 0-999
-Count: 1000 calls - 0-999
+Datatype size: 1
+Alltoall calls 0-3
+Count: 4 calls - 0-3
 
 
 BEGINNING DATA

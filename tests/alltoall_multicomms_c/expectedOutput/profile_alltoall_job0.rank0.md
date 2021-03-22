@@ -1,11 +1,11 @@
 # Summary
 COMM_WORLD size: 4
-Total number of Alltoall calls = 1000 (limit is 0; -1 means no limit)
+Total number of Alltoall calls = 1 (limit is 0; -1 means no limit)
 # Send/recv counts for Alltoall operations:
 
 ## Data set #0
 
-comm size = 4; Alltoall calls = 1000
+comm size = 4; Alltoall calls = 1
 
 ### Data sent per rank - Type size: 4
 

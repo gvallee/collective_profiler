@@ -16,7 +16,7 @@ rank_set_t* create_rank_sets(){
 
 alltoall_test_node_params_t* create_params_sets(rank_set_t* rank_sets){
     alltoall_test_node_params_t* params_sets = (alltoall_test_node_params_t*) malloc(sizeof(alltoall_test_node_params_t) * PARAM_SETS_COUNT);
-    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 2, .recv_type_idx = 2, .sendcount =  16, .recvcount =  16, .rank_set = &rank_sets[0], .repetitions=100};  /* 100 for tesing this script - 1E6 desired for full test of sampling" */
+    params_sets[0] = (alltoall_test_node_params_t) {.send_type_idx = 2, .recv_type_idx = 2, .sendcount =  16, .recvcount =  16, .rank_set = &rank_sets[0], .repetitions=1000};  /* 1000 for tesing this script - 1E6 desired for full test of sampling" */
     return params_sets;
 } 
 
