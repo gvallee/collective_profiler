@@ -111,7 +111,7 @@ type testCfg struct {
 }
 
 func printValidationStepsToRun(validationStepsToRun *map[int]bool, heading string) {
-	fmt.Printf("validationStepToRun value (%s): %v \n", heading, validationStepsToRun)
+	fmt.Printf("validationStepsToRun value (%s): %v \n", heading, validationStepsToRun)
 }
 
 func updateValidationStepsDependencies(tt *Test) {
