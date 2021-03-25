@@ -830,14 +830,17 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			return nil, err
 		}
 
+		// this has been moved up to make sure changes are copied to cfg.cfg
+		updateValidationStepsDependencies(&tt)
+
 		if keepResults {
 			cfg := new(testCfg)
 			cfg.tempDir = tempDir
-			cfg.cfg = tt
+			cfg.cfg = tt // this copies the values of tt to cfg.cfg, so any changes to tt made below will not be reflected.
 			results[tt.binary] = cfg
 		}
 
-		updateValidationStepsDependencies(&tt)
+		// updateValidationStepsDependencies(&tt) // moved up to before "if keepResults {"
 		printValidationStepsToRun(&tt.validationStepsToRun, "in validateProfiler after retrun from updateValidationStepsDependencies")
 
 		// Run the profiler
