@@ -110,8 +110,13 @@ type testCfg struct {
 	cfg     Test
 }
 
+func printValidationStepsToRun(validationStepsToRun *map[int]bool, heading string) {
+	fmt.Printf("validationStepToRun value (%s): %v \n", heading, validationStepsToRun)
+}
+
 func updateValidationStepsDependencies(tt *Test) {
 	tt.validationStepsToRun = make(map[int]bool)
+	printValidationStepsToRun(&tt.validationStepsToRun, "on map init in updateValidationStepsDependencies")
 
 	for _, step := range tt.requestedValidationStepsToRun {
 		if step == allValidationSteps {
@@ -130,9 +135,11 @@ func updateValidationStepsDependencies(tt *Test) {
 
 		tt.validationStepsToRun[step] = true
 	}
+	printValidationStepsToRun(&tt.validationStepsToRun, "after setting in updateValidationStepsDependencies")
 }
 
 func validationStepIsSet(tt *Test, requestedStep int) bool {
+	printValidationStepsToRun(&tt.validationStepsToRun, "in validationStepIsSet")
 	return tt.validationStepsToRun[requestedStep]
 }
 
@@ -831,6 +838,7 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		}
 
 		updateValidationStepsDependencies(&tt)
+		printValidationStepsToRun(&tt.validationStepsToRun, "in validateProfiler after retrun from updateValidationStepsDependencies")
 
 		// Run the profiler
 		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
