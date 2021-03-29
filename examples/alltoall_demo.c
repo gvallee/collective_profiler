@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     printf("MPI Datatypes used:\n");
     int i;
     for (i=0; i<4; i++){
-        printf("name, value: %s, %i\n", type_strings[i], (uint64_t) MPI_Datatypes_used[i]);
+        printf("name, value: %s, %li\n", type_strings[i], (uint64_t) MPI_Datatypes_used[i]);
     }
 
 
