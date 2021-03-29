@@ -189,7 +189,7 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
                             printf(" %08x ", ((uint32_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
                             break;
                         case 3:
-                            printf(" %016x ", ((uint64_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
+                            printf(" %016lx ", ((uint64_t*)sendbuf)[block_idx * param_set->sendcount + idx]);
                             break;
                     }
                 }
@@ -210,7 +210,7 @@ void print_buffers(int my_rank, int world_size, alltoall_test_node_params_t* par
                             printf(" %08x ", ((uint32_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
                             break;
                         case 3:
-                            printf(" %016x ", ((uint64_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
+                            printf(" %016lx ", ((uint64_t*)recvbuf)[block_idx * param_set->recvcount + idx]);
                             break;
                     }
                 }
