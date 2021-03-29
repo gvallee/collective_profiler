@@ -50,11 +50,38 @@ const (
 	exampleBinaryBigCountsC = "alltoallv_bigcounts_c"
 	exampleBinaryDatatypeC  = "alltoallv_dt_c"
 
+	sharedLibAlltoAllUnequalCounts        = "liballtoall_counts_unequal.so"
+	sharedLibAlltoAllUnequalCountsCompact = "liballtoall_counts_unequal_compact.so" // an extra one compared to alltoallv ones above
+	sharedLibAlltoAllUnequalBacktrace     = "liballtoall_backtrace_counts_unequal.so"
+	sharedLibAlltoAllUnequalLocation      = "liballtoall_location_counts_unequal.so"
+	sharedLibAlltoAllUnequalLateArrival   = "liballtoall_late_arrival_counts_unequal.so"
+	sharedLibAlltoAllUnequalA2ATime       = "liballtoall_exec_timings_counts_unequal.so"
+
+	exampleFileAlltoallSimpleC    = "alltoall_simple_c.c" // TODO add some rows for other alltoall test programs - each will need a test struct below
+	exampleFileAlltoallBigcountsC = "alltoall_bigcounts_c.c"
+	exampleFileAlltoallMulticommC = "alltoall_multicomms_c.c"
+	exampleFileAlltoallDatatypeC  = "alltoall_dt_c.c"
+
+	exampleBinaryAlltoallSimpleC    = "alltoall_simple_c"
+	exampleBinaryAlltoallBigcountsC = "alltoall_bigcounts_c"
+	exampleBinaryAlltoallMulticommC = "alltoall_multicomms_c"
+	exampleBinaryAlltoallDatatypeC  = "alltoall_dt_c"
+
 	expectedIndexPageFile = "common_expected_index.html"
+
+	noValidationStep              = 0
+	allValidationSteps            = 1
+	traceGenerationStep           = 2
+	postmortemSRCountAnalyzerStep = 3
+	postmortemProfilerStep        = 4
+	webuiStep                     = 5
 )
 
 // Test gathers all the information required to run a specific test
 type Test struct {
+	collective                     string
+	requestedValidationStepsToRun  []int
+	validationStepsToRun           map[int]bool
 	np                             int
 	source                         string
 	binary                         string
@@ -80,7 +107,41 @@ type Test struct {
 
 type testCfg struct {
 	tempDir string
-	cfg     Test
+	cfg     *Test
+}
+
+type validationCfg struct {
+	sharedLibraries []string
+	tests           []Test
+	testCfgs        map[string]*testCfg
+}
+
+func (v *validationCfg) updateValidationStepsDependencies() {
+	for _, tt := range v.tests {
+		v.testCfgs[tt.binary].cfg.validationStepsToRun = make(map[int]bool)
+
+		for _, step := range v.testCfgs[tt.binary].cfg.requestedValidationStepsToRun {
+			if step == allValidationSteps {
+				for i := 0; i <= webuiStep; i++ {
+					v.testCfgs[tt.binary].cfg.validationStepsToRun[i] = true
+				}
+			}
+
+			if step == webuiStep {
+				v.testCfgs[tt.binary].cfg.validationStepsToRun[postmortemProfilerStep] = true
+			}
+
+			if step == postmortemProfilerStep || step == postmortemSRCountAnalyzerStep {
+				v.testCfgs[tt.binary].cfg.validationStepsToRun[traceGenerationStep] = true
+			}
+
+			v.testCfgs[tt.binary].cfg.validationStepsToRun[step] = true
+		}
+	}
+}
+
+func validationStepIsSet(tt *Test, requestedStep int) bool {
+	return tt.validationStepsToRun[requestedStep]
 }
 
 func validateCountProfiles(dir string, jobid int, id int) error {
@@ -112,7 +173,7 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 		}
 		if hashRefFile != hashResultFile {
 			fmt.Println(" failed")
-			return fmt.Errorf("Invalid output, send counters do not match (%s vs. %s)", resultFile, referenceFile)
+			return fmt.Errorf("invalid output, send counters do not match (%s vs. %s)", resultFile, referenceFile)
 		}
 		fmt.Println(" ok")
 	}
@@ -120,7 +181,7 @@ func checkOutputFiles(expectedOutputDir string, tempDir string, expectedFiles []
 	return nil
 }
 
-func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls int, expectedNumRanks int, tt Test) error {
+func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls int, expectedNumRanks int, tt *Test) error {
 	md, _, _, err := timings.ParseTimingFile(filepath, codeBaseDir)
 	if err != nil {
 		return fmt.Errorf("timings.ParseTimingFile(() failed: %s", err)
@@ -134,7 +195,7 @@ func checkFormatTimingFile(filepath string, codeBaseDir string, expectedNumCalls
 	return nil
 }
 
-func checkOutput(codeBaseDir string, tempDir string, tt Test) error {
+func checkOutput(codeBaseDir string, tempDir string, tt *Test) error {
 	expectedOutputDir := filepath.Join(codeBaseDir, "tests", tt.binary, "expectedOutput")
 
 	fmt.Printf("Checking if %s exist(s)...\n", tt.expectedSendCompactCountsFiles)
@@ -307,25 +368,31 @@ func validateDatasetProfiler(codeBaseDir string, collectiveName string, testCfg 
 }
 
 func validateTestPostmortemResults(codeBaseDir string, collectiveName string, testCfg *testCfg) error {
-	err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
-	if err != nil {
-		return err
+	if validationStepIsSet(testCfg.cfg, postmortemSRCountAnalyzerStep) {
+		err := validateTestSRCountsAnalyzer(testCfg.cfg.binary, testCfg.tempDir)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
-	if err != nil {
-		return err
+	if validationStepIsSet(testCfg.cfg, postmortemProfilerStep) {
+		err := validateDatasetProfiler(codeBaseDir, collectiveName, testCfg)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func validatePostmortemAnalysisTools(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
-	for source, testCfg := range profilerResults {
-		err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
-		if err != nil {
-			fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
-			return err
+func (v *validationCfg) postmortemAnalysisTools(codeBaseDir string, collectiveName string) error {
+	for source, testCfg := range v.testCfgs {
+		if validationStepIsSet(testCfg.cfg, postmortemSRCountAnalyzerStep) || validationStepIsSet(testCfg.cfg, postmortemProfilerStep) {
+			err := validateTestPostmortemResults(codeBaseDir, collectiveName, testCfg)
+			if err != nil {
+				fmt.Printf("validation of the postmortem analysis for %s in %s failed: %s\n", source, testCfg.tempDir, err)
+				return err
+			}
 		}
 	}
 
@@ -340,7 +407,7 @@ func compareResultWithFileContent(filePath string, content string) (bool, error)
 	expectedContent := string(data)
 
 	if content != expectedContent {
-		fmt.Printf("the content returned when accessing the the index page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
+		fmt.Printf("the content returned when accessing the page does not match expectation:\n%s\nvs.\n%s", content, expectedContent)
 		return false, nil
 	}
 	return true, nil
@@ -392,6 +459,9 @@ func validateIndexPage(codeBaseDir string, cfg *webui.Config) error {
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	bs := string(body)
 	return checkIndexPageContent(codeBaseDir, bs)
 }
@@ -420,6 +490,9 @@ func validateCallPage(codeBaseDir string, cfg *webui.Config, testCfg *testCfg) e
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	bs := string(body)
 
 	return checkCallPageContent(codeBaseDir, testCfg, bs)
@@ -435,6 +508,9 @@ func validatePatternsPage(codeBaseDir string, cfg *webui.Config, testCfg *testCf
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	bs := string(body)
 
 	return checkPatternsPageContent(codeBaseDir, testCfg, bs)
@@ -498,30 +574,198 @@ func validateWebUIForTest(codeBaseDir string, testCfg *testCfg, port int) error 
 	return nil
 }
 
-func validateWebUI(codeBaseDir string, collectiveName string, profilerResults map[string]*testCfg) error {
+func (v *validationCfg) webUI(codeBaseDir string, collectiveName string) error {
 	fmt.Println("- Validating the webUI")
 	port := webui.DefaultPort
 
-	for _, testCfg := range profilerResults {
-		err := validateWebUIForTest(codeBaseDir, testCfg, port)
-		if err != nil {
-			return fmt.Errorf("validateWebUIForTest() failed: %s", err)
+	for _, testCfg := range v.testCfgs {
+		if validationStepIsSet(testCfg.cfg, webuiStep) {
+			err := validateWebUIForTest(codeBaseDir, testCfg, port)
+			if err != nil {
+				return fmt.Errorf("validateWebUIForTest() failed: %s", err)
+			}
+			port++
 		}
-		port++
 	}
 
 	return nil
 }
 
-// validateProfiler runs the profiler against examples and compare the resuls to the results output.
+// profiler runs the profiler against examples and compare the resuls to the results output.
 // If keepResults is set to true, the results are *not* removed after execution. They can then be used
 // later on to validate postmortem analysis.
-func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCfg, error) {
+func (v *validationCfg) profiler(keepResults bool, fullValidation bool) error {
+	_, filename, _, _ := runtime.Caller(0)
+	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
+
+	// Find MPI
+	mpiBin, err := exec.LookPath("mpirun")
+	if err != nil {
+		return err
+	}
+
+	// Find make
+	makeBin, err := exec.LookPath("make")
+	if err != nil {
+		return err
+	}
+
+	// Compile both the profiler libraries and the example
+	log.Println("Building libraries and tests...")
+	cmd := exec.Command(makeBin, "clean", "all")
+	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoallv")
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	cmd = exec.Command(makeBin, "clean", "all")
+	cmd.Dir = filepath.Join(codeBaseDir, "examples")
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	for testName, tt := range v.testCfgs {
+		// Create a temporary directory where to store the results
+		tempDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			return err
+		}
+		v.testCfgs[testName].tempDir = tempDir
+
+		// Run the profiler
+		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
+		if validationStepIsSet(tt.cfg, traceGenerationStep) {
+			var stdout, stderr bytes.Buffer
+			for _, lib := range v.sharedLibraries {
+				pathToLib := filepath.Join(codeBaseDir, "src", tt.cfg.collective, lib)
+				fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", testName, pathToLib)
+				cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.cfg.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", testName))
+				cmd.Env = append(os.Environ(),
+					"LD_PRELOAD="+pathToLib,
+					"A2A_PROFILING_OUTPUT_DIR="+tempDir)
+				cmd.Dir = tempDir
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				err = cmd.Run()
+				if err != nil {
+					return fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
+				}
+			}
+
+			// Check the results
+			err = checkOutput(codeBaseDir, tempDir, tt.cfg)
+			if err != nil {
+				return err
+			}
+
+			// We clean up *only* when tests are successful and
+			// if results do not need to be kept
+			if !keepResults {
+				os.RemoveAll(tempDir)
+			}
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	verbose := flag.Bool("v", false, "Enable verbose mode")
+	counts := flag.Bool("counts", false, "Validate the count data generated during the validation run of the profiler with an MPI application. Requires the following additional options: -dir, -job, -id.")
+	profilerValidation := flag.Bool("profiler", false, "Perform a validation of the profiler itself running various tests. Requires MPI. Does not require any additional option.")
+	postmortemValidation := flag.Bool("postmortem", false, "Perform a validation of the postmortem analysis tools.")
+	full := flag.Bool("full", true, "Run the full validation. WARNING! This may generate a huge amount of files and create file system issues!")
+	dir := flag.String("dir", "", "Where all the data is")
+	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
+	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
+	help := flag.Bool("h", false, "Help message")
+	webui := flag.Bool("webui", false, "Validate the WebUI")
+
+	flag.Parse()
+
 	defaultListGraphs := fmt.Sprintf("0-%d", profiler.DefaultNumGeneratedGraphs)
 	bigListGraphs := "0-999"
-	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime}
+	sharedLibraries := []string{sharedLibCounts, sharedLibBacktrace, sharedLibLocation, sharedLibLateArrival, sharedLibA2ATime,
+		sharedLibAlltoAllUnequalCounts, sharedLibAlltoAllUnequalCountsCompact, sharedLibAlltoAllUnequalBacktrace,
+		sharedLibAlltoAllUnequalLocation, sharedLibAlltoAllUnequalLateArrival, sharedLibAlltoAllUnequalA2ATime}
 	validationTests := []Test{
 		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  1,
+			numCallsPerComm:                []int{1},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallSimpleC,
+			binary:                         exampleBinaryAlltoallSimpleC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"}, // TODO What about an entry for "alltoall_comm_data_rank0.md", "counts.rank0_call0.md" and "counts.rank0_call0.md"???
+			//profilerStepsToExecute:         profiler.AllSteps,	//??? What is this
+		},
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  1000,
+			numCallsPerComm:                []int{1000},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallBigcountsC,
+			binary:                         exampleBinaryAlltoallBigcountsC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"}, // TODO What about an entry for "alltoall_comm_data_rank0.md", "counts.rank0_call0.md" and "counts.rank0_call0.md"???
+			//profilerStepsToExecute:         profiler.AllSteps,	//??? What is this
+		},
+		/* This test does not pass validation yet
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  2,
+			numCallsPerComm:                []int{1, 1}, // 1, 2, 2, 1, 1, 3, 3},
+			numRanksPerComm:                []int{4, 3}, // 3, 3, 3, 2, 2, 2, 2},
+			source:                         exampleFileAlltoallMulticommC,
+			binary:                         exampleBinaryAlltoallMulticommC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt", "send-counters.job0.rank1.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt", "recv-counters.job0.rank1.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md", "alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md", "alltoall_execution_times.rank1_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md", "alltoall_late_arrival_times.rank1_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md", "alltoall_backtrace_rank1_trace0.md"},
+		},
+		*/
+		{
+			collective:                     "alltoall",
+			requestedValidationStepsToRun:  []int{traceGenerationStep},
+			np:                             4,
+			totalNumCalls:                  4,
+			numCallsPerComm:                []int{4},
+			numRanksPerComm:                []int{4},
+			source:                         exampleFileAlltoallDatatypeC,
+			binary:                         exampleBinaryAlltoallDatatypeC,
+			expectedSendCompactCountsFiles: []string{"send-counters.job0.rank0.txt"},
+			expectedRecvCompactCountsFiles: []string{"recv-counters.job0.rank0.txt"},
+			// todo: expectedCountsFiles
+			expectedLocationFiles:    []string{"alltoall_locations_comm0_rank0.md"},
+			expectedExecTimeFiles:    []string{"alltoall_execution_times.rank0_comm0_job0.md"},
+			expectedLateArrivalFiles: []string{"alltoall_late_arrival_times.rank0_comm0_job0.md"},
+			expectedBacktraceFiles:   []string{"alltoall_backtrace_rank0_trace0.md"},
+		},
+		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  1,
 			numCallsPerComm:                []int{1},
@@ -543,6 +787,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             3,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -564,6 +810,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  3,
 			numCallsPerComm:                []int{2, 1},
@@ -585,6 +833,8 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 			listGraphsToGenerate:     []string{defaultListGraphs},
 		},
 		{
+			collective:                     "alltoallv",
+			requestedValidationStepsToRun:  []int{allValidationSteps},
 			np:                             4,
 			totalNumCalls:                  2,
 			numCallsPerComm:                []int{2},
@@ -607,9 +857,11 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		},
 	}
 
-	if fullValidation {
+	if *full {
 		extaTests := []Test{
 			{
+				collective:                     "alltoallv",
+				requestedValidationStepsToRun:  []int{allValidationSteps},
 				np:                             4, // This test runs a large number of interations over a collective with a limited number of ranks
 				totalNumCalls:                  1000000,
 				numCallsPerComm:                []int{1000000},
@@ -634,114 +886,6 @@ func validateProfiler(keepResults bool, fullValidation bool) (map[string]*testCf
 		validationTests = append(validationTests, extaTests...)
 	}
 
-	_, filename, _, _ := runtime.Caller(0)
-	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
-
-	// Find MPI
-	mpiBin, err := exec.LookPath("mpirun")
-	if err != nil {
-		return nil, err
-	}
-
-	// Find make
-	makeBin, err := exec.LookPath("make")
-	if err != nil {
-		return nil, err
-	}
-
-	// Compile both the profiler libraries and the example
-	log.Println("Building libraries and tests...")
-	cmd := exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(codeBaseDir, "src", "alltoallv")
-	err = cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-
-	cmd = exec.Command(makeBin, "clean", "all")
-	cmd.Dir = filepath.Join(codeBaseDir, "examples")
-	err = cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a map to store the data about all the directories where
-	// results are created when the results need to be kept
-	var results map[string]*testCfg
-	if keepResults {
-		results = make(map[string]*testCfg)
-	}
-
-	for _, tt := range validationTests {
-		// Create a temporary directory where to store the results
-		tempDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			return nil, err
-		}
-
-		if keepResults {
-			cfg := new(testCfg)
-			cfg.tempDir = tempDir
-			cfg.cfg = tt
-			results[tt.binary] = cfg
-		}
-
-		// Run the profiler
-		// todo: use https://github.com/gvallee/go_hpc_jobmgr so we can easilty validate on local machine and clusters
-		var stdout, stderr bytes.Buffer
-		for _, lib := range sharedLibraries {
-			pathToLib := filepath.Join(codeBaseDir, "src", "alltoallv", lib)
-			fmt.Printf("Running MPI application (%s) and gathering profiles with %s...\n", tt.binary, pathToLib)
-			cmd = exec.Command(mpiBin, "-np", strconv.Itoa(tt.np), "--oversubscribe", filepath.Join(codeBaseDir, "examples", tt.binary))
-			cmd.Env = append(os.Environ(),
-				"LD_PRELOAD="+pathToLib,
-				"A2A_PROFILING_OUTPUT_DIR="+tempDir)
-			cmd.Dir = tempDir
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				return nil, fmt.Errorf("mpirun failed.\n\tstdout: %s\n\tstderr: %s", stdout.String(), stderr.String())
-			}
-		}
-
-		// Check the results
-		err = checkOutput(codeBaseDir, tempDir, tt)
-		if err != nil {
-			return nil, err
-		}
-
-		// We clean up *only* when tests are successful and
-		// if results do not need to be kept
-		if !keepResults {
-			os.RemoveAll(tempDir)
-		}
-	}
-
-	// Return the map describing the data resulting from the tests only
-	// when the results need to be kept to later on validate postmortem
-	// analysis
-	if keepResults {
-		return results, nil
-	}
-
-	return nil, nil
-}
-
-func main() {
-	verbose := flag.Bool("v", false, "Enable verbose mode")
-	counts := flag.Bool("counts", false, "Validate the count data generated during the validation run of the profiler with an MPI application. Requires the following additional options: -dir, -job, -id.")
-	profiler := flag.Bool("profiler", false, "Perform a validation of the profiler itself running various tests. Requires MPI. Does not require any additional option.")
-	postmortem := flag.Bool("postmortem", false, "Perform a validation of the postmortem analysis tools.")
-	full := flag.Bool("full", true, "Run the full validation. WARNING! This may generate a huge amount of files and create file system issues!")
-	dir := flag.String("dir", "", "Where all the data is")
-	id := flag.Int("id", 0, "Identifier of the experiment, e.g., X from <pidX> in the profile file name")
-	jobid := flag.Int("jobid", 0, "Job ID associated to the count files")
-	help := flag.Bool("h", false, "Help message")
-	webui := flag.Bool("webui", false, "Validate the WebUI")
-
-	flag.Parse()
-
 	cmdName := filepath.Base(os.Args[0])
 	if *help {
 		fmt.Printf("%s validates various aspects of this infrastructure", cmdName)
@@ -759,7 +903,7 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	if !*counts && !*profiler && !*postmortem && !*webui {
+	if !*counts && !*profilerValidation && !*postmortemValidation && !*webui {
 		fmt.Println("No valid option selected, run '-h' for more details")
 		os.Exit(1)
 	}
@@ -770,32 +914,47 @@ func main() {
 	collectiveName := "alltoallv" // hardcoded for now, detection coming soon
 
 	if *webui {
-		*postmortem = true
+		*postmortemValidation = true
 	}
 
-	if *profiler && !*postmortem {
-		_, err := validateProfiler(false, *full)
+	// Create a map to store the data about all the directories where
+	// results are created when the results need to be kept
+	validation := new(validationCfg)
+	validation.tests = validationTests
+	validation.sharedLibraries = sharedLibraries
+	validation.testCfgs = make(map[string]*testCfg)
+
+	for idx, tt := range validationTests {
+		cfg := new(testCfg)
+		cfg.cfg = &validationTests[idx]
+		validation.testCfgs[tt.binary] = cfg
+	}
+
+	validation.updateValidationStepsDependencies()
+
+	if *profilerValidation && !*postmortemValidation {
+		err := validation.profiler(false, *full)
 		if err != nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
 		}
 	}
 
-	if *postmortem {
-		profilerValidationResults, err := validateProfiler(true, *full)
-		if err != nil || profilerValidationResults == nil {
+	if *postmortemValidation {
+		err := validation.profiler(true, *full)
+		if err != nil {
 			fmt.Printf("Validation of the infrastructure failed: %s\n", err)
 			os.Exit(1)
 		}
 
-		err = validatePostmortemAnalysisTools(codeBaseDir, collectiveName, profilerValidationResults)
+		err = validation.postmortemAnalysisTools(codeBaseDir, collectiveName)
 		if err != nil {
 			fmt.Printf("Validation of the postmortem analysis tools failed: %s\n", err)
 			os.Exit(1)
 		}
 
 		if *webui {
-			err := validateWebUI(codeBaseDir, collectiveName, profilerValidationResults)
+			err := validation.webUI(codeBaseDir, collectiveName)
 			if err != nil {
 				fmt.Printf("Validation of the WebUI failed: %s", err)
 				os.Exit(1)
@@ -803,7 +962,7 @@ func main() {
 		}
 
 		// If successful, we can then delete all the directory that were created
-		for _, cfg := range profilerValidationResults {
+		for _, cfg := range validation.testCfgs {
 			os.RemoveAll(cfg.tempDir)
 		}
 

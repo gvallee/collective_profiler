@@ -88,3 +88,27 @@ alltoallv-*.log
 
 # VScode specific stuff
 .vscode/
+
+
+#JL Results files and folders
+alltoallv_*.err
+alltoallv_*.out
+src/alltoall/examples/results/*
+src/alltoall/examples/results_alltoallv/*
+
+# Compiled code
+examples/alltoallv_dt_c
+src/alltoall/examples/alltoall
+examples/alltoall_simple_c
+examples/alltoall_bigcounts_c
+examples/alltoall_demo
+
+tests/wrapper_test/wrapper_test
+tools/cmd/profilerrun/profilerrun
+examples/alltoall_dt_c
+examples/alltoall_multicomms_c
+examples/alltoall_muticomms_c
+
+# results files before approval are held in unchecked/
+tests/alltoall_*/*/unchecked/*
+examples/results_validation/*
