@@ -86,14 +86,14 @@ Like any PMPI option, users need to use `LD_PRELOAD` while executing their appli
 On a platform where `mpirun` is directly used, the command to start the application
 looks like:
 ```
-LD_PRELOAD=$HOME<path_to_repo>/alltoallv/liballtoallv.so mpirun --oversubscribe -np 3 app.exe 
+LD_PRELOAD=$HOME<path_to_repo>/src/alltoallv/liballtoallv.so mpirun --oversubscribe -np 3 app.exe 
 ```
 
 On a platform where a job manager is used, such as Slurm, users need to update the
 batch script used to submit an application run. For instance, with Open MPI and Slurm,
 it would look like:
 ```
-mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/alltoall_profiling/alltoallv/liballtoallv_counts.so app.exe
+mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/collective_profiler/src/alltoallv/liballtoallv_counts.so app.exe
 ```
 
 When using a job scheduler, users are required to correctly set the LD_PRELOAD details
@@ -120,11 +120,11 @@ module load gcc/4.8.5 ompi/4.0.1
 
 export A2A_PROFILING_OUTPUT_DIR=/shared/data/profiling/osu/alltoallv/traces1
 
-COUNTSFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_counts.so"
-MAPFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_location.so"
-BACKTRACEFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_backtrace.so"
-A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_exec_timings.so"
-LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
+COUNTSFLAGS="/path/to/collective_profiler/src/alltoallv/liballtoallv_counts.so"
+MAPFLAGS="/path/to/collective_profiler/src/alltoallv/liballtoallv_location.so"
+BACKTRACEFLAGS="/path/to/collective_profiler/src/alltoallv/liballtoallv_backtrace.so"
+A2ATIMINGFLAGS="/path/to/collective_profiler/src/alltoallv/liballtoallv_exec_timings.so"
+LATETIMINGFLAGS="/path/to/collective_profiler/src/alltoallv/liballtoallv_late_arrival.so"
 
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
