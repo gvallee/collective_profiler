@@ -19,6 +19,16 @@
         }                                            \
     } while (0);
 
+static void print_buffer_int(void *buf, int len, char *msg, int rank) {
+    int tmp, *v;
+    printf("**<%d> %s (#%d): ", rank, msg, len);
+    for (tmp = 0; tmp < len; tmp++) {
+        v = buf;
+        printf("[%d]", v[tmp]);
+    }
+    printf("\n");
+    free(msg);
+}
 
 typedef struct alltoallv_info
 {
@@ -193,19 +203,30 @@ int main(int argc, char **argv)
         alltoallv_info_t *world_alltoallv = setup_alltoallv_balanced(MPI_COMM_WORLD);
         alltoallv_info_t *subcomm_alltoallv = setup_alltoallv_balanced(row_comm);
 
-        MPICHECK(do_alltoallv(subcomm_alltoallv));
-        MPICHECK(do_alltoallv(world_alltoallv));
+    // return MPI_Alltoallv(info->send_buffer, info->send_counts, info->send_displs, MPI_INT,
+    //                      info->recv_buffer, info->recv_counts, info->recv_displs, MPI_INT,
+    //                      info->comm);
 
+        print_buffer_int(subcomm_alltoallv->send_buffer, row_size * row_size, strdup("sbuf:"), row_rank);
+        print_buffer_int(subcomm_alltoallv->send_counts, row_size, strdup("scount:"), row_rank);
+        print_buffer_int(subcomm_alltoallv->recv_counts, row_size, strdup("rcount:"), row_rank);
+        print_buffer_int(subcomm_alltoallv->send_displs, row_size, strdup("sdisp:"), row_rank);
+        print_buffer_int(subcomm_alltoallv->recv_displs, row_size, strdup("rdisp:"), row_rank);
 
-        for (i = 0; i < row_size; i++) {
-            int* p = recv_buffer + recv_displ[i];
-            for (int j = 0; j < row_rank; j++) {
-                if (p[j] != i * 100 + (row_rank * (row_rank + 1)) / 4 + j) {
-                    printf("** Error: <%d> got %d expected %d for %dth\n", row_rank, p[j], (i * (i + 1)) / 2 + j,
-                            j);
-                }
-            }
-        }
+        MPICHECK(do_alltoallv(subcomm_alltoallv)); // for every row comm to setup
+        MPICHECK(do_alltoallv(world_alltoallv));   // for the global comm to setup
+
+        print_buffer_int(subcomm_alltoallv->recv_buffer, row_size * row_size, strdup("rbuf:"), row_rank);
+
+        // for (i = 0; i < row_size; i++) {
+        //     int* p = recv_buffer + recv_displ[i];
+        //     for (int j = 0; j < row_rank; j++) {
+        //         if (p[j] != i * 100 + (row_rank * (row_rank + 1)) / 4 + j) {
+        //             printf("** Error: <%d> got %d expected %d for %dth\n", row_rank, p[j], (i * (i + 1)) / 2 + j,
+        //                     j);
+        //         }
+        //     }
+        // }
 
         printf("WORLD RANK/SIZE: %d/%d \t ROW RANK/SIZE: %d/%d\n", world_rank, world_size, row_rank, row_size);
         finalize_alltoallv(&world_alltoallv);
