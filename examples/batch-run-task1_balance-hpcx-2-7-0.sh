@@ -40,10 +40,6 @@ export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_balance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
-# makes the results directory and somewhere to put results of post processing.
-mkdir -p "${RESULTS_ROOT}/analysis"
-mkdir -p "${RESULTS_ROOT}/ranks"
-
 # TO DO put this in brackets to end and tee to file
 # or accept current solution of copying the slurm log file to the results dir
 
