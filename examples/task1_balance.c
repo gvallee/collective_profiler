@@ -12,41 +12,43 @@
  * 
  * It can be described as follows:
  * It can be described as follows:
- * - Process 0-39:
+ * - Process 0-19:
  *     - has 1MB integers to send, as follows, it sends:
- *         - to process 40-79: 40 * 40 MB
+ *         - to process 40-69: 20 * 1 MB
+ *         - to process 80-99: 20 * 1 MB
  *     - has 1MB integers to receive, as follows, it sends:
- *         - from process 40-79: 40 * 40 MB
- * - Process 40-79:
+ *         - from process 100-119: 20 * 1 MB
+ *         - from process 40-59: 20 * 1 MB
+ * - Process 20-39:
  *     - has 1MB integers to send, as follows, it sends:
- *         - to process 0-39: 40 * 40 MB
+ *         - to process 0-19: 20 * 1 MB
+ *         - to process 60-79: 20 * 1 MB
  *     - has 1MB integers to receive, as follows, it receives:
- *         - from process 0-39: 40 * 40 MB
- * - Process 80-159:
- *     - has nothing to send
- *     - has nothing to recevie
+ *         - from process 40-59: 20 * 1 MB
+ *         - from process 100-119: 20 * 1 MB
+ * - The rest request the same pattern
  *
  * In addition to the above, it can be visualised as follows:
  *
- * +-----------------------+ +-----------------------+ +-----------------------+
- * |       Process 0       | |       Process 1       | |       Process 2       |
- * +-------+-------+-------+ +-------+-------+-------+ +-------+-------+-------+
- * | Value | Value | Value | | Value | Value | Value |         | Value |
- * |   0   |  100  |  200  | |  300  |  400  |  500  |         |  600  |
- * +-------+-------+-------+ +-------+-------+-------+         +-------+
- *     |       |       |        |        |       |_________________|_______
- *     |       |       |        |        |_________________________|_      |
+ * +-----------------------+ +-----------------------+ 
+ * |       Process 0       | |       Process 1       | 
+ * +-------+-------+-------+ +-------+-------+-------+ 
+ * | Value | Value | Value | | Value | Value | Value | 
+ * |   0   |  100  |  200  | |  300  |  400  |  500  | 
+ * +-------+-------+-------+ +-------+-------+-------+ 
+ *     |       |       |        |        |       
+ *     |       |       |        |        |_________________________ 
  *     |       |       |        |______________________________    | |     |
  *     |       |       |_____________________                  |   | |     |
  *     |       |_______________________      |                 |   | |     | 
- *     |   ____________________________|_____|_________________|___| |     |
- *     |__|_____                       |     |                 |     |     | 
- *        |     |                      |     |                 |     |     | 
- *     +-----+-----+                +-----+-----+           +-----+-----+-----+
- *     | 600 |  0  |                | 100 | 200 |           | 300 | 400 | 500 |
- *  +--+-----+-----+--+         +---+-----+-----+-+         +-----+-----+-----+
- *  |    Process 0    |         |    Process 1    |         |    Process 2    |
- *  +-----------------+         +-----------------+         +-----------------+
+ *     |_____|_________________|__  _| |     |
+ *                                     |     |                 |     |     | 
+ *                                     |     |                 |     |     | 
+ *                                 +-----+-----+           +-----+-----+-----+
+ *                                 | 100 | 200 |           | 300 | 400 | 500 |
+ *                             +---+-----+-----+-+         +-----+-----+-----+
+ *                             |    Process 1    |         |    Process 2    |
+ *                             +-----------------+         +-----------------+
  **/
 int main(int argc, char* argv[])
 {
