@@ -3,18 +3,14 @@
 #SBATCH --job-name=alltoall          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
-#SBATCH --nodes=8
-#SBATCH --ntasks=8                     
-#SBATCH --ntasks-per-node=1
+#SBATCH --nodes=4
+#SBATCH --ntasks=160                     
+#SBATCH --ntasks-per-node=40
 ##SBATCH --mem=128                          # Job memory request
 #SBATCH --time=00:20:00                     # Time limit hrs:min:sec
 #SBATCH --output=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.out     # Standard output and error log
 #SBATCH --error=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.err
 #SBATCH -p compute                          # which section of the cluster 
-
-##SBATCH -w xxxx                            # particular nodes?
-
-###SBATCH --export=NONE   # SLURM is opt out for passing through the environment - unlike SGE!!!
 
 # expecting that this variable will be copied to the compute nodes
 # where .bashrc will test it and set no environment if it is set
@@ -28,26 +24,18 @@ THIS_SCRIPT_DIR=$(dirname "$THIS_SCRIPT")
 
 # environment and modules and some paths etc. for the job 
 # /global/home/users/cyrusl/placement/expt0060/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
-export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples
+export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/
 # TODO - set modulefiles!!?
 module purge
 HNAME=$(hostname)
-spack load gcc@11
-
-module load intel/2019u4  openmpi/4.0.1
-
-#if [[ ${HNAME:0:4} == "thor" ]]; then
-    # module load gcc/8.3.1 hpcx/2.7.0
-#else
-#    module load gcc/4.8.5 hpcx/2.7.0  # these were used for compiling on Login node for use on Jupiter
-#fi
+spack load /l3s
 
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export RESULTS_ROOT=${PROJECT_ROOT}/alltoall_profiling/examples/results/run-at-${JOB_NOW} #-${THIS_SCRIPT_FILENAME}
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_unbalance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
 # makes the results directory and somewhere to put results of post processing.
@@ -125,47 +113,39 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_c
+export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_bak
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
-
-ALLTOALL_LIB_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/src/alltoall
-declare -a COUNTSFLAGS
-COUNTSFLAGS[0]="$ALLTOALL_LIB_ROOT/liballtoall_counts.so"
-COUNTSFLAGS[1]="$ALLTOALL_LIB_ROOT/liballtoall_counts_unequal.so"
-COUNTSFLAGS[2]="$ALLTOALL_LIB_ROOT/liballtoall_counts_compact.so"
-COUNTSFLAGS[3]="$ALLTOALL_LIB_ROOT/liballtoall_counts_unequal_compact.so"
-
-
-declare -a RESULTS_SUB
-RESULTS_SUB[0]="equal_counts"
-RESULTS_SUB[1]="unequal_counts"
-RESULTS_SUB[2]="equal_counts_compact"
-RESULTS_SUB[3]="unequal_counts_compact"
-
+export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
+ALLTOALL_LIB_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/src/alltoallv
+COUNTSFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_counts_notcompact.so"
+MAPFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_location.so"
+BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
+A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
+LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="-np 8 -map-by ppr:1:node -bind-to core "
+MPIFLAGS+="-np 160 -map-by ppr:40:node -bind-to core "
 MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/${RESULTS_SUB[0]} -x LD_PRELOAD=${COUNTSFLAGS[0]} $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/${RESULTS_SUB[1]} -x LD_PRELOAD=${COUNTSFLAGS[1]} $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/${RESULTS_SUB[2]} -x LD_PRELOAD=${COUNTSFLAGS[2]} $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/${RESULTS_SUB[3]} -x LD_PRELOAD=${COUNTSFLAGS[3]} $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD=$MAPFLAGS        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD=$BACKTRACEFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x LD_PRELOAD=$A2ATIMINGFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[4]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/latetiming -x LD_PRELOAD=$LATETIMINGFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 
 echo
 # TODO - some more of vars set above
 echo "recording basic job details ..."
 {
-    echo "alltoall sampling test script"
+    echo "alltoallv sampling test script"
     echo "SCRIPT NAME             : $THIS_SCRIPT_FILENAME"
     echo "SCRIPT DIR              : $THIS_SCRIPT_DIR"
     echo "(the scheduler may have made a copy at a location other than the source)"
@@ -185,6 +165,7 @@ echo "recording basic job details ..."
     echo "EXECUTABLE1             : $EXECUTABLE1"
     echo "EXECUTABLE1_PARAMS      : $EXECUTABLE1_PARAMS"
     echo "MPIFLAGS                : $MPIFLAGS"
+    echo "A2A_PROFILING_OUTPUT_DIR: $A2A_PROFILING_OUTPUT_DIR"
 } |& tee "$RESULTS_ROOT/basic_job_details.log"
 # |& because module prints its info to stderr
 
@@ -205,6 +186,7 @@ ${MPIRUN_COMMANDS[0]}
 ${MPIRUN_COMMANDS[1]}
 ${MPIRUN_COMMANDS[2]}
 ${MPIRUN_COMMANDS[3]}
+${MPIRUN_COMMANDS[4]}
 EOF
 
 # mpirun section
@@ -216,24 +198,15 @@ echo "  subdirectories of that and are not shown here "
 echo "  if mpirun uses --output-file"
 echo "*********************************************************"
 echo 
-idx=0
- for MPIRUN_COMMAND in "${MPIRUN_COMMANDS[@]}"
-  do
-    export A2A_PROFILING_OUTPUT_DIR="$RESULTS_ROOT/${RESULTS_SUB[${idx}]}"
-    mkdir -p $A2A_PROFILING_OUTPUT_DIR
-    echo "mpirun command will be: $MPIRUN_COMMAND"
-
-    $MPIRUN_COMMAND \
-    ${RESULTS_ROOT}/${RESULTS_SUB[${idx}]}/mpirun.stdout \
-    ${RESULTS_ROOT}/${RESULTS_SUB[${idx}]}/mpirun.stderr
-
-    echo "... results stored at ${RESULTS_ROOT}/${RESULTS_SUB[${idx}]}/mpirun.stdout and .../stderr"
-    echo "... end of that mpirun"
-# } > >( tee "${RESULTS_ROOT}/${RESULTS_SUB[${idx}]}/mpirun.stdout"  ); } \
-# 2> >( tee "${RESULTS_ROOT}/${RESULTS_SUB[${idx}]}/mpirun.stderr" 1>&2 )
-let "idx=idx+1"
-done
-
+#{ {
+    for MPIRUN_COMMAND in "${MPIRUN_COMMANDS[@]}"
+        do
+        echo "mpirun command will be: $MPIRUN_COMMAND"
+        $MPIRUN_COMMAND
+        echo "... end of that mpirun"
+    done
+#} > >( tee ${RESULTS_ROOT}/mpirun.stdout.log ); } \
+# 2> >( tee ${RESULTS_ROOT}/mpirun.stderr.log 1>&2 )
 # if more than one mpirun the name in previous line should be distinguished
 # the tee arrangements follow https://stackoverflow.com/questions/21465297/tee-stdout-and-stderr-to-separate-files-while-retaining-them-on-their-respective
 echo

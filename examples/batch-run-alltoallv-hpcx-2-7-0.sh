@@ -131,7 +131,7 @@ export EXECUTABLE1_PARAMS=""
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
-ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/src/alltoallv
+ALLTOALL_LIB_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/src/alltoallv
 COUNTSFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_counts_notcompact.so"
 MAPFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_location.so"
 BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"

@@ -39,8 +39,15 @@ alltoallv_bigcounts_c: alltoallv_bigcounts.c
 task1_c: task1.c
 	mpicc -g task1.c -o task1_c
 
-test: task1_c
-	mpirun -np 4 --oversubscribe task1_c
+task1_balance_c: task1_balance.c
+	mpicc -g task1_balance.c -o task1_balance_c
+
+task1_balance_c: task1_unbalance.c
+	mpicc -g task1_balance.c -o task1_balance_c
+
+test: task1_balance_c task1_balance_c
+	mpirun -np 4 --oversubscribe task1_balance_c
+	mpirun -np 4 --oversubscribe task1_unbalance_c
 
 clean:
 	@rm -f alltoallv_c alltoallv_dt_c alltoallv_f alltoallv_multicomms_c alltoallv_bigcounts_c alltoall_demo alltoall_simple_c task1_c alltoall_c

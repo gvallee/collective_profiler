@@ -111,6 +111,11 @@ examples/alltoall_dt_c
 examples/alltoall_multicomms_c
 examples/alltoall_muticomms_c
 
+task1_bak
+
+
 # results files before approval are held in unchecked/
 tests/alltoall_*/*/unchecked/*
 examples/results_validation/*
+
+results*
