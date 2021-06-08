@@ -1,6 +1,6 @@
 #!/bin/sh -l
 # sbatch parameters following an example from the Internet at https://help.rc.ufl.edu/doc/Sample_SLURM_Scripts 
-#SBATCH --job-name=alltoall          # Job name
+#SBATCH --job-name=wrf-profile          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
 #SBATCH --nodes=4

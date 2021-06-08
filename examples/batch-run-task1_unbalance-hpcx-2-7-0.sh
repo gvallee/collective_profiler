@@ -1,6 +1,6 @@
 #!/bin/sh -l
 # sbatch parameters following an example from the Internet at https://help.rc.ufl.edu/doc/Sample_SLURM_Scripts 
-#SBATCH --job-name=alltoall          # Job name
+#SBATCH --job-name=task1_unbalance          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
 #SBATCH --nodes=4
@@ -28,14 +28,17 @@ export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challe
 # TODO - set modulefiles!!?
 module purge
 HNAME=$(hostname)
-spack load /l3s
 
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
+spack load gcc@11
+
+module load intel/2019u4  openmpi/4.0.1
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_unbalance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
+mkdir -p ${RESULTS_ROOT}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
 # TO DO put this in brackets to end and tee to file
@@ -109,7 +112,7 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_bak
+export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_unbalance
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
@@ -125,7 +128,7 @@ LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="-np 160 -map-by ppr:40:node -bind-to core "
+MPIFLAGS+="-np 160 -bind-to core "
 MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
