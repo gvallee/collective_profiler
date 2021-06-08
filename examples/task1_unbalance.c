@@ -80,38 +80,17 @@ int main(int argc, char* argv[])
                 buffer_send[i] = 1;
             printf("Process %d, my values = %d * 1MB.\n", my_rank, buffer_send[0]);
             break;
-        case 80:
-            for (int i = 0; i < buffer_send_length; ++i)
-                buffer_send[i] = 2;
-            printf("Process %d, my values = %d * 1MB.\n", my_rank, buffer_send[0]);
-            break;
-        case 120:
-            for (int i = 0; i < buffer_send_length; ++i)
-                buffer_send[i] = 3;
-            printf("Process %d, my values = %d * 1MB.\n", my_rank, buffer_send[0]);
-            break;
     }
  
     // Define my counts for sending (how many integers do I send to each process?)
     int *counts_send=(int *)calloc( 160,sizeof(int) );
-    switch(my_rank-my_rank%20)
+    switch(my_rank-my_rank%40)
     {
         case 0:
             counts_send[my_rank + 40] = 1024 * 1024 / 4;
-            counts_send[my_rank + 80] = 1024 * 1024 / 4;
             break;
         case 40:
-            counts_send[my_rank + 60] = 1024 * 1024 / 4;
-            counts_send[my_rank + 80] = 1024 * 1024 / 4;
-            break;
-        case 80:
-            counts_send[my_rank + 60] = 1024 * 1024 / 4;
-            counts_send[my_rank - 80] = 1024 * 1024 / 4;
-            break;
-        case 120:
-            counts_send[my_rank - 100] = 1024 * 1024 / 4;
-            counts_send[my_rank - 60] = 1024 * 1024 / 4;
-            break;
+            counts_send[my_rank - 40] = 1024 * 1024 / 4;
     }
  
     // Define my displacements for sending (where is located in the buffer each message to send?)
@@ -129,37 +108,18 @@ int main(int argc, char* argv[])
 
     // Define my counts for receiving (how many integers do I receive from each process?)
     int *counts_recv=(int*) calloc(160,sizeof(int));
-    switch (my_rank - my_rank % 20) {
+    switch (my_rank - my_rank % 40) {
     case 0:
-        counts_recv[my_rank + 80] = 1024 * 1024 / 4;
-        break;
-    case 20:
-        counts_recv[my_rank + 100] = 1024 * 1024 / 4;
+        counts_recv[my_rank + 40] = 1024 * 1024 / 4;
         break;
     case 40:
         counts_recv[my_rank - 40] = 1024 * 1024 / 4;
-        break;
-    case 60:
-        counts_recv[my_rank + 60] = 1024 * 1024 / 4;
-        break;
-    case 80:
-        counts_recv[my_rank - 80] = 1024 * 1024 / 4;
-        break;
-    case 100:
-        counts_recv[my_rank - 60] = 1024 * 1024 / 4;
-        break;
-    case 120:
-        counts_recv[my_rank - 80] = 1024 * 1024 / 4;
-        break;
-    case 140:
-        counts_recv[my_rank - 60] = 1024 * 1024 / 4;
-        break;
     }
 
     // Define my displacements for reception (where to store in buffer each message received?)
     int displacements_recv[1024 * 1024 / 4];
     for (int i = 0; i < 1024 * 1024 / 4; ++i)
-        displacements_recv[i]=0;
+        displacements_recv[i]=i;
  
     MPI_Alltoallv(buffer_send, counts_send, displacements_send, MPI_INT, buffer_recv, counts_recv, displacements_recv, MPI_INT, MPI_COMM_WORLD);
     

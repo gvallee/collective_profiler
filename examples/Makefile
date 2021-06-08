@@ -4,7 +4,7 @@
 # See LICENSE.txt for license information
 #
 
-all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c alltoall_demo alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c task1_c
+all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c alltoall_demo alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c task1_c task1_balance_c task1_unbalance_c
 
 alltoall_demo: alltoall_demo.c
 	mpicc -g alltoall_demo.c -o alltoall_demo
@@ -42,12 +42,12 @@ task1_c: task1.c
 task1_balance_c: task1_balance.c
 	mpicc -g task1_balance.c -o task1_balance_c
 
-task1_balance_c: task1_unbalance.c
-	mpicc -g task1_balance.c -o task1_balance_c
+task1_unbalance_c: task1_unbalance.c
+	mpicc -g task1_unbalance.c -o task1_unbalance_c
 
 test: task1_balance_c task1_balance_c
 	mpirun -np 4 --oversubscribe task1_balance_c
 	mpirun -np 4 --oversubscribe task1_unbalance_c
 
 clean:
-	@rm -f alltoallv_c alltoallv_dt_c alltoallv_f alltoallv_multicomms_c alltoallv_bigcounts_c alltoall_demo alltoall_simple_c task1_c alltoall_c
+	@rm -f alltoallv_c alltoallv_dt_c alltoallv_f alltoallv_multicomms_c alltoallv_bigcounts_c alltoall_demo alltoall_simple_c task1_c alltoall_c task1_unbalance_c task1_balance_c

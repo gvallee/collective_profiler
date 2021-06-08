@@ -11,7 +11,6 @@
  * this description.
  * 
  * It can be described as follows:
- * It can be described as follows:
  * - Process 0-19:
  *     - has 1MB integers to send, as follows, it sends:
  *         - to process 40-69: 20 * 1 MB
@@ -37,11 +36,11 @@
  * |   0   |  100  |  200  | |  300  |  400  |  500  | 
  * +-------+-------+-------+ +-------+-------+-------+ 
  *     |       |       |        |        |       
- *     |       |       |        |        |_________________________ 
+ *     |       |       |        |        |__________________________________
  *     |       |       |        |______________________________    | |     |
  *     |       |       |_____________________                  |   | |     |
  *     |       |_______________________      |                 |   | |     | 
- *     |_____|_________________|__  _| |     |
+ *     |_____________________________| |     |
  *                                     |     |                 |     |     | 
  *                                     |     |                 |     |     | 
  *                                 +-----+-----+           +-----+-----+-----+
@@ -54,12 +53,12 @@ int main(int argc, char* argv[])
 {
     MPI_Init(&argc, &argv);
  
-    // Get number of processes and check that 3 processes are used
+    // Get number of processes and check that 160 processes are used
     int size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     if(size != 160)
     {
-        printf("This application is meant to be run with 3 MPI processes.\n");
+        printf("This application is meant to be run with 160 MPI processes.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
  

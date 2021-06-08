@@ -32,9 +32,16 @@ HNAME=$(hostname)
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
-spack load gcc@11
+export HDF5=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/hdf5
+export PATH=$HDF5/bin:$PATH
+export LD_LIBRARY_PATH=$HDF5/lib:$LD_LIBRARY_PATH
+export INCLUDE=$HDF5/include:$INCLUDE
 
-module load intel/2019u4  openmpi/4.0.1
+## NetCDF
+export NETCDF=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/netcdf
+export PATH=$NETCDF/bin:$PATH
+export LD_LIBRARY_PATH=$NETCDF/lib:$LD_LIBRARY_PATH
+export INCLUDE=$NETCDF/include:$INCLUDE
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_balance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
@@ -115,7 +122,7 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_balance_c
+export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_bak
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
