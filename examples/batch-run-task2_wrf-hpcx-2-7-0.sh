@@ -29,9 +29,20 @@ export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challe
 module purge
 HNAME=$(hostname)
 
+module load NiaEnv/2019b
+module load intel/2019u4  openmpi/4.0.1
+#hdf5/1.10.5
+#module load netcdf/4.6.3
+
+ulimit -c unlimited
+ulimit -s unlimited
+
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
+ulimit -c unlimited
+ulimit -s unlimited
+
 export HDF5=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/hdf5
 export PATH=$HDF5/bin:$PATH
 export LD_LIBRARY_PATH=$HDF5/lib:$LD_LIBRARY_PATH
@@ -44,7 +55,7 @@ export LD_LIBRARY_PATH=$NETCDF/lib:$LD_LIBRARY_PATH
 export INCLUDE=$NETCDF/include:$INCLUDE
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_balance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
 # makes the results directory and somewhere to put results of post processing.
@@ -122,7 +133,7 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_bak
+export EXECUTABLE1=./wrf.exe
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
@@ -135,15 +146,16 @@ BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
 LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 
-MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
+MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=10 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="-np 160 -bind-to core "
+MPIFLAGS+="-np 160 -npernode 40 -bind-to core "
 MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
+cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/wrf_mpiomp
 MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD=$MAPFLAGS        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD=$BACKTRACEFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"

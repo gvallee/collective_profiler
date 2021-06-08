@@ -1,6 +1,6 @@
 #!/bin/sh -l
 # sbatch parameters following an example from the Internet at https://help.rc.ufl.edu/doc/Sample_SLURM_Scripts 
-#SBATCH --job-name=task1_unbalance          # Job name
+#SBATCH --job-name=gpaw-profile          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
 #SBATCH --nodes=4
@@ -29,17 +29,24 @@ export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challe
 module purge
 HNAME=$(hostname)
 
+module load NiaEnv/2019b
+module load intel/2019u4  openmpi/4.0.1
+#hdf5/1.10.5
+#module load netcdf/4.6.3
+
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
-spack load gcc@11
-
-module load intel/2019u4  openmpi/4.0.1
+ulimit -c unlimited
+ulimit -s unlimited
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task1_unbalance/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
-mkdir -p ${RESULTS_ROOT}
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_gpaw/run-at-${JOB_NOW}  #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
+
+# makes the results directory and somewhere to put results of post processing.
+mkdir -p "${RESULTS_ROOT}/analysis"
+mkdir -p "${RESULTS_ROOT}/ranks"
 
 # TO DO put this in brackets to end and tee to file
 # or accept current solution of copying the slurm log file to the results dir
@@ -112,7 +119,7 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/task1_unbalance_c
+export EXECUTABLE1=./wrf.exe
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
@@ -128,17 +135,18 @@ LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="-np 160 -bind-to core "
+MPIFLAGS+="-np 160 -npernode 40 -bind-to core "
 MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD=$MAPFLAGS        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD=$BACKTRACEFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x LD_PRELOAD=$A2ATIMINGFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[4]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/latetiming -x LD_PRELOAD=$LATETIMINGFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/wrf_mpiomp
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD=$MAPFLAGS:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD=$BACKTRACEFLAGS:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x LD_PRELOAD=$A2ATIMINGFLAGS:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+MPIRUN_COMMANDS[4]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/latetiming -x LD_PRELOAD=$LATETIMINGFLAGS:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 
 echo
 # TODO - some more of vars set above
