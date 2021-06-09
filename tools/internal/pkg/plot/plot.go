@@ -662,6 +662,39 @@ func CallData(dir string, outputDir string, leadRank int, callID int, hostMap ma
 
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
+//To do 2 heap map
+func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int]map[int]int, schema string) (string, string, error) {
+	return "_","_",runGnuplot(schema, outputDir)
+}
+func getWeight(SizeHeatMap map[int]map[int]int) (map[int]map[int]int){
+	commits := map[int]map[int]int{
+		1:{1: 3711,
+			2: 2138,
+			3: 1908,
+			4: 912},
+	}
+	return commits
+}
+
+
+func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int]int, weighted bool, schema string) (string, error) {
+	if len(SizeHeatMap) == 0 {
+		return "", fmt.Errorf("empty list of hosts")
+	}
+	var test  map[int]map[int]int
+	if weighted{
+		test = getWeight(SizeHeatMap)
+	}
+
+
+	pngFile, gnuplotScript,err := generateHeatDataFiles(dir, outputDir, test,schema)
+
+	if err != nil {
+		return "", fmt.Errorf("Gen-Graph Fail")
+	}
+
+	return pngFile, runGnuplot(gnuplotScript, outputDir)
+}
 
 // Avgs plots the average statistics gathered during the post-mortem analysis
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
