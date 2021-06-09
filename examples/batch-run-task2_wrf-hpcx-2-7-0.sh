@@ -7,7 +7,7 @@
 #SBATCH --ntasks=160                     
 #SBATCH --ntasks-per-node=40
 ##SBATCH --mem=128                          # Job memory request
-#SBATCH --time=00:20:00                     # Time limit hrs:min:sec
+#SBATCH --time=10:00:00                     # Time limit hrs:min:sec
 #SBATCH --output=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.out     # Standard output and error log
 #SBATCH --error=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.err
 #SBATCH -p compute                          # which section of the cluster 
@@ -146,7 +146,7 @@ BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
 LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 
-MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=10 "
+MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=8 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
 MPIFLAGS+="-np 160 -npernode 40 -bind-to core "
@@ -156,7 +156,7 @@ MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 "
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
 cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/wrf_mpiomp
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+# MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD=$MAPFLAGS        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD=$BACKTRACEFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x LD_PRELOAD=$A2ATIMINGFLAGS  $EXECUTABLE1 $EXECUTABLE1_PARAMS"

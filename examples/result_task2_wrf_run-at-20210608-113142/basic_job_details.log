@@ -1,0 +1,28 @@
+alltoallv sampling test script
+SCRIPT NAME             : slurm_script
+SCRIPT DIR              : /var/spool/slurm/slurmd/job5470522
+(the scheduler may have made a copy at a location other than the source)
+PROJECT_ROOT            : /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/
+RESULTS_ROOT            : /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler//examples/results_task2_wrf/run-at-20210608-113142
+HOSTNAME                : nia1765.scinet.local
+USER                    : lcl_uotiscsccs1034
+JOB_NOW                 : 20210608-113142
+(note that this the local time on the cluster, so California time)
+which mpirun            : /scinet/niagara/software/2019b/opt/intel-2019u4/openmpi/4.0.1-hpcx2.5/bin/mpirun
+mpirun --version ...
+mpirun (Open MPI) 4.0.1
+
+Report bugs to http://www.open-mpi.org/community/help/
+module list ...
+
+Currently Loaded Modules:
+  1) NiaEnv/2019b   2) intel/2019u4   3) openmpi/4.0.1
+
+ 
+
+spack env status ...
+==> No active environment
+EXECUTABLE1             : ./wrf.exe
+EXECUTABLE1_PARAMS      : 
+MPIFLAGS                : --mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=10 -x A2A_PROFILING_OUTPUT_DIR -x LD_LIBRARY_PATH -np 160 -npernode 40 -bind-to core --mca pml_base_verbose 100 --mca btl_base_verbose 100 
+A2A_PROFILING_OUTPUT_DIR: /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler//examples/results_task2_wrf/run-at-20210608-113142

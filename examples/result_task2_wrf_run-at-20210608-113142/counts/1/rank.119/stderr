@@ -1,0 +1,27 @@
+[nia1972.scinet.local:417591] mca: base: components_register: registering framework btl components
+[nia1972.scinet.local:417591] mca: base: components_register: found loaded component self
+[nia1972.scinet.local:417591] mca: base: components_register: component self register function successful
+[nia1972.scinet.local:417591] mca: base: components_open: opening btl components
+[nia1972.scinet.local:417591] mca: base: components_open: found loaded component self
+[nia1972.scinet.local:417591] mca: base: components_open: component self open function successful
+[nia1972.scinet.local:417591] select: initializing btl component self
+[nia1972.scinet.local:417591] select: init of component self returned success
+[nia1972.scinet.local:417591] mca: base: components_register: registering framework pml components
+[nia1972.scinet.local:417591] mca: base: components_register: found loaded component ucx
+[nia1972.scinet.local:417591] mca: base: components_register: component ucx register function successful
+[nia1972.scinet.local:417591] mca: base: components_open: opening pml components
+[nia1972.scinet.local:417591] mca: base: components_open: found loaded component ucx
+[nia1972.scinet.local:417591] mca: base: components_open: component ucx open function successful
+[nia1972.scinet.local:417591] select: initializing pml component ucx
+[nia1972.scinet.local:417591] select: init returned priority 51
+[nia1972.scinet.local:417591] selected ucx best priority 51
+[nia1972.scinet.local:417591] select: component ucx selected
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+[nia1972.scinet.local:417591] check:select: modex not reqd
+ starting wrf task          119  of          160

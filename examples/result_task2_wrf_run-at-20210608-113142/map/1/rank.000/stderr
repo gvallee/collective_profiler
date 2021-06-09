@@ -1,0 +1,22 @@
+[nia1765.scinet.local:368138] mca: base: components_register: registering framework btl components
+[nia1765.scinet.local:368138] mca: base: components_register: found loaded component self
+[nia1765.scinet.local:368138] mca: base: components_register: component self register function successful
+[nia1765.scinet.local:368138] mca: base: components_open: opening btl components
+[nia1765.scinet.local:368138] mca: base: components_open: found loaded component self
+[nia1765.scinet.local:368138] mca: base: components_open: component self open function successful
+[nia1765.scinet.local:368138] select: initializing btl component self
+[nia1765.scinet.local:368138] select: init of component self returned success
+[nia1765.scinet.local:368138] mca: base: components_register: registering framework pml components
+[nia1765.scinet.local:368138] mca: base: components_register: found loaded component ucx
+[nia1765.scinet.local:368138] mca: base: components_register: component ucx register function successful
+[nia1765.scinet.local:368138] mca: base: components_open: opening pml components
+[nia1765.scinet.local:368138] mca: base: components_open: found loaded component ucx
+[nia1765.scinet.local:368138] mca: base: components_open: component ucx open function successful
+[nia1765.scinet.local:368138] select: initializing pml component ucx
+[nia1765.scinet.local:368138] select: init returned priority 51
+[nia1765.scinet.local:368138] selected ucx best priority 51
+[nia1765.scinet.local:368138] select: component ucx selected
+[nia1765.scinet.local:368138] check:select: modex not reqd
+[nia1765.scinet.local:368138] check:select: modex not reqd
+[nia1765.scinet.local:368138] check:select: modex not reqd
+ starting wrf task            0  of          160
