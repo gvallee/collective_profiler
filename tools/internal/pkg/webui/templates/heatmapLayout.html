@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<html>
+
+<head>
+  <style>
+    .body {
+      overflow: hidden;
+    }
+
+    .selected {
+      background: lightgreen;
+    }
+
+    table.CallList {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th.callList,
+    td.callList {
+      font-size: 12px;
+      text-align: left;
+      padding: 8px;
+    }
+
+    tr.callList:nth-child(odd) {
+      background-color: Lightskyblue;
+    }
+
+    div.callList {
+      max-width: 200px;
+      margin: auto;
+      min-height: 800px;
+      float: left;
+      border: 1px solid black;
+      overflow-y: scroll;
+    }
+
+    div.callDetails {
+      max-width: 600px;
+      margin: auto;
+      min-height: 800px;
+      display: inline-block;
+      position: relative;
+      margin: 0;
+      position: sticky;
+      top: 0;
+    }
+
+    td.callDetails {
+      vertical-align: top;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+<h1>Profile: {{ .PageTitle }}</h1>
+<div class="mainPanel">
+  <div class="callList">
+    <table class="callList" id="callListTable">
+      <tr>
+        <th>Communicator</th>
+        <th>Call</th>
+      </tr>
+      {{range .Calls}}
+      {{ $leadRank := .LeadRank }}
+      {{range $callID, $callData := .CallData}}
+      <tr class="callList">
+        <td class="callList" id="leadRank">{{ $leadRank}}</td>
+        <td class="callList" id="callID">{{ $callID }}</td>
+      </tr>
+      {{end}}
+      {{end}}
+    </table>
+  </div>
+</div>
+<div class="callDetails">
+  <table>
+    <tr>
+      <td class="callDetails">
+        <div class="callDetails">
+          <table id="callInfo">
+
+          </table>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+<script type="text/javascript">
+  function highlight(e) {
+
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+          document.getElementById("callInfo").innerHTML = xhr.responseText;
+        }
+      }
+      xhr.open("GET", "/heat" );
+      xhr.send();
+    }
+  }
+
+  var table = document.getElementById('callListTable');
+  table.onclick = highlight;
+</script>
+</body>
+
+</html>

@@ -103,6 +103,8 @@ type Config struct {
 	patternsTemplatePath string
 	callTemplatePath     string
 	stopTemplatePath     string
+	heatmapTemplatePath  string
+	heatTemplatePath     string
 }
 
 const (
@@ -127,8 +129,8 @@ func allDataAvailable(collectiveName string, dir string, leadRank int, commID in
 		return false
 	}
 
-	lateArrivalTimingFilePath := timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID)
-	execTimingFilePath := timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID)
+	lateArrivalTimingFilePath := filepath.Join(dir,timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID))
+	execTimingFilePath :=  filepath.Join(dir, timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID))
 
 	if !util.PathExists(execTimingFilePath) {
 		log.Printf("%s is missing!\n", execTimingFilePath)
@@ -195,6 +197,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 
 	// Make sure the graph is ready
 	if !plot.CallFilesExist(c.DatasetDir, leadRank, callID) {
+		fmt.Print(c.DatasetDir)
 		if allDataAvailable(c.collectiveName, c.DatasetDir, leadRank, c.commID, jobID, callID) {
 			if c.callsSendHeatMap[leadRank] == nil {
 				sendHeatMapFilename := maps.GetSendCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
@@ -216,14 +219,14 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				c.callsRecvHeatMap[leadRank] = recvHeatMap
 			}
 
-			execTimingsFile := timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID)
+			execTimingsFile := filepath.Join(c.DatasetDir,timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
 			}
 			callExecTimings := execTimings[callID]
 
-			lateArrivalFile := timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID)
+			lateArrivalFile := filepath.Join(c.DatasetDir,timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
@@ -235,7 +238,11 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsRecvHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
+			// Debug
+			fmt.Print(c.callsSendHeatMap[leadRank][callID],c.callsSendHeatMap[leadRank][callID])
+
+			//pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
+			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][0], c.callsSendHeatMap[leadRank][0], callExecTimings, callLateArrivalTimings)
 			if err != nil {
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -466,6 +473,8 @@ func Init() *Config {
 	cfg.indexTemplatePath = cfg.getTemplateFilePath("index")
 	cfg.callsTemplatePath = cfg.getTemplateFilePath("callsLayout")
 	cfg.callTemplatePath = cfg.getTemplateFilePath("callDetails")
+	cfg.heatmapTemplatePath = cfg.getTemplateFilePath("heatmapLayout")
+	cfg.heatTemplatePath = cfg.getTemplateFilePath("heatDetails")
 	cfg.stopTemplatePath = cfg.getTemplateFilePath("bye")
 	cfg.patternsTemplatePath = cfg.getTemplateFilePath("patterns")
 	return cfg
@@ -483,6 +492,16 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 func (s *server) calls(w http.ResponseWriter, r *http.Request) {
 	s.cfg.serviceCallsRequest(w, r)
 	s.callsTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
+}
+
+func (s *server) heatmap(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceCallsRequest(w, r)
+	s.callsTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
+}
+
+func (s *server) heat(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceCallDetailsRequest(w, r)
+	s.callsTemplate.Execute(w, s.cfg.cpd /*s.cfg*/)
 }
 
 func (s *server) call(w http.ResponseWriter, r *http.Request) {
@@ -509,6 +528,7 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/call", s.call)
 	s.mux.HandleFunc("/patterns", s.patterns)
 	s.mux.HandleFunc("/stop", s.stop)
+	s.mux.HandleFunc("/heatmap", s.heatmap)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
 }
