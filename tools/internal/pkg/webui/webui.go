@@ -60,6 +60,10 @@ type heapPageData struct {
 	PlotPath  string
 }
 
+type HeatMapData struct{
+	PlotPath string
+}
+
 type server struct {
 	mux              *http.ServeMux
 	cfg              *Config
@@ -69,6 +73,7 @@ type server struct {
 	patternsTemplate *template.Template
 	stopTemplate     *template.Template
 }
+
 
 // Config represents the configuration of a webUI
 type Config struct {
@@ -107,7 +112,7 @@ type Config struct {
 	totalLateArrivalTimes map[int]float64
 
 	mainData callsPageData
-	heapData HeatMap
+	heapData HeatMapData
 	cpd      callPageData
 	psd      patternsSummaryData
 	hsd      heapPageData

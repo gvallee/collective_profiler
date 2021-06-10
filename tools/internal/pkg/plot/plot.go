@@ -663,31 +663,77 @@ func CallData(dir string, outputDir string, leadRank int, callID int, hostMap ma
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
 //To do 2 heap map
-func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int]map[int]int, schema string) (string, string, error) {
+func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int][]int, schema string) (string, string, error) {
 	return "_","_",runGnuplot(schema, outputDir)
 }
-func getWeight(SizeHeatMap map[int]map[int]int) (map[int]map[int]int){
-	commits := map[int]map[int]int{
-		1:{1: 3711,
-			2: 2138,
-			3: 1908,
-			4: 912},
+
+// Element is a TopK item
+type Element struct {
+	Key   [10][]int
+	Count int
+	CurrentSum int
+}
+
+func getSum(arr[]int)int{
+	var sum int
+	for _,val := range arr{
+		sum+=val
 	}
-	return commits
+	return sum
 }
 
 
-func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int]int, weighted bool, schema string) (string, error) {
+//Top-k getWeight
+func  getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
+	commits := make(map [int][]int)
+	var k Element
+	for _, temp_map := range SizeHeatMap{
+		for _, inner_map := range temp_map{
+			k.checkSame(inner_map)
+		}
+	}
+	for i, item:= range k.Key{
+		commits[i]=item
+	}
+
+	return commits
+}
+func (k *Element) checkSame(arr []int) bool{
+	//check the sum of item is lower than the last one
+	if getSum(arr) < k.CurrentSum{
+		return false
+	}
+
+	// check whether the item is all locate in the Element k, O3
+	for index, eles :=range k.Key {
+		for i,item:= range arr{
+			if item!=eles[i]{
+				if k.Count<10{
+					k.Key[k.Count]=arr
+					k.Count++
+				} else{
+					if getSum(eles)<getSum(arr){
+						k.Key[index]=arr
+					}
+				}
+			}
+		}
+	}
+	return true
+}
+
+
+func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, weighted bool, schema string) (string, error) {
 	if len(SizeHeatMap) == 0 {
 		return "", fmt.Errorf("empty list of hosts")
 	}
-	var test  map[int]map[int]int
+	var test  map[int][]int
 	if weighted{
 		test = getWeight(SizeHeatMap)
 	}
 
 
-	pngFile, gnuplotScript,err := generateHeatDataFiles(dir, outputDir, test,schema)
+	pngFile, gnuplotScript,err := generateHeatDataFiles(dir, outputDir, test ,schema)
 
 	if err != nil {
 		return "", fmt.Errorf("Gen-Graph Fail")
