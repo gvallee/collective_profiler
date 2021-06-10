@@ -689,40 +689,83 @@ func  getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
 	var k Element
 	for _, temp_map := range SizeHeatMap{
 		for _, inner_map := range temp_map{
-			k.checkSame(inner_map)
+ 			k.checkSame(inner_map)
 		}
 	}
-	for i, item:= range k.Key{
-		commits[i]=item
+	// Map from sum to item
+	for _, item:= range k.Key{
+		if item!=nil{
+			commits[getSum(item)] = item
+		}
 	}
 
 	return commits
 }
+
+func checkSame(arr1 []int,arr2 []int) bool{
+	if len(arr2)!=len(arr1){
+		return false
+	}
+	for index,eles:=range arr1{
+		if eles!= arr2[index]{
+			return false
+		}
+	}
+	return true
+}
+
 func (k *Element) checkSame(arr []int) bool{
 	//check the sum of item is lower than the last one
-	if getSum(arr) < k.CurrentSum{
+	if getSum(arr) < k.CurrentSum && k.Count==10{
 		return false
+	}
+	var test = len(arr)
+	var i int
+	if k.Key[0]==nil{
+		for i=0;i<test;i++ {
+			k.Key[0]= append(k.Key[0],0)
+		}
+	}
+	var get_diff = 0
+	for _,eles := range k.Key{
+		if checkSame(arr,eles){
+			get_diff = 1
+		}
 	}
 
 	// check whether the item is all locate in the Element k, O3
+	// check the item can be the same with one array
 	for index, eles :=range k.Key {
-		for i,item:= range arr{
-			if item!=eles[i]{
-				if k.Count<10{
-					k.Key[k.Count]=arr
-					k.Count++
-				} else{
-					if getSum(eles)<getSum(arr){
-						k.Key[index]=arr
+	array_count :=0
+		for i,item := range arr{
+			if item!=eles[i] && array_count<len(arr){
+				if get_diff==0 {
+					if k.Count < 10 {
+						k.Key[k.Count] = arr
+						k.Count++
+						if k.CurrentSum > getSum(arr) || k.Count == 1 {
+							k.CurrentSum = getSum(arr)
+						}
+						return true
+					} else {
+						if getSum(eles) < getSum(arr) {
+							k.Key[index] = arr
+						}
+						return true
 					}
 				}
+			} else {
+				if array_count==len(arr)-1{
+					return false
+				}
+				array_count++
 			}
 		}
 	}
 	return true
 }
 
-
+// HeatData the Backend for the heat part
 func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, weighted bool, schema string) (string, error) {
 	if len(SizeHeatMap) == 0 {
 		return "", fmt.Errorf("empty list of hosts")
