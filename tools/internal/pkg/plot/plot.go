@@ -662,8 +662,19 @@ func CallData(dir string, outputDir string, leadRank int, callID int, hostMap ma
 
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
-//To do 2 heap map
+
+// generateHeatDataFiles aims to make the different kind of distribution(Task 5) for the map
 func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int][]int, schema string) (string, string, error) {
+	if schema == "linear" {
+
+	} else if schema == "logarithmic distribution" {
+
+	} else if schema == "shanghaitech distribution" {
+		
+	}
+
+
+
 	return "_","_",runGnuplot(schema, outputDir)
 }
 
@@ -684,7 +695,7 @@ func getSum(arr[]int)int{
 
 
 //Top-k getWeight
-func  getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
+func getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
 	commits := make(map [int][]int)
 	var k Element
 	for _, temp_map := range SizeHeatMap{
@@ -698,6 +709,21 @@ func  getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
 			commits[getSum(item)] = item
 		}
 	}
+
+	return commits
+}
+
+//cell(x,y)<-Sum{Wi*Ti(xj,yk)}
+func getWeightedMap(SizeHeatMap map[int]map[int][]int)map[int][]int{
+	commits := make(map [int][]int)
+	for i,outer_map :=range SizeHeatMap{
+	  for j,temp_map := range SizeHeatMap {
+		for k, inner_map := range temp_map {
+			commits[j][k] += inner_map[k] * outer_map[i][k]
+		}
+	  }
+	}
+
 
 	return commits
 }
@@ -772,6 +798,8 @@ func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, w
 	}
 	var test  map[int][]int
 	if weighted{
+		test = getWeightedMap(SizeHeatMap)
+	} else {
 		test = getWeight(SizeHeatMap)
 	}
 
@@ -784,6 +812,7 @@ func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, w
 
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
+
 
 // Avgs plots the average statistics gathered during the post-mortem analysis
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
