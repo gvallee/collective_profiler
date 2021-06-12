@@ -667,12 +667,11 @@ func CallData(dir string, outputDir string, leadRank int, callID int, hostMap ma
 func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int][]int, schema string) (string, string, error) {
 	if schema == "linear" {
 
-	} else if schema == "logarithmic distribution" {
+	} else if schema == "logarithmic" {
 
-	} else if schema == "shanghaitech distribution" {
-		
+	} else if schema == "shanghaitech" {
+
 	}
-
 
 
 	return "_","_",runGnuplot(schema, outputDir)
@@ -814,6 +813,7 @@ func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, w
 }
 
 
+
 // Avgs plots the average statistics gathered during the post-mortem analysis
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
 	gnuplotScript, err := generateAvgsDataFiles(dir, outputDir, hostMap, avgSendHeatMap, avgRecvHeatMap, avgExecTimeMap, avgLateArrivalTimeMap)
@@ -823,3 +823,4 @@ func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, 
 
 	return runGnuplot(gnuplotScript, outputDir)
 }
+
