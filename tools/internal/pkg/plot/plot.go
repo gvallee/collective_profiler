@@ -216,31 +216,44 @@ func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) 
 	for _, rank := range ranks {
 		d.sendRankBW[rank] = float64(d.sendHeatMap[rank]) / d.execTimeMap[rank]
 		d.recvRankBW[rank] = float64(d.recvHeatMap[rank]) / d.execTimeMap[rank]
-		scaledSendRankBWUnit, scaledSendRankBW, err := scale.MapFloat64s("B/s", d.sendRankBW)
-		if err != nil {
-			return err
+
+		// If the average is different from 0, we try to scale it and hope that the scale
+		// will match what we already have for other values. If not, we fail, we have no
+		// mechanism to put various data to the same scale at the moment.
+		// So, before starting to do some calculation, we assume the following default values
+		// which are used when the average is equal to 0:
+		// - the scaled BW is equal to non-scaled BW
+		// - the unit is the one previous detected (by default the average is assumed to be
+		// 	 equal to 0 so it does not matter)
+
+		scaledSendRankBW := d.sendRankBW
+		if d.sendRankBW[rank] != 0 {
+			scaledSendRankBWUnit := d.sBWUnit
+			scaledSendRankBWUnit, scaledSendRankBW, err = scale.MapFloat64s("B/s", d.sendRankBW)
+			if err != nil {
+				return err
+			}
+			if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
+				return fmt.Errorf("detected different scales for BW send data: %s vs. %s", d.sBWUnit, scaledSendRankBWUnit)
+			}
+			if d.sBWUnit == "" {
+				d.sBWUnit = scaledSendRankBWUnit
+			}
 		}
-		scaledRecvRankBWUnit, scaledRecvRankBW, err := scale.MapFloat64s("B/s", d.recvRankBW)
-		if err != nil {
-			return err
-		}
-		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
-		}
-		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
-		}
-		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
-		}
-		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
-		}
-		if d.sBWUnit == "" {
-			d.sBWUnit = scaledSendRankBWUnit
-		}
-		if d.rBWUnit == "" {
-			d.rBWUnit = scaledRecvRankBWUnit
+
+		scaledRecvRankBW := d.recvRankBW
+		if d.recvRankBW[rank] != 0 {
+			scaledRecvRankBWUnit := d.rBWUnit
+			scaledRecvRankBWUnit, scaledRecvRankBW, err = scale.MapFloat64s("B/s", d.recvRankBW)
+			if err != nil {
+				return err
+			}
+			if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
+				return fmt.Errorf("detected different scales for BW recv data: %s vs. %s", d.rBWUnit, scaledRecvRankBWUnit)
+			}
+			if d.rBWUnit == "" {
+				d.rBWUnit = scaledRecvRankBWUnit
+			}
 		}
 
 		_, d.values = getMax(d.maxValue, d.values, rank, d.sendScaledHeatMap, d.recvScaledHeatMap, d.execScaledTimeMap, d.lateArrivalScaledTimeMap, scaledSendRankBW[rank], scaledRecvRankBW[rank])
@@ -279,6 +292,7 @@ func (d *plotData) generateHostAvgs(hostname string) error {
 	for _, rank := range ranks {
 		d.sendRankBW[rank] = float64(d.avgSendHeatMap[rank]) / d.avgExecTimeMap[rank]
 		d.recvRankBW[rank] = float64(d.avgRecvHeatMap[rank]) / d.avgExecTimeMap[rank]
+
 		var scaledSendRankBWUnit string
 		var scaledRecvRankBWUnit string
 		scaledSendRankBWUnit, scaledSendBW, err := scale.Float64s("B/s", []float64{d.sendRankBW[rank]})
@@ -291,17 +305,32 @@ func (d *plotData) generateHostAvgs(hostname string) error {
 			return err
 		}
 		d.scaledRecvRankBW[rank] = scaledRecvBW[0]
-		if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
+
+		// If the average is different from 0, we try to scale it and hope that the scale
+		// will match what we already have for other values. If not, we fail, we have no
+		// mechanism to put various data to the same scale at the moment.
+		// So, before starting to do some calculation, we assume the following default values
+		// which are used when the average is equal to 0:
+		// - the scaled BW is equal to non-scaled BW
+		// - the unit is the one previous detected (by default the average is assumed to be
+		// 	 equal to 0 so it does not matter)
+
+		if d.sendRankBW[rank] != 0 {
+			if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
+				return fmt.Errorf("detected different scales for BW data")
+			}
+			if d.sBWUnit == "" {
+				d.sBWUnit = scaledSendRankBWUnit
+			}
 		}
-		if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
-			return fmt.Errorf("detected different scales for BW data")
-		}
-		if d.sBWUnit == "" {
-			d.sBWUnit = scaledSendRankBWUnit
-		}
-		if d.rBWUnit == "" {
-			d.rBWUnit = scaledRecvRankBWUnit
+
+		if d.recvRankBW[rank] != 0 {
+			if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
+				return fmt.Errorf("detected different scales for BW data")
+			}
+			if d.rBWUnit == "" {
+				d.rBWUnit = scaledRecvRankBWUnit
+			}
 		}
 
 		_, d.values = getMax(d.maxValue, d.values, rank, d.avgSendScaledHeatMap, d.avgRecvScaledHeatMap, d.avgExecScaledTimeMap, d.avgLateArrivalScaledTimeMap, d.sendRankBW[rank], d.recvRankBW[rank])
@@ -512,7 +541,7 @@ func write(fd *os.File, dataFiles []string, numRanks int, maxValue int, hosts []
 	if err != nil {
 		return err
 	}
-	_, err = fd.WriteString(fmt.Sprintf("set yrange [0:1000]\n"))
+	_, err = fd.WriteString("set yrange [0:1000]\n")
 	if err != nil {
 		return err
 	}
