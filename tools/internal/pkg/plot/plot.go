@@ -225,16 +225,17 @@ func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) 
 		// - the scaled BW is equal to non-scaled BW
 		// - the unit is the one previous detected (by default the average is assumed to be
 		// 	 equal to 0 so it does not matter)
+		// Also note that if the rank is not in the communicator, the value is set to 'NaN'
 
 		scaledSendRankBW := d.sendRankBW
-		if d.sendRankBW[rank] != 0 {
+		if d.sendRankBW[rank] != 0 && !math.IsNaN(d.sendRankBW[rank]) {
 			scaledSendRankBWUnit := d.sBWUnit
 			scaledSendRankBWUnit, scaledSendRankBW, err = scale.MapFloat64s("B/s", d.sendRankBW)
 			if err != nil {
 				return err
 			}
 			if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
-				return fmt.Errorf("detected different scales for BW send data: %s vs. %s", d.sBWUnit, scaledSendRankBWUnit)
+				return fmt.Errorf("detected different scales for BW send data: %s vs. %s (rank=%d, value=%f)", d.sBWUnit, scaledSendRankBWUnit, rank, d.sendRankBW[rank])
 			}
 			if d.sBWUnit == "" {
 				d.sBWUnit = scaledSendRankBWUnit
@@ -242,14 +243,14 @@ func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) 
 		}
 
 		scaledRecvRankBW := d.recvRankBW
-		if d.recvRankBW[rank] != 0 {
+		if d.recvRankBW[rank] != 0 && !math.IsNaN(d.recvRankBW[rank]) {
 			scaledRecvRankBWUnit := d.rBWUnit
 			scaledRecvRankBWUnit, scaledRecvRankBW, err = scale.MapFloat64s("B/s", d.recvRankBW)
 			if err != nil {
 				return err
 			}
 			if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
-				return fmt.Errorf("detected different scales for BW recv data: %s vs. %s", d.rBWUnit, scaledRecvRankBWUnit)
+				return fmt.Errorf("detected different scales for BW recv data: %s vs. %s (rank=%d, value=%f)", d.rBWUnit, scaledRecvRankBWUnit, rank, d.recvRankBW[rank])
 			}
 			if d.rBWUnit == "" {
 				d.rBWUnit = scaledRecvRankBWUnit
@@ -314,8 +315,9 @@ func (d *plotData) generateHostAvgs(hostname string) error {
 		// - the scaled BW is equal to non-scaled BW
 		// - the unit is the one previous detected (by default the average is assumed to be
 		// 	 equal to 0 so it does not matter)
+		// Also note that if the rank is not in the communicator, the value is set to 'NaN'
 
-		if d.sendRankBW[rank] != 0 {
+		if d.sendRankBW[rank] != 0 && !math.IsNaN(d.sendRankBW[rank]) {
 			if d.sBWUnit != "" && d.sBWUnit != scaledSendRankBWUnit {
 				return fmt.Errorf("detected different scales for BW data")
 			}
@@ -324,7 +326,7 @@ func (d *plotData) generateHostAvgs(hostname string) error {
 			}
 		}
 
-		if d.recvRankBW[rank] != 0 {
+		if d.recvRankBW[rank] != 0 && !math.IsNaN(d.recvRankBW[rank]) {
 			if d.rBWUnit != "" && d.rBWUnit != scaledRecvRankBWUnit {
 				return fmt.Errorf("detected different scales for BW data")
 			}
