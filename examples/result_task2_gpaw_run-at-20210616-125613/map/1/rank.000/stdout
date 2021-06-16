@@ -1,0 +1,10 @@
+############################################################
+GPAW benchmark: Copper Filament
+  dimensions: x=2, y=2, z=4
+  grid spacing: h=0.220000
+  Brillouin-zone sampling: kpts=(1, 1, 8)
+  MPI tasks: 160
+############################################################
+
+output_M_160.txt
+Free energy: -302.7928233554465
