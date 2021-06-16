@@ -3,11 +3,11 @@
 #SBATCH --job-name=gpaw-profile          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
-#SBATCH -N 4
-#SBATCH --cpus-per-task=1
+#SBATCH --nodes=4
+#SBATCH --ntasks=160                     
 #SBATCH --ntasks-per-node=40
 ##SBATCH --mem=128                          # Job memory request
-#SBATCH --time=03:00:00                     # Time limit hrs:min:sec
+#SBATCH --time=01:00:00                     # Time limit hrs:min:sec
 #SBATCH --output=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.out     # Standard output and error log
 #SBATCH --error=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.err
 #SBATCH -p compute                          # which section of the cluster 
@@ -29,16 +29,17 @@ export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challe
 module purge
 HNAME=$(hostname)
 
-module load python/3.8.5
-spack load /aeq
-spack load /u3d
-spack load /zjk
-
 #hdf5/1.10.5
 #module load netcdf/4.6.3
-spack load gcc@11
+module load python/3.8.5
 
-module load intel/2019u4  openmpi/4.0.1
+spack load /aeq
+
+# spack load /u3d
+
+spack load /zjk
+
+
 
 # should not need this - no environment variable means no spack modules loaded
 # which spack
@@ -138,24 +139,26 @@ BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
 LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 
-# export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so:/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so"
-
-MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
+MPIFLAGS="-x OMP_NUM_THREADS=2 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="-np 160 -npernode 40 -bind-to core "
-MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
+MPIFLAGS+="-np 40 -npernode 40 -bind-to core --mca btl tcp,vader,self  "
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 export PATH=$PATH:/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/gpaw_install/bin/
 
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
-cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/gpaw/gpaw-isc-2021/input-files
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x PATH -x LD_PRELOAD=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so:$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x PATH -x LD_PRELOAD=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so:$MAPFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x PATH -x LD_PRELOAD=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so:$BACKTRACEFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x PATH -x LD_PRELOAD=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so:$A2ATIMINGFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
-MPIRUN_COMMANDS[4]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/latetiming -x PATH -x LD_PRELOAD=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/nonspack/elpa-2021.05.001.rc2/install/lib/libelpa_openmp.so:$LATETIMINGFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/gpaw/gpaw-isc-2021/input-files/
+export LD_PRELOAD="$COUNTSFLAGS /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so"
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD     $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+export LD_PRELOAD="$MAPFLAGS /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so"
+MPIRUN_COMMANDS[1]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/map        -x LD_PRELOAD        $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+export LD_PRELOAD="$BACKTRACEFLAGS /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so"
+MPIRUN_COMMANDS[2]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/backtrace  -x LD_PRELOAD  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+export LD_PRELOAD="$A2ATIMINGFLAGS /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so"
+MPIRUN_COMMANDS[3]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/a2atiming  -x LD_PRELOAD  $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+export LD_PRELOAD="$LATETIMINGFLAGS /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/spack/opt/spack/linux-centos7-skylake_avx512/gcc-11.1.0/openmpi-4.0.5-zjksx5cocpadqcrahk2vy3op3vzjaf62/lib/libmpi.so"
+MPIRUN_COMMANDS[4]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/latetiming -x LD_PRELOAD $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 
 echo
 # TODO - some more of vars set above
@@ -248,4 +251,4 @@ echo "you can see the results at $RESULTS_ROOT"
 echo
 echo "========================================================="
 echo "            END: This is the batch script" 
-echo "=========================================================""
+echo "========================================================="
