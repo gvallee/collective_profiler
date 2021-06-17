@@ -28,7 +28,7 @@ def get_result():
         map_set = temp_file.read().replace("Send datatype size: 1","").replace("Recv datatype size: 1","").replace("Comm size: 160","").replace("Send counts","").replace("Recv counts","").replace("\n","").split(" ")[0:-1]
         for i in range(len(map_set)/2):
             if map_set[i] != 0:
-
+                pass
         # get the pattern communicate.
         temp_file.close()
 
@@ -74,7 +74,3 @@ def write_rank(nodelist):
 #print(get_nodeinfo()[0][0])
 if has_rank(get_nodeinfo()[0][0]):
     write_rank(get_nodeinfo())
-map_dict = sorted(get_result())
-
-for i in range(10):
-    

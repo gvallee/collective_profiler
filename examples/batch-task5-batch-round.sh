@@ -135,7 +135,8 @@ EOF
 # full path? (which below help ldd find executable)
 export EXECUTABLE1=./wrf.exe
 export EXECUTABLE1_PARAMS=""
-
+cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/
+python ./wrf-autotuning.py
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
@@ -149,7 +150,7 @@ LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=10 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 --rankfile /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/rank " 
+MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
 # the mpirun commands
@@ -219,6 +220,9 @@ echo
         do
         echo "mpirun command will be: $MPIRUN_COMMAND"
         $MPIRUN_COMMAND
+        cd -
+        python ./wrf-autotuning.py
+        cd -
         echo "... end of that mpirun"
     done
 #} > >( tee ${RESULTS_ROOT}/mpirun.stdout.log ); } \
