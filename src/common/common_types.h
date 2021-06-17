@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <zlib.h>
 
 #ifndef _COLLECTIVE_PROFILER_COMMON_TYPES_H
 #define _COLLECTIVE_PROFILER_COMMON_TYPES_H
