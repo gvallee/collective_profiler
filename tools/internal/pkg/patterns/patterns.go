@@ -25,6 +25,7 @@ import (
 const (
 	// SummaryFilePrefix is the prefix of all the pattern summary files
 	SummaryFilePrefix = "patterns-summary-"
+	CountFilePrefix = "counts."
 )
 
 type CallData struct {

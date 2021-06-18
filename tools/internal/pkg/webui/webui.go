@@ -9,16 +9,6 @@ package webui
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
-	"sync"
-	"text/template"
-
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
@@ -30,6 +20,15 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"text/template"
 )
 
 type callsPageData struct {
@@ -44,13 +43,22 @@ type callPageData struct {
 	PlotPath  string
 }
 
+type jsonPageData struct {
+	LeadRank  int
+	CallID    int
+	Kth       int
+	Dis       string
+	HeatMap   map[int][][]int
+	CallsData []counts.CommDataT
+}
+
 type patternsSummaryData struct {
 	Content string
 }
 
 type HeapMapData struct {
 	Content string
-	Calls     []counts.CommDataT
+	Calls   []counts.CommDataT
 }
 
 type heapPageData struct {
@@ -60,7 +68,7 @@ type heapPageData struct {
 	PlotPath  string
 }
 
-type HeatMapData struct{
+type HeatMapData struct {
 	PlotPath string
 }
 
@@ -70,10 +78,11 @@ type server struct {
 	indexTemplate    *template.Template
 	callsTemplate    *template.Template
 	callTemplate     *template.Template
+	heatmapTemplate  *template.Template
+	heatTemplate     *template.Template
 	patternsTemplate *template.Template
 	stopTemplate     *template.Template
 }
-
 
 // Config represents the configuration of a webUI
 type Config struct {
@@ -104,6 +113,10 @@ type Config struct {
 	// The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value a map with the key being a rank and the value its ordered counts
 	callsRecvHeatMap map[int]map[int]map[int]int
 
+	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
+	jsonSendHeetMap  map[int][][]int
+	jsonRecvHeetMap  map[int][][]int
+
 	globalSendHeatMap     map[int]int
 	globalRecvHeatMap     map[int]int
 	rankNumCallsMap       map[int]int
@@ -114,9 +127,9 @@ type Config struct {
 	mainData callsPageData
 	heapData HeatMapData
 	cpd      callPageData
+	jpd      jsonPageData
 	psd      patternsSummaryData
 	hsd      heapPageData
-
 
 	indexTemplatePath    string
 	callsTemplatePath    string
@@ -149,8 +162,8 @@ func allDataAvailable(collectiveName string, dir string, leadRank int, commID in
 		return false
 	}
 
-	lateArrivalTimingFilePath := filepath.Join(dir,timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID))
-	execTimingFilePath :=  filepath.Join(dir, timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID))
+	lateArrivalTimingFilePath := filepath.Join(dir, timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID))
+	execTimingFilePath := filepath.Join(dir, timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID))
 
 	if !util.PathExists(execTimingFilePath) {
 		log.Printf("%s is missing!\n", execTimingFilePath)
@@ -239,14 +252,14 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				c.callsRecvHeatMap[leadRank] = recvHeatMap
 			}
 
-			execTimingsFile := filepath.Join(c.DatasetDir,timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
+			execTimingsFile := filepath.Join(c.DatasetDir, timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
 			}
 			callExecTimings := execTimings[callID]
 
-			lateArrivalFile := filepath.Join(c.DatasetDir,timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
+			lateArrivalFile := filepath.Join(c.DatasetDir, timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
@@ -259,7 +272,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			// Debug
-			fmt.Print(c.callsSendHeatMap[leadRank][callID],c.callsSendHeatMap[leadRank][callID])
+			fmt.Print(c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID])
 
 			//pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
 			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][0], c.callsSendHeatMap[leadRank][0], callExecTimings, callLateArrivalTimings)
@@ -322,7 +335,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 			}
 		}
 	}
-
+	fmt.Print(c.callsSendHeatMap)
 	c.cpd = callPageData{
 		LeadRank:  leadRank,
 		CallID:    callID,
@@ -330,13 +343,13 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-
 func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	leadRank := 0
 	callID := 0
-	jobID := 0
+	Dis := "shanghaitech"
+	Kth := 0
 	params := r.URL.Query()
 	for k, v := range params {
 		if k == "leadRank" {
@@ -352,135 +365,162 @@ func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Reques
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
-
-		if k == "jobID" {
-			jobID, err = strconv.Atoi(v[0])
+		if k == "Kth" {
+			Kth, err = strconv.Atoi(v[0])
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
 	}
 
-	if c.callsSendHeatMap == nil {
-		c.callsSendHeatMap = make(map[int]map[int]map[int]int)
+	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
+
+	if c.jsonSendHeetMap == nil {
+		c.jsonSendHeetMap = make(map[int][][]int)
 	}
-	if c.callsRecvHeatMap == nil {
-		c.callsRecvHeatMap = make(map[int]map[int]map[int]int)
-	}
+
+
+	var jsonSendHeetMap = c.jsonSendHeetMap
 
 	// Make sure the graph is ready
-	if !plot.CallFilesExist(c.DatasetDir, leadRank, callID) {
-		fmt.Print(c.DatasetDir)
-		if allDataAvailable(c.collectiveName, c.DatasetDir, leadRank, c.commID, jobID, callID) {
-			if c.callsSendHeatMap[leadRank] == nil {
-				sendHeatMapFilename := maps.GetSendCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
-				sendHeatMap, err := maps.LoadCallsFileHeatMap(c.codeBaseDir, sendHeatMapFilename)
-				if err != nil {
-					log.Printf("ERROR: %s", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				c.callsSendHeatMap[leadRank] = sendHeatMap
-			}
+	//if !plot.CallFilesExist(c.DatasetDir, leadRank, callID) {
+	//	fmt.Print(c.DatasetDir)
+	//	if allDataAvailable(c.collectiveName, c.DatasetDir, leadRank, c.commID, jobID, callID) {
+	//		if c.callsSendHeatMap[leadRank] == nil {
+	//			sendHeatMapFilename := maps.GetSendCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
+	//			sendHeatMap, err := maps.LoadCallsFileHeatMap(c.codeBaseDir, sendHeatMapFilename)
+	//			if err != nil {
+	//				log.Printf("ERROR: %s", err)
+	//				http.Error(w, err.Error(), http.StatusInternalServerError)
+	//			}
+	//			c.callsSendHeatMap[leadRank] = sendHeatMap
+	//		}
+	//
+	//		if c.callsRecvHeatMap[leadRank] == nil {
+	//			recvHeatMapFilename := maps.GetRecvCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
+	//			recvHeatMap, err := maps.LoadCallsFileHeatMap(c.codeBaseDir, recvHeatMapFilename)
+	//			if err != nil {
+	//				log.Printf("ERROR: %s", err)
+	//				http.Error(w, err.Error(), http.StatusInternalServerError)
+	//			}
+	//			c.callsRecvHeatMap[leadRank] = recvHeatMap
+	//		}
+	//
+	//		execTimingsFile := filepath.Join(c.DatasetDir,timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
+	//		_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, c.codeBaseDir)
+	//		if err != nil {
+	//			log.Printf("unable to parse %s: %s", execTimingsFile, err)
+	//		}
+	//		callExecTimings := execTimings[callID]
+	//
+	//		lateArrivalFile := filepath.Join(c.DatasetDir,timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
+	//		_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, c.codeBaseDir)
+	//		if err != nil {
+	//			log.Printf("unable to parse %s: %s", execTimingsFile, err)
+	//		}
+	//		callLateArrivalTimings := lateArrivalTimings[callID]
+	//
+	//		hostMap, err := maps.LoadHostMap(filepath.Join(c.DatasetDir, maps.RankFilename))
+	//		if err != nil {
+	//			log.Printf("ERROR: %s\n", err)
+	//			http.Error(w, err.Error(), http.StatusInternalServerError)
+	//		}
+	//		// Debug
+	//		fmt.Print(c.callsSendHeatMap[leadRank][callID],c.callsSendHeatMap[leadRank][callID])
+	//
+	//		//pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
+	//		pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][0], c.callsSendHeatMap[leadRank][0], callExecTimings, callLateArrivalTimings)
+	//		if err != nil {
+	//			log.Printf("ERROR: %s\n", err)
+	//			http.Error(w, err.Error(), http.StatusInternalServerError)
+	//		}
+	//		if pngFile == "" {
+	//			log.Printf("ERROR: %s\n", err)
+	//			http.Error(w, "plot generation failed", http.StatusInternalServerError)
+	//		}
+	//	} else {
+	//		if c.callMaps == nil {
+	//			c.rankFileData, c.callMaps, c.globalSendHeatMap, c.globalRecvHeatMap, c.rankNumCallsMap, err = maps.Create(c.codeBaseDir, c.collectiveName, maps.Heat, c.DatasetDir, c.allCallsData)
+	//			if err != nil {
+	//				http.Error(w, err.Error(), http.StatusInternalServerError)
+	//			}
+	//		}
+	//
+	//		if c.operationsTimings == nil {
+	//			log.Println("Loading timing data...")
+	//			c.operationsTimings, c.totalExecutionTimes, c.totalLateArrivalTimes, err = timings.HandleTimingFiles(c.codeBaseDir, c.DatasetDir, c.numCalls)
+	//			if err != nil {
+	//				http.Error(w, err.Error(), http.StatusInternalServerError)
+	//			}
+	//		}
+	//
+	//		comms, err := comm.GetData(c.codeBaseDir, c.DatasetDir)
+	//		if err != nil {
+	//			log.Printf("comm.GetData() failed: %s\n", err)
+	//			http.Error(w, err.Error(), http.StatusInternalServerError)
+	//		}
+	//		if comms == nil {
+	//			err = fmt.Errorf("undefined list of communicators")
+	//			log.Println(err)
+	//			http.Error(w, err.Error(), http.StatusInternalServerError)
+	//		}
+	//
+	//		for leadRank, listComms := range comms.LeadMap {
+	//			if listComms == nil {
+	//				err := fmt.Errorf("listComms is nil")
+	//				log.Println(err)
+	//				http.Error(w, err.Error(), http.StatusInternalServerError)
+	//			}
+	//			for _, commID := range listComms {
+	//				id := timings.CommT{
+	//					CommID:   commID,
+	//					LeadRank: leadRank,
+	//				}
+	//				// The call we are looking for may not be on that communicator
+	//				if c.operationsTimings[c.collectiveName].ExecTimes[id][callID] != nil {
+	//					_, err = plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, c.rankFileData[leadRank].HostMap, c.callMaps[leadRank].SendHeatMap[callID], c.callMaps[leadRank].RecvHeatMap[callID], c.operationsTimings[c.collectiveName].ExecTimes[id][callID], c.operationsTimings[c.collectiveName].LateArrivalTimes[id][callID])
+	//					if err != nil {
+	//						err = fmt.Errorf("plot.CallData() failed for call %d on comm %d: %s", callID, leadRank, err)
+	//						log.Println(err)
+	//						http.Error(w, err.Error(), http.StatusInternalServerError)
+	//					}
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 
-			if c.callsRecvHeatMap[leadRank] == nil {
-				recvHeatMapFilename := maps.GetRecvCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
-				recvHeatMap, err := maps.LoadCallsFileHeatMap(c.codeBaseDir, recvHeatMapFilename)
-				if err != nil {
-					log.Printf("ERROR: %s", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				c.callsRecvHeatMap[leadRank] = recvHeatMap
-			}
-
-			execTimingsFile := filepath.Join(c.DatasetDir,timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
-			_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, c.codeBaseDir)
-			if err != nil {
-				log.Printf("unable to parse %s: %s", execTimingsFile, err)
-			}
-			callExecTimings := execTimings[callID]
-
-			lateArrivalFile := filepath.Join(c.DatasetDir,timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
-			_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, c.codeBaseDir)
-			if err != nil {
-				log.Printf("unable to parse %s: %s", execTimingsFile, err)
-			}
-			callLateArrivalTimings := lateArrivalTimings[callID]
-
-			hostMap, err := maps.LoadHostMap(filepath.Join(c.DatasetDir, maps.RankFilename))
-			if err != nil {
-				log.Printf("ERROR: %s\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-			// Debug
-			fmt.Print(c.callsSendHeatMap[leadRank][callID],c.callsSendHeatMap[leadRank][callID])
-
-			//pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
-			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][0], c.callsSendHeatMap[leadRank][0], callExecTimings, callLateArrivalTimings)
-			if err != nil {
-				log.Printf("ERROR: %s\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-			if pngFile == "" {
-				log.Printf("ERROR: %s\n", err)
-				http.Error(w, "plot generation failed", http.StatusInternalServerError)
-			}
-		} else {
-			if c.callMaps == nil {
-				c.rankFileData, c.callMaps, c.globalSendHeatMap, c.globalRecvHeatMap, c.rankNumCallsMap, err = maps.Create(c.codeBaseDir, c.collectiveName, maps.Heat, c.DatasetDir, c.allCallsData)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-			}
-
-			if c.operationsTimings == nil {
-				log.Println("Loading timing data...")
-				c.operationsTimings, c.totalExecutionTimes, c.totalLateArrivalTimes, err = timings.HandleTimingFiles(c.codeBaseDir, c.DatasetDir, c.numCalls)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-			}
-
-			comms, err := comm.GetData(c.codeBaseDir, c.DatasetDir)
-			if err != nil {
-				log.Printf("comm.GetData() failed: %s\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-			if comms == nil {
-				err = fmt.Errorf("undefined list of communicators")
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-
-			for leadRank, listComms := range comms.LeadMap {
-				if listComms == nil {
-					err := fmt.Errorf("listComms is nil")
-					log.Println(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				for _, commID := range listComms {
-					id := timings.CommT{
-						CommID:   commID,
-						LeadRank: leadRank,
-					}
-					// The call we are looking for may not be on that communicator
-					if c.operationsTimings[c.collectiveName].ExecTimes[id][callID] != nil {
-						_, err = plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, c.rankFileData[leadRank].HostMap, c.callMaps[leadRank].SendHeatMap[callID], c.callMaps[leadRank].RecvHeatMap[callID], c.operationsTimings[c.collectiveName].ExecTimes[id][callID], c.operationsTimings[c.collectiveName].LateArrivalTimes[id][callID])
-						if err != nil {
-							err = fmt.Errorf("plot.CallData() failed for call %d on comm %d: %s", callID, leadRank, err)
-							log.Println(err)
-							http.Error(w, err.Error(), http.StatusInternalServerError)
-						}
-					}
-				}
-			}
-		}
+	pwd := "examples/result_task2_wrf_run-at-20210608-150432/result_task2_wrf_run-at-20210608-150432"
+	got_file_list,err := findCountRankFileList(pwd)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	c.cpd = callPageData{
+	fmt.Print(got_file_list)
+
+	c.jpd = jsonPageData{
 		LeadRank:  leadRank,
 		CallID:    callID,
+		Kth:       Kth,
+		Dis:	   Dis,
+		HeatMap:   jsonSendHeetMap,
 		CallsData: c.mainData.Calls,
 	}
+}
+
+func findCountRankFileList(pwd string) ([]string ,error){
+	fileInfoList,err := ioutil.ReadDir(pwd)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	var fileList []string
+	for _, file := range fileInfoList {
+		if strings.HasPrefix(file.Name(), patterns.CountFilePrefix) {
+			fileList = append(fileList, filepath.Join(pwd,file.Name()))
+		}
+	}
+	return fileList,nil
 }
 
 func (c *Config) loadData() error {
@@ -531,12 +571,27 @@ func (c *Config) serviceCallsRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Config) serviceHeatmapRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.mainData = callsPageData{
+		PageTitle: c.Name,
+		Calls:     c.allCallsData,
+	}
+}
+
 func findPatternsSummaryFile(c *Config) (string, error) {
 	files, err := ioutil.ReadDir(c.DatasetDir)
 	if err != nil {
 		return "", err
 	}
-
+	// where we get all the data we need and put it into c
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), patterns.SummaryFilePrefix) {
 			return filepath.Join(c.DatasetDir, file.Name()), nil
@@ -668,8 +723,8 @@ func (s *server) calls(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) heatmap(w http.ResponseWriter, r *http.Request) {
-	s.cfg.serviceCallsRequest(w, r)
-	s.callsTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
+	s.cfg.serviceHeatmapRequest(w, r)
+	s.heatmapTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
 }
 
 func (s *server) heat(w http.ResponseWriter, r *http.Request) {
@@ -702,6 +757,7 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/patterns", s.patterns)
 	s.mux.HandleFunc("/stop", s.stop)
 	s.mux.HandleFunc("/heatmap", s.heatmap)
+	//s.mux.HandleFunc("/call_json", s.call_json)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
 }
@@ -734,6 +790,7 @@ func (c *Config) Start() error {
 			return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
 		}}).ParseFiles(c.callTemplatePath))
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
+	s.heatmapTemplate = template.Must(template.ParseFiles(c.heatmapTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
 
