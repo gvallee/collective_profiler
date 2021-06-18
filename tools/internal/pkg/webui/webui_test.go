@@ -1,13 +1,26 @@
 package webui
 
 import (
+	"sort"
+	"strconv"
 	"testing"
 )
 
+func in(target string, str_array []string) bool {
+	sort.Strings(str_array)
+	index := sort.SearchStrings(str_array, target)
+	if index < len(str_array) && str_array[index] == target {
+		return true
+	}
+	return false
+}
+
 func TestFindCountRankFileList(t *testing.T) {
 	pwd := "/Volumes/DataCorrupted/project/isc/collective_profiler/examples/result_task2_wrf_run-at-20210608-150432"
-	for i :=range {
-
+	var filename []string
+	for i :=0; i<963;i++ {
+		string := strconv.Itoa(i)
+		filename=append(filename,pwd+"/counts.rank0_call"+string+".md")
 	}
 	tests := []struct {
 		unit           string
@@ -15,7 +28,7 @@ func TestFindCountRankFileList(t *testing.T) {
 	}{
 		{
 			unit:           pwd,
-			expectedUnit: []string{pwd+"counts.rank0_call844","das"},
+			expectedUnit: filename,
 		},
 	}
 
@@ -25,7 +38,7 @@ func TestFindCountRankFileList(t *testing.T) {
 			t.Fatalf("Ints() failed: %s", err)
 		}
 		for index, item := range tt.expectedUnit {
-			if item != scaledUnit[index] {
+			if in(item,scaledUnit) {
 				t.Fatalf("Resulting unit is %s instead of %s", scaledUnit[index], item)
 			}
 		}
