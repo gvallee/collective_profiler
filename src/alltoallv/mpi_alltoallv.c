@@ -59,18 +59,32 @@ extern int mpi_fortran_bottom_;
 static int _finalize_profiling();
 static int _commit_data();
 
-static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankSendCounters(Bytef *compressed_call_data, int rank)
 {
+	//To-do decompressed
+	avSRCountNode_t *call_data;
+	int initSize= sizeof(avSRCountNode_t);
+	Bytef *decomp = (Bytef*)malloc( initSize );
+    uncompress(decomp, &initSize, compressed_call_data, initSize * 1.1 + 12);
+
+	memcpy(&call_data, decomp, sizeof(decomp));
 	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
 }
 
-static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankRecvCounters(Bytef *compressed_call_data, int rank)
 {
+	//To-do decompressed
+	avSRCountNode_t *call_data;
+	int initSize= sizeof(avSRCountNode_t);
+	Bytef *decomp = (Bytef*)malloc( initSize );
+    uncompress(decomp, &initSize, compressed_call_data, initSize * 1.1 + 12);
+
+	memcpy(&call_data, decomp, sizeof(decomp));
 	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank);
 }
 
 // Compare if two arrays are identical.
-static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)
+static bool same_call_counters(Bytef *compressed_call_data, int *send_counts, int *recv_counts, int size)
 {
 	int num = 0;
 	int rank, count_num;
@@ -81,7 +95,7 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	// First compare the send counts
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankSendCounters(call_data, rank);
+		int *_counts = lookupRankSendCounters(compressed_call_data, rank);
 		assert(_counts);
 		for (count_num = 0; count_num < size; count_num++)
 		{
@@ -100,7 +114,7 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 	num = 0;
 	for (rank = 0; rank < size; rank++)
 	{
-		int *_counts = lookupRankRecvCounters(call_data, rank);
+		int *_counts = lookupRankRecvCounters(compressed_call_data, rank);
 		for (count_num = 0; count_num < size; count_num++)
 		{
 			if (_counts[count_num] != recv_counts[num])
@@ -379,9 +393,16 @@ static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, in
 	return 0;
 }
 
-static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *call_data)
+static int compareAndSaveSendCounters(int rank, int *counts, Bytef *compressed_call_data)
 {
-	counts_data_t *ptr = lookupSendCounters(counts, call_data);
+	avSRCountNode_t *call_data;
+	int initSize= sizeof(avSRCountNode_t);
+	Bytef *decomp = (Bytef*)malloc( initSize );
+    uncompress(decomp, &initSize, compressed_call_data, initSize * 1.1 + 12);
+
+	memcpy(&call_data, decomp, sizeof(decomp));
+
+    counts_data_t *ptr = lookupSendCounters(counts, call_data);
 	if (ptr)
 	{
 		DEBUG_ALLTOALLV_PROFILING("Add send rank %d to existing count data\n", rank);
@@ -438,6 +459,15 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	struct avSRCountNode *newNode = NULL;
 	struct avSRCountNode *temp;
 
+	uLong initSize = sizeof(avSRCountNode_t);
+	uLongf destSize = initSize * 1.1 + 12;
+
+	Byte *original_temp = (Bytef*) malloc (initSize);
+	Byte *compressed_temp = (Bytef *) malloc (destSize);
+	Byte *original_newNode = (Bytef*) malloc (initSize);
+	Byte *compressed_newNode = (Bytef *) malloc (destSize);
+
+
 	DEBUG_ALLTOALLV_PROFILING("Insert data for a new alltoallv call...\n");
 
 	assert(sbuf);
@@ -445,9 +475,11 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(logger);
 
 	temp = head;
-	while (temp != NULL)
+    memcpy(original_temp, &temp, sizeof(avSRCountNode_t));
+    compress(compressed_temp, &destSize, original_temp, initSize);
+    while (temp != NULL)
 	{
-		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
+		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(compressed_temp, sbuf, rbuf, size))
 		{
 			// New data
 #if DEBUG
@@ -492,12 +524,15 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(newNode->list_calls);
 	newNode->max_calls = DEFAULT_TRACKED_CALLS;
 	// We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
-	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
+	newNode->send_data = (counts_data_t **)malloc(size * sizeof(counts_data_t)); //possible sparse matrices,
 	assert(newNode->send_data);
 	newNode->send_data_size = 0;
-	newNode->recv_data = (counts_data_t **)malloc(size * sizeof(counts_data_t));
+	newNode->recv_data = (counts_data_t **)malloc(size * sizeof(counts_data_t)); //possible sparse matrices,
 	assert(newNode->recv_data);
 	newNode->recv_data_size = 0;
+
+	memcpy(original_newNode, &newNode, sizeof(avSRCountNode_t));
+    compress(compressed_newNode, &destSize, original_newNode, initSize);
 
 	// We add rank's data one by one so we can compress the data when possible
 	num = 0;
@@ -506,7 +541,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	DEBUG_ALLTOALLV_PROFILING("handling send counts...\n");
 	for (_rank = 0; _rank < size; _rank++)
 	{
-		if (compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode))
+		if (compareAndSaveSendCounters(_rank, &(sbuf[num * size]), compressed_newNode))
 		{
 			fprintf(stderr, "[%s:%d][ERROR] unable to add send counters\n", __FILE__, __LINE__);
 			return -1;
@@ -525,6 +560,11 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 		}
 		num++;
 	}
+	// decompress.
+	Bytef *decomp = (Bytef*)malloc( initSize );
+    uncompress(decomp, &initSize, compressed_newNode, initSize * 1.1 + 12);
+
+	memcpy(&newNode, decomp, sizeof(decomp));
 
 	newNode->sendtype_size = sendtype_size;
 	newNode->recvtype_size = recvtype_size;

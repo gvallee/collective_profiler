@@ -332,3 +332,11 @@ consist of a graph providing:
 - the arrival time per rank,
 - the bandwidth per rank.
 Under the graph appears the raw send and receive counters.
+
+## Optimization
+
+`counts_data_t **` in `avSRCountNode` is too sparse to display, we prompted to use sparse matrx library for it.
+
+All the data can be transfered using compressed zlib. To do: make all the `logger_t` `avPattern_t` `location_logger_t` and other struct compressed to be coordinate with the cacheline. 
+
+Compress all the sparse matrix with COO form.

@@ -19,6 +19,7 @@ typedef struct ca_test
     char expected_result[MAX_STRLEN];
 } ca_test_t;
 
+// COO form
 static int compress_array_test(void)
 {
     int num_tests = 8;
