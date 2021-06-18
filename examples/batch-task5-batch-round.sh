@@ -142,11 +142,6 @@ python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collectiv
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
 ALLTOALL_LIB_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/src/alltoallv
 COUNTSFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_counts_notcompact.so"
-MAPFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_location.so"
-BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
-A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
-LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
-
 MPIFLAGS="-x OMP_NUM_THREADS=10 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
@@ -156,35 +151,35 @@ MPIFLAGS+="--rankfile /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/code-
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
 cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/wrf_mpiomp
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS
 python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
 mkdir -p "${RESULTS_ROOT}/analysis"
 mkdir -p "${RESULTS_ROOT}/ranks"
 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS
 python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
 mkdir -p "${RESULTS_ROOT}/analysis"
 mkdir -p "${RESULTS_ROOT}/ranks"
 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS
 python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
 mkdir -p "${RESULTS_ROOT}/analysis"
 mkdir -p "${RESULTS_ROOT}/ranks"
 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS
 python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
 export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
 mkdir -p "${RESULTS_ROOT}/analysis"
 mkdir -p "${RESULTS_ROOT}/ranks"
 
-MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS
 
 echo
 # TODO - some more of vars set above
@@ -221,61 +216,6 @@ echo "recording ldd for the executables ..."
 ldd "$(which $EXECUTABLE1)" > "${RESULTS_ROOT}/$(basename $EXECUTABLE1).ldd" 
 echo  "in this example are using PRELOAD so this may not be giving the right information to compare to that" >> "${RESULTS_ROOT}/$(basename $EXECUTABLE1).ldd" 
 # TODO check ldd results are as expected
-
-# Record the mpirun command
-echo
-echo "recording the mpirun command ..."
-# EOF w/o quotes so variables evaluated now
-cat - > "$RESULTS_ROOT/mpirun_command1.log" << EOF
-${MPIRUN_COMMANDS[0]}
-${MPIRUN_COMMANDS[1]}
-${MPIRUN_COMMANDS[2]}
-${MPIRUN_COMMANDS[3]}
-${MPIRUN_COMMANDS[4]}
-EOF
-
-# mpirun section
-echo "Now calling mpirun ..."
-echo "- stdout and stderr of this mpirun will be in " 
-echo "  the results directory but appear also below"
-echo "- stdout and stderr of the respective MPI ranks will be in" 
-echo "  subdirectories of that and are not shown here "
-echo "  if mpirun uses --output-file"
-echo "*********************************************************"
-echo 
-#{ {
-    for MPIRUN_COMMAND in "${MPIRUN_COMMANDS[@]}"
-        do
-        echo "mpirun command will be: $MPIRUN_COMMAND"
-        $MPIRUN_COMMAND
-        cd -
-        python ./wrf-autotuning.py
-        cd -
-        echo "... end of that mpirun"
-    done
-#} > >( tee ${RESULTS_ROOT}/mpirun.stdout.log ); } \
-# 2> >( tee ${RESULTS_ROOT}/mpirun.stderr.log 1>&2 )
-# if more than one mpirun the name in previous line should be distinguished
-# the tee arrangements follow https://stackoverflow.com/questions/21465297/tee-stdout-and-stderr-to-separate-files-while-retaining-them-on-their-respective
-echo
-echo "*********************************************************"
-echo "... mpirun complete"
-# slurm stats
-echo 
-echo "recording Slurm job stats at end of job ..."
-sstat -j "$SLURM_JOB_ID" > "$RESULTS_ROOT/slurm_stats_at_end.log" 
-
-echo
-echo "setting the files of the results directory to read only ..."
-find "$RESULTS_ROOT" -type d -exec chmod ug=rwx,o=rx {} \;
-find "$RESULTS_ROOT" -type f -exec chmod ug=r,o=r {} \;
-
-echo
-echo "adding execute permission to post processing scripts ..."
-chmod ug+x "$RESULTS_ROOT/copy_slurm_output_here.sh"
-
-echo 
-echo "you can see the results at $RESULTS_ROOT"
 
 echo
 echo "========================================================="
