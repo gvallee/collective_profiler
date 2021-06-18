@@ -64,12 +64,3 @@ func TestGetWeight(t *testing.T) {
 		}
 	}
 }
-
-func TestGetWeightedMap(t *testing.T) {
-	//map[int]map[int][]int
-	tests := []struct {
-		inputMap       map[int]map[int][]int
-		expectedOutput map[int][]int
-	}{
-		{
-			inputMap: map[int]map[int][]int{gi

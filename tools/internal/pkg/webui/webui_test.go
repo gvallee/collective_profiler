@@ -16,7 +16,7 @@ func in(target string, str_array []string) bool {
 }
 
 func TestFindCountRankFileList(t *testing.T) {
-	pwd := "/Volumes/DataCorrupted/project/isc/collective_profiler/examples/result_task2_wrf_run-at-20210608-150432"
+	pwd := "../../../../examples/result_task2_wrf_run-at-20210608-150432"
 	var filename []string
 	for i :=0; i<963;i++ {
 		string := strconv.Itoa(i)
