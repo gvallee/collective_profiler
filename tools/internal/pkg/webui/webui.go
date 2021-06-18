@@ -8,6 +8,7 @@ package webui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
@@ -25,6 +26,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,8 +116,8 @@ type Config struct {
 	callsRecvHeatMap map[int]map[int]map[int]int
 
 	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
-	jsonSendHeetMap  map[int][][]int
-	jsonRecvHeetMap  map[int][][]int
+	jsonSendHeetMap map[int][][]int
+	jsonRecvHeetMap map[int][][]int
 
 	globalSendHeatMap     map[int]int
 	globalRecvHeatMap     map[int]int
@@ -347,9 +349,9 @@ func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Reques
 	var err error
 
 	leadRank := 0
-	callID := 0
-	Dis := "shanghaitech"
-	Kth := 0
+	//callID := 0
+	//Dis := "shanghaitech"
+	//Kth := 0
 	params := r.URL.Query()
 	for k, v := range params {
 		if k == "leadRank" {
@@ -358,19 +360,19 @@ func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Reques
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
-
-		if k == "callID" {
-			callID, err = strconv.Atoi(v[0])
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}
-		if k == "Kth" {
-			Kth, err = strconv.Atoi(v[0])
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}
+		//
+		//if k == "callID" {
+		//	callID, err = strconv.Atoi(v[0])
+		//	if err != nil {
+		//		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	}
+		//}
+		//if k == "Kth" {
+		//	Kth, err = strconv.Atoi(v[0])
+		//	if err != nil {
+		//		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	}
+		//}
 	}
 
 	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
@@ -379,29 +381,71 @@ func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Reques
 		c.jsonSendHeetMap = make(map[int][][]int)
 	}
 
-
-	var jsonSendHeetMap = c.jsonSendHeetMap
-
-	pwd := "examples/result_task2_wrf_run-at-20210608-150432/result_task2_wrf_run-at-20210608-150432"
-	got_file_list,err := findCountRankFileList(pwd)
+	pwd := c.DatasetDir //"examples/result_task2_wrf_run-at-20210608-150432/result_task2_wrf_run-at-20210608-150432"
+	listFiles, err := findCountRankFileList(pwd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Print(got_file_list)
+	fmt.Print(listFiles)
 
-
-	c.jpd = jsonPageData{
-		LeadRank:  leadRank,
-		CallID:    callID,
-		Kth:       Kth,
-		Dis:	   Dis,
-		HeatMap:   jsonSendHeetMap,
-		CallsData: c.mainData.Calls,
+	type topMatrix struct {
+		CallID int     `json:"call_id"`
+		Sum    int     `json:"sum"`
+		Matrix [][]int `json:"matrix"`
 	}
+
+	topMatrixArray := make([]topMatrix, 0)
+
+	for _, filePath := range listFiles {
+		if strings.HasPrefix(filepath.Base(filePath), fmt.Sprintf("counts.rank%d", leadRank)) {
+			callIDString := strings.TrimPrefix(filepath.Base(filePath), fmt.Sprintf("counts.rank%d_call", leadRank))
+			callIDString = strings.TrimSuffix(callIDString, ".md")
+			callIDCurrent, err := strconv.Atoi(callIDString)
+			matrixCurrentSum := 0
+			if err != nil {
+				panic(err)
+			}
+
+			rawCountsT, _ := counts.ParseRawFile(filePath)
+			// Warning: This is easy to cause crash!!!
+			matrixSize := len(strings.Split(rawCountsT.SendCounts[0], " "))
+			currentMatrix := make([][]int, matrixSize)
+			for i := 0; i < matrixSize; i++ {
+				currentMatrix[i] = make([]int, matrixSize)
+				currentMatrixStr := strings.Split(rawCountsT.SendCounts[i], " ")
+				for j := 0; j < matrixSize; j++ {
+					currentMatrix[i][j], err = strconv.Atoi(currentMatrixStr[j])
+					if err != nil {
+						panic(err)
+					}
+					matrixCurrentSum += currentMatrix[i][j]
+				}
+			}
+			topMatrixArray = append(topMatrixArray, topMatrix{Matrix: currentMatrix, Sum: matrixCurrentSum, CallID: callIDCurrent})
+		}
+	}
+	sort.SliceStable(topMatrixArray, func(i, j int) bool {
+		return topMatrixArray[i].Sum > topMatrixArray[j].Sum
+	})
+
+	topMatrixArray = topMatrixArray[:10]
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(topMatrixArray)
+
+	//c.jpd = jsonPageData{
+	//	LeadRank:  leadRank,
+	//	CallID:    callID,
+	//	Kth:       Kth,
+	//	Dis:	   Dis,
+	//	HeatMap:   jsonSendHeetMap,
+	//	CallsData: c.mainData.Calls,
+	//}
 }
 
-func findCountRankFileList(pwd string) ([]string ,error){
-	fileInfoList,err := ioutil.ReadDir(pwd)
+func findCountRankFileList(pwd string) ([]string, error) {
+	fileInfoList, err := ioutil.ReadDir(pwd)
 
 	if err != nil {
 		log.Fatal(err)
@@ -409,10 +453,10 @@ func findCountRankFileList(pwd string) ([]string ,error){
 	var fileList []string
 	for _, file := range fileInfoList {
 		if strings.HasPrefix(file.Name(), patterns.CountFilePrefix) {
-			fileList = append(fileList, filepath.Join(pwd,file.Name()))
+			fileList = append(fileList, filepath.Join(pwd, file.Name()))
 		}
 	}
-	return fileList,nil
+	return fileList, nil
 }
 
 func (c *Config) loadData() error {
@@ -649,6 +693,8 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/patterns", s.patterns)
 	s.mux.HandleFunc("/stop", s.stop)
 	s.mux.HandleFunc("/heatmap", s.heatmap)
+	s.mux.HandleFunc("/he", cfg.serviceHeatDetailsRequest)
+	//serviceHeatDetailsRequest
 	//s.mux.HandleFunc("/call_json", s.call_json)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s

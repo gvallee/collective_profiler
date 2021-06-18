@@ -63,17 +63,17 @@ type compressedRanksCountsT struct {
 	counts string
 }
 
-type rawCountsT struct {
+type RawCountsT struct {
 	sendDatatypeSize int
 	recvDatatypeSize int
 	commSize         int
-	sendCounts       []string
+	SendCounts       []string
 	recvCounts       []string
 }
 
 type rawCountsCallsT struct {
 	calls  []int
-	counts *rawCountsT
+	counts *RawCountsT
 }
 
 // CallData gathers all the data related to one and only one alltoallv call
