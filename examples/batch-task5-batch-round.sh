@@ -7,7 +7,7 @@
 #SBATCH --ntasks=160                     
 #SBATCH --ntasks-per-node=40
 ##SBATCH --mem=128                          # Job memory request
-#SBATCH --time=01:00:00                     # Time limit hrs:min:sec
+#SBATCH --time=00:30:00                     # Time limit hrs:min:sec
 #SBATCH --output=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.out     # Standard output and error log
 #SBATCH --error=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.err
 #SBATCH -p compute                          # which section of the cluster 
@@ -136,7 +136,7 @@ EOF
 export EXECUTABLE1=./wrf.exe
 export EXECUTABLE1_PARAMS=""
 cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/
-python ./wrf-autotuning.py
+python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date 20210608-081238
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
@@ -147,15 +147,43 @@ BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_exec_timings.so"
 LATETIMINGFLAGS="$ALLTOALL_LIB_ROOT/liballtoallv_late_arrival.so"
 
-MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 -x OMP_NUM_THREADS=10 "
+MPIFLAGS="-x OMP_NUM_THREADS=10 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
 MPIFLAGS+="-x LD_LIBRARY_PATH "
-MPIFLAGS+="--mca pml_base_verbose 100 --mca btl_base_verbose 100 " 
+MPIFLAGS+="--rankfile /gpfs/fs0/scratch/l/lcl_uotiscscc/lcl_uotiscsccs1034/code-challenge/collective_profiler/examples/rank " 
 # --output-file# with mulltiple mpiruns this causes subsequent ones to overwrite the output files!
 
 # the mpirun commands
 declare -a MPIRUN_COMMANDS 
-cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/WRF_avx512vsavx2/run2/
+cd /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/WRF/wrf_mpiomp
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
+export JOB_NOW=$( date +%Y%m%d-%H%M%S )
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
+mkdir -p "${RESULTS_ROOT}/analysis"
+mkdir -p "${RESULTS_ROOT}/ranks"
+
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
+export JOB_NOW=$( date +%Y%m%d-%H%M%S )
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
+mkdir -p "${RESULTS_ROOT}/analysis"
+mkdir -p "${RESULTS_ROOT}/ranks"
+
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
+export JOB_NOW=$( date +%Y%m%d-%H%M%S )
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
+mkdir -p "${RESULTS_ROOT}/analysis"
+mkdir -p "${RESULTS_ROOT}/ranks"
+
+MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
+python /home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/wrf-autotuning.py --date ${JOB_NOW}
+export JOB_NOW=$( date +%Y%m%d-%H%M%S )
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results_task2_wrf/run-at-${JOB_NOW} 
+mkdir -p "${RESULTS_ROOT}/analysis"
+mkdir -p "${RESULTS_ROOT}/ranks"
+
 MPIRUN_COMMANDS[0]="mpirun $MPIFLAGS --output-filename $RESULTS_ROOT/counts     -x LD_PRELOAD=$COUNTSFLAGS $EXECUTABLE1 $EXECUTABLE1_PARAMS"
 
 echo
