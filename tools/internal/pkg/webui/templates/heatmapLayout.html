@@ -3,109 +3,255 @@
 <html>
 
 <head>
-  <style>
-    .body {
-      overflow: hidden;
-    }
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <style>
+        .body {
+            overflow: hidden;
+        }
 
-    .selected {
-      background: lightgreen;
-    }
+        .selected {
+            background: lightgreen;
+        }
 
-    table.CallList {
-      border-collapse: collapse;
-      width: 100%;
-    }
+        table.CallList {
+            border-collapse: collapse;
+            width: 100%;
+        }
 
-    th.callList,
-    td.callList {
-      font-size: 12px;
-      text-align: left;
-      padding: 8px;
-    }
+        th.callList,
+        td.callList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
 
-    tr.callList:nth-child(odd) {
-      background-color: Lightskyblue;
-    }
+        tr.callList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
 
-    div.callList {
-      max-width: 200px;
-      margin: auto;
-      min-height: 800px;
-      float: left;
-      border: 1px solid black;
-      overflow-y: scroll;
-    }
+        div.callList {
+            max-width: 200px;
+            margin: auto;
+            min-height: 800px;
+            float: left;
+            border: 1px solid black;
+            overflow-y: scroll;
+        }
 
-    div.callDetails {
-      max-width: 600px;
-      margin: auto;
-      min-height: 800px;
-      display: inline-block;
-      position: relative;
-      margin: 0;
-      position: sticky;
-      top: 0;
-    }
+        div.callDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            position: sticky;
+            top: 0;
+        }
 
-    td.callDetails {
-      vertical-align: top;
-      text-align: left;
-    }
-  </style>
+        td.callDetails {
+            vertical-align: top;
+            text-align: left;
+        }
+    </style>
 </head>
 
 <body>
+<h1>yo</h1>
 <h1>Profile: {{ .PageTitle }}</h1>
 <div class="mainPanel">
-  <div class="callList">
-    <table class="callList" id="callListTable">
-      <tr>
-        <th>Communicator</th>
-        <th>Call</th>
-      </tr>
-      {{range .Calls}}
-      {{ $leadRank := .LeadRank }}
-      {{range $callID, $callData := .CallData}}
-      <tr class="callList">
-        <td class="callList" id="leadRank">{{ $leadRank}}</td>
-        <td class="callList" id="callID">{{ $callID }}</td>
-      </tr>
-      {{end}}
-      {{end}}
-    </table>
-  </div>
+    <div class="callList">
+        <table class="callList" id="callListTable">
+            <tr>
+                <th>Communicator</th>
+                <th>Call</th>
+            </tr>
+            {{range .Calls}}
+            {{ $leadRank := .LeadRank }}
+            {{range $callID, $callData := .CallData}}
+            <tr class="callList">
+                <td class="callList" id="leadRank">{{ $leadRank}}</td>
+                <td class="callList" id="callID">{{ $callID }}</td>
+            </tr>
+            {{end}}
+            {{end}}
+        </table>
+    </div>
+    <p>choose the color style<select id="ColorType">
+        <option value="normal">normal</option>
+        <option value="log">log(ShanghaiTech Red)</option>
+        <option value="colorful">colorful</option>
+    </select></p>
+    <div id="pattern0"></div>
+    <div id="pattern1"></div>
+    <div id="pattern2"></div>
+    <div id="pattern3"></div>
+    <div id="pattern4"></div>
+    <div id="pattern5"></div>
+    <div id="pattern6"></div>
+    <div id="pattern7"></div>
+    <div id="pattern8"></div>
+    <div id="pattern9"></div>
 </div>
-<div class="callDetails">
-  <table>
-    <tr>
-      <td class="callDetails">
-        <div class="callDetails">
-          <table id="callInfo">
 
-          </table>
-        </div>
-      </td>
-    </tr>
-  </table>
-</div>
-<script type="text/javascript">
-  function highlight(e) {
+<script>
+    function generate(data, type, chartname) {
+        var call = data["call_id"]
+        data = data["matrix"]
 
-      var xhr = new XMLHttpRequest();
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-          document.getElementById("callInfo").innerHTML = xhr.responseText;
+        function normalcolor(bytes) {
+            if (bytes <= 0.1) {
+                return "#FFFFFF";
+            } else if (bytes <= 10.1) {
+                return "#FFFF00";
+            } else if (bytes <= 100.1) {
+                return "#FF8000";
+            } else if (bytes <= 1000.1) {
+                return "#00FF00";
+            } else if (bytes <= 10000.1) {
+                return "#FF0000";
+            } else if (bytes <= 100000.1) {
+                return "#7F00FF";
+            } else if (bytes <= 1000000.1) {
+                return "#663300";
+            } else return "#000000"
         }
-      }
-      xhr.open("GET", "/heat" );
-      xhr.send();
+
+        var log_color = d3.scaleLinear()
+            .range(["#FFFFFF", "#a30b19", "#000000"])
+            .domain([0, 100000, 1000000])
+
+        var coColor = d3.scaleSequential()
+            .domain([0, 1000, 1000000])
+            .interpolator(d3.interpolateRainbow);
+
+        var scaleColor = normalcolor
+        if (type == "log")
+            scaleColor = log_color
+        if (type == "colorful")
+            scaleColor = coColor
+
+        var margin = {top: 20, right: 20, bottom: 20, left: 20},
+            width = 300 - margin.left - margin.right,
+            height = 300 - margin.top - margin.bottom;
+
+        var x = d3.scaleLinear()
+            .range([0, width])
+            .domain([0, data[0].length]);
+
+        var y = d3.scaleLinear()
+            .range([0, height])
+            .domain([0, data.length]);
+
+        var tooltip = d3.select(chartname)
+            .append("div")
+            .style("opacity", 0)
+            .attr("class", "tooltip")
+            .style("background-color", "white")
+            .style("border", "solid")
+            .style("border-width", "2px")
+            .style("border-radius", "5px")
+            .style("padding", "5px")
+
+
+        var mouseover = function (d) {
+            tooltip
+                .style("opacity", 1)
+            d3.select(this)
+                .style("stroke", "black")
+                .style("opacity", 1)
+        }
+        var mousemove = function (d) {
+            tooltip
+                .html("The exact value of<br>this cell is: " + d.value)
+                .style("left", (d3.mouse(this)[0] + 70) + "px")
+                .style("top", (d3.mouse(this)[1]) + "px")
+        }
+        var mouseleave = function (d) {
+            tooltip
+                .style("opacity", 0)
+            d3.select(this)
+                .style("stroke", "none")
+                .style("opacity", 0.8)
+        }
+
+
+        var svg = d3.select(chartname).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        var row = svg.selectAll(".row")
+            .data(data)
+            .enter().append("svg:g")
+            .attr("class", "row");
+
+        var col = row.selectAll(".cell")
+            .data(function (d, i) {
+                return d.map(function (a) {
+                    return {value: a, row: i};
+                })
+            })
+            .enter().append("svg:rect")
+            .attr("class", "cell")
+            .attr("x", function (d, i) {
+                return x(i);
+            })
+            .attr("y", function (d, i) {
+                return y(d.row);
+            })
+            .attr("width", x(1))
+            .attr("height", y(1))
+            .style("fill", function (d) {
+                return scaleColor(d.value);
+            })
+            .style("stroke-width", 4)
+            .style("stroke", "none")
+            .style("opacity", 0.8)
+            .on("mouseover", mouseover)
+            .on("mousemove", mousemove)
+            .on("mouseleave", mouseleave)
+        svg.append("text")
+            .attr("x", 0)
+            .attr("y", -2)
+            .attr("text-anchor", "left")
+            .style("font-size", "16px")
+            .text("call id of this pattern is " + call);
     }
-
-
-  var table = document.getElementById('callListTable');
-  table.onclick = highlight;
+    var table = document.getElementById('callListTable');
+    function highlight(e){
+        d3.json("/he?leadRank=0",function (data){
+            var typename=$( "#ColorType" ).val();
+            console.log(typename)
+            for (key in data){
+                generate(data[key],typename,"#pattern"+key)
+            }
+        })
+    }
+    var table = document.getElementById('callListTable');
+    table.onclick = highlight;
+    var choose = document.getElementById("ColorType");
+    choose.onchange = highlight;
 </script>
+<!--<script type="text/javascript">-->
+<!--  function highlight(e) {-->
+
+<!--      var xhr = new XMLHttpRequest();-->
+<!--      xhr.onreadystatechange = function () {-->
+<!--        if (xhr.readyState == 4 && xhr.status == 200) {-->
+<!--          document.getElementById("callInfo").innerHTML = xhr.responseText;-->
+<!--        }-->
+<!--      }-->
+<!--      xhr.open("GET", "/heat" );-->
+<!--      xhr.send();-->
+<!--    }-->
+
+
+
+<!--</script>-->
 </body>
 
 </html>
