@@ -1118,6 +1118,27 @@ func (cfg *PostmortemConfig) Analyze() error {
 			if err != nil {
 				return fmt.Errorf("unable to plot average data: %s", err)
 			}
+
+			// Heatmap of task 3
+			// Get the array of maps of the send counts. The outer array is the number of pattern
+			SendDataForTask3 := patterns.GetSendDataForTask3()
+			// Get an array with the proportion of calls of the pattern over the total number of calls
+			NumberOfCalls, err := patterns.GetNumberOfCalls(cfg.DatasetDir, 0, 0)
+			if err != nil {
+				return fmt.Errorf("unable to GetNumberOfCalls: %s", err)
+			}
+			// Creation of the plots
+			err = plot.Task3(cfg.DatasetDir, SendDataForTask3, NumberOfCalls)
+			if err != nil {
+				return fmt.Errorf("unable to plot heatmap of Task3: %s", err)
+			}
+
+			// Heatmap of task 4
+			err = plot.Task4(cfg.DatasetDir, SendDataForTask3, NumberOfCalls)
+			if err != nil {
+				return fmt.Errorf("unable to plot heatmap of Task4: %s", err)
+			}
+
 			duration := t.Stop()
 			fmt.Printf("Step completed in %s\n", duration)
 		} else {

@@ -607,3 +607,49 @@ func WriteData(patternsFd *os.File, patternsSummaryFd *os.File, patternsData Dat
 
 	return nil
 }
+
+// Returns the array of maps of the send counts. The outer array is the number of pattern
+func GetSendDataForTask3() ([]map[int][]int) {
+	return counts.SendDataForTask3;
+}
+
+// Returns an slice with the proportion of calls for pattern, e.g. 361/964 calls
+func GetNumberOfCalls(dir string, jobid int, callNum int) ([]string, error) {
+	var numberCallsCleaned []string
+
+	// Prepare the file to read
+	patternsOutputFile := GetFilePath(dir, jobid, callNum)
+	patternsFd, err := os.Open(patternsOutputFile)
+	if err != nil {
+		return numberCallsCleaned, err
+	}
+	defer patternsFd.Close()
+	patternsReader := bufio.NewReader(patternsFd)
+
+	// The very first line should be '#Patterns'
+	line, readerErr := patternsReader.ReadString('\n')
+	if readerErr != nil {
+		return numberCallsCleaned, readerErr
+	}
+	if line != "# Patterns\n" {
+		return numberCallsCleaned, fmt.Errorf("wrong file format: %s", line)
+	}
+
+	// Read the file until EOF. In each iteration we only get the string XXX/YYY from the file and append to numberCallsCleaned
+	for {
+		line, readerErr := patternsReader.ReadString('\n')
+		if readerErr != nil && readerErr != io.EOF {
+			return numberCallsCleaned, readerErr
+		}
+		if readerErr == io.EOF {
+			break
+		}
+
+		if strings.HasPrefix(line, "## Pattern #") {
+			numberCalls := strings.Split(line, " ")
+			numberCallsCleaned = append(numberCallsCleaned, strings.TrimLeft(numberCalls[3], "("))
+		}
+	}
+
+	return numberCallsCleaned, nil
+}

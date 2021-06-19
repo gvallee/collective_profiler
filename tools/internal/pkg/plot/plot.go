@@ -703,3 +703,237 @@ func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, 
 
 	return runGnuplot(gnuplotScript, outputDir)
 }
+
+// Write into a file the "body" of the gnuplot
+func writeHeatmaps(fd *os.File, HeatMatrix [][]int, outputDir string, numRanks int) error {
+
+	// Matrix to plot
+	str := "$map2 << EOD\n"
+	for i := numRanks-1; i >= 0; i-- {
+		for j := 0; j < numRanks; j++ {
+			str += fmt.Sprintf(" %d", HeatMatrix[i][j])
+		}
+		str += "\n"
+	}
+
+	str += "EOD\n\n"
+
+	// Extra information to display the plot correctly
+	str += "set rmargin 10\n"
+	str += "set yrange [-0.5:*]\n"
+	str += "set xrange [-0.5:*]\n"
+	str += "set cbrange [0:7]\n"
+	str += "set xlabel \"Senders\"\n"
+	str += "set ylabel \"Receivers\"\n"
+	if numRanks < 40 {
+		str += "set xtics 1\n"
+		str += "set ytics 1\n"
+	} else {
+		str += "set xtics rotate by 22.5\n"
+		str += "set xtics 5 offset 0,-0.75,0\n"
+		str += "set ytics 5\n"
+	}
+	str += "set cbtics (\"0\" 0,\"1-10\" 1,\"11-100\" 2,\"101-1,000\" 3,\"1,001-10,000\" 4,\"10,001-100,000\" 5,\"100,001-1,000,000\" 6,\"1,000,001-max\" 7)\n"
+	str += "set palette defined (0 \"white\", 0.5 \"white\", 0.5 \"yellow\", 1.5 \"yellow\", 1.5 \"orange\", 2.5 \"orange\", 2.5 \"green\", 3.5 \"green\", 3.5 \"red\", 4.5 \"red\", 4.5 \"purple\", 5.5 \"purple\", 5.5 \"brown\", 6.5 \"brown\", 6.5 \"black\", 7 \"black\")\n"
+	str += "unset key\n"
+	str += "plot '$map2' using 1:2:3 matrix with image\n"
+
+	_, err := fd.WriteString(str)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Creates the gnuplot script of a pattern
+func generateTask3Plots(outputDir string, HeatMatrix [][]int, numRanks, numPattern int, NumberOfCalls string) (string, error) {
+	
+	namePlot := fmt.Sprintf("heatmap-task3-pattern%d.gnuplot", numPattern)
+	plotScriptFile := filepath.Join(outputDir, namePlot)
+	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	// Gnuplot "header"
+	str := "set term png size 1200,900\n"
+	str += fmt.Sprintf("set output \"heatmap-task3-pattern%d.png\"\n\n", numPattern)
+	str += fmt.Sprintf("set title \"Heatmap of Pattern %d: %s calls.\"\n\n", numPattern, NumberOfCalls)
+
+	_, err = fd.WriteString(str)
+	if err != nil {
+		return "", err
+	}
+	// Gnuplot "body"
+	err = writeHeatmaps(fd, HeatMatrix, outputDir, numRanks)
+	if err != nil {
+		return "", err
+	}
+
+	return plotScriptFile, nil
+}
+
+// Generation of heatmaps plots of Task 3
+func Task3(outputDir string, SendDataForTask3 []map[int][]int, NumberOfCalls []string) error {
+	
+	// Total of patterns
+	var numPatterns = len(SendDataForTask3)
+
+	// If there are no patterns, nothing is displayed
+	if numPatterns == 0 {
+		return nil
+	}
+
+	// Total of ranks of the pattern calls
+	var numRanks = len(SendDataForTask3[0])
+
+	// For every pattern, we map the info of the original matrix to a matrix to print with gnuplot
+	for i := 0; i < numPatterns; i++ {
+		// Allocate and initialize matrix to put inside the plot
+		HeatMatrix := make([][]int, numRanks)
+		for ii := 0; ii < numRanks; ii++ {
+		    HeatMatrix[ii] = make([]int, numRanks)
+		}
+		// Prepare matrix with mapped values
+		for j := 0; j < numRanks; j++ {
+			for k := 0; k < numRanks; k++ {
+				OriginalValue := SendDataForTask3[numPatterns-1-i][j][k]
+				NewValue := 0
+				switch {
+			    case OriginalValue == 0:
+			        NewValue = 0
+			    case 0 < OriginalValue && OriginalValue <= 10:
+			        NewValue = 1
+			    case 10 < OriginalValue && OriginalValue <= 100:
+			        NewValue = 2
+			    case 100 < OriginalValue && OriginalValue <= 1000:
+			        NewValue = 3
+			    case 1000 < OriginalValue && OriginalValue <= 10000:
+			        NewValue = 4
+			    case 10000 < OriginalValue && OriginalValue <= 100000:
+			        NewValue = 5
+			    case 100000 < OriginalValue && OriginalValue <= 1000000:
+			        NewValue = 6
+			    case 1000000 < OriginalValue:
+			        NewValue = 7
+			    }
+
+			    // We start putting values from the bottom row to generate the plot correctly
+			    HeatMatrix[numRanks-1-k][j] = NewValue
+			}
+		}
+		// Generate the plot script with all the previous info
+		gnuplotScript, err := generateTask3Plots(outputDir, HeatMatrix, numRanks, i, NumberOfCalls[numPatterns-1-i])
+		if err != nil {
+			return fmt.Errorf("generateTask3Plots() failed: %s", err)
+		}
+		runGnuplot(gnuplotScript, outputDir)
+	}
+
+	return nil
+}
+
+// Creates the gnuplot script of a pattern for task4
+func generateTask4Plots(outputDir string, HeatMatrix [][]int, numRanks int) (string, error) {
+	
+	namePlot := fmt.Sprintf("heatmap-task4-allpatterns.gnuplot")
+	plotScriptFile := filepath.Join(outputDir, namePlot)
+	fd, err := os.OpenFile(plotScriptFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	// Gnuplot "header"
+	str := "set term png size 1200,900\n"
+	str += fmt.Sprintf("set output \"heatmap-task4-allpatterns.png\"\n\n")
+	str += fmt.Sprintf("set title \"Heatmap of the sum of all patterns.\"\n\n")
+
+	_, err = fd.WriteString(str)
+	if err != nil {
+		return "", err
+	}
+	// Gnuplot "body"
+	err = writeHeatmaps(fd, HeatMatrix, outputDir, numRanks)
+	if err != nil {
+		return "", err
+	}
+
+	return plotScriptFile, nil
+}
+
+// Generation of the heatmap plot of Task 4
+func Task4(outputDir string, SendDataForTask3 []map[int][]int, NumberOfCalls []string) error {
+	
+	// Total of patterns
+	var numPatterns = len(SendDataForTask3)
+
+	// If there are no patterns, nothing is displayed
+	if numPatterns == 0 {
+		return nil
+	}
+
+	// Total of ranks of the pattern calls
+	var numRanks = len(SendDataForTask3[0])
+
+	// Allocate and initialize matrix to put inside the plot
+	HeatMatrix    := make([][]int,     numRanks)
+	HeatMatrixAux := make([][]float64, numRanks)
+	for ii := 0; ii < numRanks; ii++ {
+	    HeatMatrix[ii]    = make([]int,     numRanks)
+	    HeatMatrixAux[ii] = make([]float64, numRanks)
+	}
+
+	// Calcule the weighted sum of the patterns
+	for i := 0; i < numPatterns; i++ {
+		weightSplitted := strings.Split(NumberOfCalls[numPatterns-1-i], "/")
+		weight, _ := strconv.Atoi(weightSplitted[0])
+		totalWeight, _ := strconv.Atoi(weightSplitted[1])
+		// Prepare matrix with mapped values
+		for j := 0; j < numRanks; j++ {
+			for k := 0; k < numRanks; k++ {
+				OriginalValue := SendDataForTask3[numPatterns-1-i][j][k]
+			    // We start putting values from the bottom row to generate the plot correctly
+			    HeatMatrixAux[numRanks-1-k][j] += float64(OriginalValue)*(float64(weight)/float64(totalWeight))
+			}
+		}
+	}
+
+	// Prepare matrix with mapped values
+	for j := 0; j < numRanks; j++ {
+		for k := 0; k < numRanks; k++ {
+			OriginalValue := HeatMatrixAux[j][k]
+			NewValue := 0
+			switch {
+		    case OriginalValue == 0:
+		        NewValue = 0
+		    case 0 < OriginalValue && OriginalValue <= 10:
+		        NewValue = 1
+		    case 10 < OriginalValue && OriginalValue <= 100:
+		        NewValue = 2
+		    case 100 < OriginalValue && OriginalValue <= 1000:
+		        NewValue = 3
+		    case 1000 < OriginalValue && OriginalValue <= 10000:
+		        NewValue = 4
+		    case 10000 < OriginalValue && OriginalValue <= 100000:
+		        NewValue = 5
+		    case 100000 < OriginalValue && OriginalValue <= 1000000:
+		        NewValue = 6
+		    case 1000000 < OriginalValue:
+		        NewValue = 7
+		    }
+		    HeatMatrix[k][j] = NewValue
+		}
+	}
+
+	// Generate the plot script with all the previous info
+	gnuplotScript, err := generateTask4Plots(outputDir, HeatMatrix, numRanks)
+	if err != nil {
+		return fmt.Errorf("generateTask3Plots() failed: %s", err)
+	}
+	runGnuplot(gnuplotScript, outputDir)
+
+	return nil
+}

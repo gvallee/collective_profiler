@@ -44,6 +44,19 @@ type callPageData struct {
 	PlotPath  string
 }
 
+type task3HeatmapsPageData struct {
+	PageTitle string
+}
+
+type task4HeatmapsPageData struct {
+	PageTitle string
+	Image string
+}
+
+type task3HeatmapPageData struct {
+	NumPattern  int
+}
+
 type patternsSummaryData struct {
 	Content string
 }
@@ -56,6 +69,9 @@ type server struct {
 	callTemplate     *template.Template
 	patternsTemplate *template.Template
 	stopTemplate     *template.Template
+	task3HeatmapsTemplate  *template.Template
+	task3HeatmapTemplate   *template.Template
+	task4HeatmapsTemplate  *template.Template
 }
 
 // Config represents the configuration of a webUI
@@ -97,12 +113,19 @@ type Config struct {
 	mainData callsPageData
 	cpd      callPageData
 	psd      patternsSummaryData
+	mainDataHeatmap task3HeatmapsPageData
+	mainDataHeatmapTask4 task4HeatmapsPageData
+	hpd      task3HeatmapPageData
+
 
 	indexTemplatePath    string
 	callsTemplatePath    string
 	patternsTemplatePath string
 	callTemplatePath     string
 	stopTemplatePath     string
+	task3HeatmapsTemplatePath string
+	task3HeatmapTemplatePath  string
+	task4HeatmapsTemplatePath string
 }
 
 const (
@@ -303,6 +326,26 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+func (c *Config) serviceTask3HeatmapDetailsRequest(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	numPattern := 0
+	params := r.URL.Query()
+	// For all the params that we have received, we only watch for the NumPattern param
+	for k, v := range params {
+		if k == "NumPattern" {
+			numPattern, err = strconv.Atoi(v[0])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
+	}
+
+	c.hpd = task3HeatmapPageData{
+		NumPattern:  numPattern,
+	}
+}
+
 func (c *Config) loadData() error {
 	if c.stats == nil {
 		if c.DatasetDir == "" {
@@ -348,6 +391,35 @@ func (c *Config) serviceCallsRequest(w http.ResponseWriter, r *http.Request) {
 	c.mainData = callsPageData{
 		PageTitle: c.Name,
 		Calls:     c.allCallsData,
+	}
+}
+
+func (c *Config) serviceTask3HeatmapsRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.mainDataHeatmap = task3HeatmapsPageData{
+		PageTitle: "Heatmaps of patterns",
+	}
+}
+
+func (c *Config) serviceTask4HeatmapsRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.mainDataHeatmapTask4 = task4HeatmapsPageData{
+		PageTitle: "Sum of heatmaps",
+		Image:     "heatmap-task4-allpatterns.png",
 	}
 }
 
@@ -466,6 +538,9 @@ func Init() *Config {
 	cfg.indexTemplatePath = cfg.getTemplateFilePath("index")
 	cfg.callsTemplatePath = cfg.getTemplateFilePath("callsLayout")
 	cfg.callTemplatePath = cfg.getTemplateFilePath("callDetails")
+	cfg.task3HeatmapsTemplatePath = cfg.getTemplateFilePath("task3Layout")
+	cfg.task3HeatmapTemplatePath = cfg.getTemplateFilePath("task3Details")
+	cfg.task4HeatmapsTemplatePath = cfg.getTemplateFilePath("task4Layout")
 	cfg.stopTemplatePath = cfg.getTemplateFilePath("bye")
 	cfg.patternsTemplatePath = cfg.getTemplateFilePath("patterns")
 	return cfg
@@ -495,6 +570,21 @@ func (s *server) patterns(w http.ResponseWriter, r *http.Request) {
 	s.patternsTemplate.Execute(w, s.cfg.psd /*s.cfg*/)
 }
 
+func (s *server) task3Heatmaps(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceTask3HeatmapsRequest(w, r)
+	s.task3HeatmapsTemplate.Execute(w, s.cfg.mainDataHeatmap /*s.cfg*/)
+}
+
+func (s *server) task3Heatmap(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceTask3HeatmapDetailsRequest(w, r)
+	s.task3HeatmapTemplate.Execute(w, s.cfg.hpd)
+}
+
+func (s *server) task4Heatmaps(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceTask4HeatmapsRequest(w, r)
+	s.task4HeatmapsTemplate.Execute(w, s.cfg.mainDataHeatmapTask4 /*s.cfg*/)
+}
+
 func (s *server) stop(w http.ResponseWriter, r *http.Request) {
 	s.stopTemplate.Execute(w, s.cfg)
 }
@@ -508,6 +598,9 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/calls", s.calls)
 	s.mux.HandleFunc("/call", s.call)
 	s.mux.HandleFunc("/patterns", s.patterns)
+	s.mux.HandleFunc("/task3Heatmaps", s.task3Heatmaps)
+	s.mux.HandleFunc("/task3Heatmap", s.task3Heatmap)
+	s.mux.HandleFunc("/task4Heatmaps", s.task4Heatmaps)
 	s.mux.HandleFunc("/stop", s.stop)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
@@ -542,6 +635,12 @@ func (c *Config) Start() error {
 		}}).ParseFiles(c.callTemplatePath))
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
+	s.task3HeatmapTemplate = template.Must(template.New("task3Details.html").Funcs(template.FuncMap{
+		"displayTask3Heatmap": func(numPattern int) string {
+			return fmt.Sprintf("heatmap-task3-pattern%d.png", numPattern)
+		}}).ParseFiles(c.task3HeatmapTemplatePath))
+	s.task3HeatmapsTemplate = template.Must(template.ParseFiles(c.task3HeatmapsTemplatePath))
+	s.task4HeatmapsTemplate = template.Must(template.ParseFiles(c.task4HeatmapsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
 
 	c.srv = &http.Server{

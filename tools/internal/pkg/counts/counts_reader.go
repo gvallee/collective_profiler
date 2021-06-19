@@ -30,6 +30,9 @@ const (
 	rawCountsRecvCountsPrefix   = "Recv counts"
 )
 
+// Global variable for task 3. The outer slice is for the number of the pattern. The map is a matrix of sender->receiver
+var SendDataForTask3 []map[int][]int
+
 // AnalyzeCounts analyses the count from a count file
 func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, map[int][]int, error) {
 	var stats Stats
@@ -483,6 +486,9 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 			}
 			cd.SendData.Counts[callID] = sendCounts
 		}
+
+		// Append the counts found on the array for data send
+		SendDataForTask3 = append(SendDataForTask3, sendCounts)
 
 		if readerErr == io.EOF {
 			break
