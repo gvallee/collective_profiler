@@ -89,6 +89,8 @@ type CallData struct {
 
 	// RecvData is all the data from the receive counts
 	RecvData Data
+
+	SccPattern map[int][]int
 }
 
 // Stats represent the stats related to counts of a specific collective operation
@@ -695,4 +697,60 @@ func GatherStatsFromCallData(cd map[int]*CallData, sizeThreshold int) (SendRecvS
 	}
 
 	return cs, nil
+}
+
+// GetFilePath returns the full path to the pattern file associated to a rank within a job
+func GetFilePath(basedir string, jobid int, rank int) string {
+	return filepath.Join(basedir, fmt.Sprintf("send-counters.job%d.rank%d.txt", jobid, rank))
+}
+
+// Returns an slice with the proportion of calls for pattern, e.g. 361/964 calls
+func GetNumberOfCalls(dir string, jobid int, callNum int) ([]string, error) {
+	var numberCallsCleaned []string
+	var numberTotalCallsCleaned []string
+
+	// Prepare the file to read
+	countsOutputFile := GetFilePath(dir, jobid, callNum)
+	countsFd, err := os.Open(countsOutputFile)
+	if err != nil {
+		return numberCallsCleaned, err
+	}
+	defer countsFd.Close()
+	countsReader := bufio.NewReader(countsFd)
+
+	// The very first line should be '#Raw counters'
+	line, readerErr := countsReader.ReadString('\n')
+	if readerErr != nil {
+		return numberCallsCleaned, readerErr
+	}
+	if line != "# Raw counters\n" {
+		return numberCallsCleaned, fmt.Errorf("wrong file format: %s", line)
+	}
+
+	// Read the file until EOF. In each iteration we only get the string XXX/YYY from the file and append to numberCallsCleaned
+	for {
+		line, readerErr := countsReader.ReadString('\n')
+		if readerErr != nil && readerErr != io.EOF {
+			return numberCallsCleaned, readerErr
+		}
+		if readerErr == io.EOF {
+			break
+		}
+
+		if strings.HasPrefix(line, "Alltoallv calls ") {
+			numberTotalCalls := strings.Split(line, "-")
+			numberTotalCallsCleaned_aux := strings.TrimSuffix(numberTotalCalls[1], "\n")
+			numberTotalCallsCleaned = append(numberTotalCallsCleaned, numberTotalCallsCleaned_aux)
+		}
+
+		if strings.HasPrefix(line, "Count: ") {
+			numberCalls := strings.Split(line, " ")
+			numberCallsCleaned = append(numberCallsCleaned, numberCalls[1])
+		}
+	}
+	for i := 0; i < len(numberCallsCleaned); i++ {
+		numberCallsCleaned[i] = fmt.Sprintf("%s/%s", numberCallsCleaned[i], numberTotalCallsCleaned[i])
+	}
+
+	return numberCallsCleaned, nil
 }

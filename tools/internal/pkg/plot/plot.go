@@ -725,7 +725,7 @@ func writeHeatmaps(fd *os.File, HeatMatrix [][]int, outputDir string, numRanks i
 	str += "set cbrange [0:7]\n"
 	str += "set xlabel \"Senders\"\n"
 	str += "set ylabel \"Receivers\"\n"
-	if numRanks < 40 {
+	if numRanks <= 40 {
 		str += "set xtics 1\n"
 		str += "set ytics 1\n"
 	} else {

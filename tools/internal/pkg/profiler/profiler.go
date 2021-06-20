@@ -1119,22 +1119,30 @@ func (cfg *PostmortemConfig) Analyze() error {
 				return fmt.Errorf("unable to plot average data: %s", err)
 			}
 
-			// Heatmap of task 3
-			// Get the array of maps of the send counts. The outer array is the number of pattern
+			// Heatmaps of task 3
+			// Get the array of maps of the send counts. The lenght take into account all the comunicators
 			SendDataForTask3 := patterns.GetSendDataForTask3()
+			// Get the number of patterns per comunicator
+			NumberSendDataForTask3 := patterns.GetNumberSendDataForTask3()
+
+			// We get only the number of patterns of the first comunicator
+			var PatternsFound []map[int][]int
+			for i := 0; i < NumberSendDataForTask3; i++ {
+				PatternsFound = append(PatternsFound, SendDataForTask3[i])
+			}
 			// Get an array with the proportion of calls of the pattern over the total number of calls
-			NumberOfCalls, err := patterns.GetNumberOfCalls(cfg.DatasetDir, 0, 0)
+			NumberOfCalls, err := counts.GetNumberOfCalls(cfg.DatasetDir, 0, 0)
 			if err != nil {
 				return fmt.Errorf("unable to GetNumberOfCalls: %s", err)
 			}
 			// Creation of the plots
-			err = plot.Task3(cfg.DatasetDir, SendDataForTask3, NumberOfCalls)
+			err = plot.Task3(cfg.DatasetDir, PatternsFound, NumberOfCalls)
 			if err != nil {
 				return fmt.Errorf("unable to plot heatmap of Task3: %s", err)
 			}
 
 			// Heatmap of task 4
-			err = plot.Task4(cfg.DatasetDir, SendDataForTask3, NumberOfCalls)
+			err = plot.Task4(cfg.DatasetDir, PatternsFound, NumberOfCalls)
 			if err != nil {
 				return fmt.Errorf("unable to plot heatmap of Task4: %s", err)
 			}

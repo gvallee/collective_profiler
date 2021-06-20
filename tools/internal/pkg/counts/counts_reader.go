@@ -32,6 +32,7 @@ const (
 
 // Global variable for task 3. The outer slice is for the number of the pattern. The map is a matrix of sender->receiver
 var SendDataForTask3 []map[int][]int
+var NumberSendDataForTask3 int
 
 // AnalyzeCounts analyses the count from a count file
 func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, map[int][]int, error) {
@@ -455,6 +456,8 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 	}
 	defer sendFile.Close()
 	reader := bufio.NewReader(sendFile)
+	
+	NumberSendDataForTask3 = 0
 	for {
 		cd := new(CallData)
 		cd.SendData.CountsMetadata, readerErr = GetHeader(reader)
@@ -488,6 +491,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 		}
 
 		// Append the counts found on the array for data send
+		NumberSendDataForTask3++
 		SendDataForTask3 = append(SendDataForTask3, sendCounts)
 
 		if readerErr == io.EOF {

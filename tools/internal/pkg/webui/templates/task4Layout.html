@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<html>
+
+<head>
+    <style>
+        .body {
+            overflow: hidden;
+        }
+
+        .selected {
+            background: lightgreen;
+        }
+
+        table.heatmapList {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.heatmapList,
+        td.heatmapList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.heatmapList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.heatmapList {
+            max-width: 200px;
+            margin: auto;
+            min-height: 330px;
+            float: left;
+            border: 1px solid black;
+            overflow-y: scroll;
+        }
+
+        div.heatmapDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            position: sticky;
+            top: 0;
+        }
+
+        td.heatmapDetails {
+            vertical-align: top;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Task 4: {{ .PageTitle }}</h1>
+    <div class="heatmapDetails">
+         <img src="/images/{{.Image}}" width="1100" height="825">
+    </div>
+</body>
+</html>
