@@ -1,4 +1,4 @@
-# What we have changed?
+# What have we changed?
 
 In the modifications of the code, we have added the required functions and variables that we have needed to implement the Task 3 and Task 4 of the Coding Challenge.
 
