@@ -52,6 +52,7 @@ test:
 	cd internal/pkg/scale; go test -v
 	cd internal/pkg/plot; go test -v
 	cd internal/pkg/location; go test -v
+	cd internal/pkg/webui; go test -v
 
 check: test
 

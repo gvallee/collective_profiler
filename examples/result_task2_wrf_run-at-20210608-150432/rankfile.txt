@@ -1,0 +1,5 @@
+Total of 4 nodes
+Host node-031 - 11 ranks: 0-39
+Host node-002 - 1 ranks: 40-79
+Host node-012 - 3 ranks: 80-119
+Host node-017 - 8 ranks: 120-159

@@ -1,0 +1,18 @@
+<p>Call Details for {{ .CallID }}</p>
+<table id="callDetails">
+  <tr>
+    <td>
+      <img src="/images/{{displayHeatPlot}}" width="1200" height="900">
+    </td>
+  </tr>
+  <tr>
+    <td>Send counts:<br />
+      <p>{{displaySendCounts .CallsData .LeadRank .CallID}}</p>
+    </td>
+  </tr>
+  <tr>
+    <td>Recv counts:<br />
+      <p>{{displayRecvCounts .CallsData .LeadRank .CallID}}</p>
+    </td>
+  </tr>
+</table>

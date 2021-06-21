@@ -2,15 +2,15 @@
 # sbatch parameters following an example from the Internet at https://help.rc.ufl.edu/doc/Sample_SLURM_Scripts 
 #SBATCH --job-name=alltoall          # Job name
 #SBATCH --mail-type=ALL                     # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=j.legg.17@ucl.ac.uk     # Where to send mail	
+#SBATCH --mail-user=yangyiwei2000@gmail.com     # Where to send mail	
 #SBATCH --nodes=8
 #SBATCH --ntasks=8                     
 #SBATCH --ntasks-per-node=1
 ##SBATCH --mem=128                          # Job memory request
 #SBATCH --time=00:20:00                     # Time limit hrs:min:sec
-#SBATCH --output=alltoall_%j.out     # Standard output and error log
-#SBATCH --error=alltoall_%j.err
-#SBATCH -p jupiter                          # which section of the cluster 
+#SBATCH --output=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.out     # Standard output and error log
+#SBATCH --error=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_%j.err
+#SBATCH -p compute                          # which section of the cluster 
 
 ##SBATCH -w xxxx                            # particular nodes?
 
@@ -28,22 +28,25 @@ THIS_SCRIPT_DIR=$(dirname "$THIS_SCRIPT")
 
 # environment and modules and some paths etc. for the job 
 # /global/home/users/cyrusl/placement/expt0060/OSU/osu-micro-benchmarks-5.6.3/install/libexec/osu-micro-benchmarks/mpi/collective
-export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0066
+export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler
 # TODO - set modulefiles!!?
 module purge
 HNAME=$(hostname)
 #if [[ ${HNAME:0:4} == "thor" ]]; then
-    module load gcc/8.3.1 hpcx/2.7.0
+    # module load gcc/8.3.1 hpcx/2.7.0
 #else
 #    module load gcc/4.8.5 hpcx/2.7.0  # these were used for compiling on Login node for use on Jupiter
 #fi
+spack load gcc@11
+
+module load intel/2019u4  openmpi/4.0.1
 
 # should not need this - no environment variable means no spack modules loaded
 # which spack
 # spack unload --all
 
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export RESULTS_ROOT=${PROJECT_ROOT}/alltoall_profiling/examples/results/run-at-${JOB_NOW} #-${THIS_SCRIPT_FILENAME}
+export RESULTS_ROOT=${PROJECT_ROOT}/examples/results/run-at-${JOB_NOW} #-${THIS_SCRIPT_FILENAME}
 # TODO THIS-SCRIPT_FILENAME gets changed by sbatch to "slurm-script" - detect that and replace somehow with original
 
 # makes the results directory and somewhere to put results of post processing.
@@ -121,13 +124,13 @@ EOF
 
 # set variables for the mpirun executable - repeat this section if more than one
 # full path? (which below help ldd find executable)
-export EXECUTABLE1=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/examples/alltoall
+export EXECUTABLE1=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/examples/alltoall_c
 export EXECUTABLE1_PARAMS=""
 
 # following example at /global/home/users/cyrusl/placement/expt0060/geoffs-profiler/build-570ff3aff83fa208f3d1e2fcbdb31d9ec7e93b6c/README.md
 # TODO put in the results dir
 export A2A_PROFILING_OUTPUT_DIR=$RESULTS_ROOT
-ALLTOALL_LIB_ROOT=/global/home/users/cyrusl/placement/expt0066/alltoall_profiling/src/alltoall
+ALLTOALL_LIB_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/src/alltoall
 COUNTSFLAGS="$ALLTOALL_LIB_ROOT/liballtoall_counts.so"
 MAPFLAGS="$ALLTOALL_LIB_ROOT/liballtoall_location.so"
 BACKTRACEFLAGS="$ALLTOALL_LIB_ROOT/liballtoall_backtrace.so"

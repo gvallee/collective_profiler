@@ -51,10 +51,15 @@
         <div class="tab">
             <button class="tablinks" onclick="openTab(event, 'Calls')">Calls</button>
             <button class="tablinks" onclick="openTab(event, 'Patterns')">Patterns</button>
+            <button class="tablinks" onclick="openTab(event, 'HeapMap')">HeapMap</button>
         </div>
 
         <div id="Calls" class="tabcontent">
             <object type="text/html" data="/calls" width="1600" height="600"></object>
+        </div>
+
+        <div id="HeapMap" class="tabcontent">
+            <object type="text/html" data="/heatmap" width="1600" height="600"></object>
         </div>
 
         <div id="Patterns" class="tabcontent">

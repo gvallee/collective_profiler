@@ -8,17 +8,8 @@ package webui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
-	"sync"
-	"text/template"
-
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
@@ -30,6 +21,16 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/go_util/pkg/util"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"text/template"
 )
 
 type callsPageData struct {
@@ -44,8 +45,33 @@ type callPageData struct {
 	PlotPath  string
 }
 
+type jsonPageData struct {
+	LeadRank  int
+	CallID    int
+	Kth       int
+	Dis       string
+	HeatMap   map[int][][]int
+	CallsData []counts.CommDataT
+}
+
 type patternsSummaryData struct {
 	Content string
+}
+
+type HeapMapData struct {
+	Content string
+	Calls   []counts.CommDataT
+}
+
+type heapPageData struct {
+	LeadRank  int
+	CallID    int
+	CallsData []counts.CommDataT
+	PlotPath  string
+}
+
+type HeatMapData struct {
+	PlotPath string
 }
 
 type server struct {
@@ -54,6 +80,8 @@ type server struct {
 	indexTemplate    *template.Template
 	callsTemplate    *template.Template
 	callTemplate     *template.Template
+	heatmapTemplate  *template.Template
+	heatTemplate     *template.Template
 	patternsTemplate *template.Template
 	stopTemplate     *template.Template
 }
@@ -87,6 +115,10 @@ type Config struct {
 	// The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value a map with the key being a rank and the value its ordered counts
 	callsRecvHeatMap map[int]map[int]map[int]int
 
+	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
+	jsonSendHeetMap map[int][][]int
+	jsonRecvHeetMap map[int][][]int
+
 	globalSendHeatMap     map[int]int
 	globalRecvHeatMap     map[int]int
 	rankNumCallsMap       map[int]int
@@ -95,14 +127,19 @@ type Config struct {
 	totalLateArrivalTimes map[int]float64
 
 	mainData callsPageData
+	heapData HeatMapData
 	cpd      callPageData
+	jpd      jsonPageData
 	psd      patternsSummaryData
+	hsd      heapPageData
 
 	indexTemplatePath    string
 	callsTemplatePath    string
 	patternsTemplatePath string
 	callTemplatePath     string
 	stopTemplatePath     string
+	heatmapTemplatePath  string
+	heatTemplatePath     string
 }
 
 const (
@@ -127,8 +164,8 @@ func allDataAvailable(collectiveName string, dir string, leadRank int, commID in
 		return false
 	}
 
-	lateArrivalTimingFilePath := timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID)
-	execTimingFilePath := timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID)
+	lateArrivalTimingFilePath := filepath.Join(dir, timings.GetExecTimingFilename(collectiveName, leadRank, commID, jobID))
+	execTimingFilePath := filepath.Join(dir, timings.GetLateArrivalTimingFilename(collectiveName, leadRank, commID, jobID))
 
 	if !util.PathExists(execTimingFilePath) {
 		log.Printf("%s is missing!\n", execTimingFilePath)
@@ -195,6 +232,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 
 	// Make sure the graph is ready
 	if !plot.CallFilesExist(c.DatasetDir, leadRank, callID) {
+		fmt.Print(c.DatasetDir)
 		if allDataAvailable(c.collectiveName, c.DatasetDir, leadRank, c.commID, jobID, callID) {
 			if c.callsSendHeatMap[leadRank] == nil {
 				sendHeatMapFilename := maps.GetSendCallsHeatMapFilename(c.DatasetDir, c.collectiveName, leadRank)
@@ -216,14 +254,14 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				c.callsRecvHeatMap[leadRank] = recvHeatMap
 			}
 
-			execTimingsFile := timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID)
+			execTimingsFile := filepath.Join(c.DatasetDir, timings.GetExecTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, execTimings, _, err := timings.ParseTimingFile(execTimingsFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
 			}
 			callExecTimings := execTimings[callID]
 
-			lateArrivalFile := timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID)
+			lateArrivalFile := filepath.Join(c.DatasetDir, timings.GetLateArrivalTimingFilename(c.collectiveName, leadRank, c.commID, jobID))
 			_, lateArrivalTimings, _, err := timings.ParseTimingFile(lateArrivalFile, c.codeBaseDir)
 			if err != nil {
 				log.Printf("unable to parse %s: %s", execTimingsFile, err)
@@ -235,7 +273,11 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsRecvHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
+			// Debug
+			fmt.Print(c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID])
+
+			//pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][callID], c.callsSendHeatMap[leadRank][callID], callExecTimings, callLateArrivalTimings)
+			pngFile, err := plot.CallData(c.DatasetDir, c.DatasetDir, leadRank, callID, hostMap, c.callsSendHeatMap[leadRank][0], c.callsSendHeatMap[leadRank][0], callExecTimings, callLateArrivalTimings)
 			if err != nil {
 				log.Printf("ERROR: %s\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -295,12 +337,126 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 			}
 		}
 	}
-
+	fmt.Print(c.callsSendHeatMap)
 	c.cpd = callPageData{
 		LeadRank:  leadRank,
 		CallID:    callID,
 		CallsData: c.mainData.Calls,
 	}
+}
+
+func (c *Config) serviceHeatDetailsRequest(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	leadRank := 0
+	//callID := 0
+	//Dis := "shanghaitech"
+	//Kth := 0
+	params := r.URL.Query()
+	for k, v := range params {
+		if k == "leadRank" {
+			leadRank, err = strconv.Atoi(v[0])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
+		//
+		//if k == "callID" {
+		//	callID, err = strconv.Atoi(v[0])
+		//	if err != nil {
+		//		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	}
+		//}
+		//if k == "Kth" {
+		//	Kth, err = strconv.Atoi(v[0])
+		//	if err != nil {
+		//		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	}
+		//}
+	}
+
+	// save the heatmap matrix ["callnum"][i][j] = rank i--send-->rank j / rank i--recv-->rank j
+
+	if c.jsonSendHeetMap == nil {
+		c.jsonSendHeetMap = make(map[int][][]int)
+	}
+
+	pwd := c.DatasetDir //"examples/result_task2_wrf_run-at-20210608-150432/result_task2_wrf_run-at-20210608-150432"
+	listFiles, err := findCountRankFileList(pwd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(listFiles)
+
+	type topMatrix struct {
+		CallID int     `json:"call_id"`
+		Sum    int     `json:"sum"`
+		Matrix [][]int `json:"matrix"`
+	}
+
+	topMatrixArray := make([]topMatrix, 0)
+
+	for _, filePath := range listFiles {
+		if strings.HasPrefix(filepath.Base(filePath), fmt.Sprintf("counts.rank%d", leadRank)) {
+			callIDString := strings.TrimPrefix(filepath.Base(filePath), fmt.Sprintf("counts.rank%d_call", leadRank))
+			callIDString = strings.TrimSuffix(callIDString, ".md")
+			callIDCurrent, err := strconv.Atoi(callIDString)
+			matrixCurrentSum := 0
+			if err != nil {
+				panic(err)
+			}
+
+			rawCountsT, _ := counts.ParseRawFile(filePath)
+			// Warning: This is easy to cause crash!!!
+			matrixSize := len(strings.Split(rawCountsT.SendCounts[0], " "))
+			currentMatrix := make([][]int, matrixSize)
+			for i := 0; i < matrixSize; i++ {
+				currentMatrix[i] = make([]int, matrixSize)
+				currentMatrixStr := strings.Split(rawCountsT.SendCounts[i], " ")
+				for j := 0; j < matrixSize; j++ {
+					currentMatrix[i][j], err = strconv.Atoi(currentMatrixStr[j])
+					if err != nil {
+						panic(err)
+					}
+					matrixCurrentSum += currentMatrix[i][j]
+				}
+			}
+			topMatrixArray = append(topMatrixArray, topMatrix{Matrix: currentMatrix, Sum: matrixCurrentSum, CallID: callIDCurrent})
+		}
+	}
+	sort.SliceStable(topMatrixArray, func(i, j int) bool {
+		return topMatrixArray[i].Sum > topMatrixArray[j].Sum
+	})
+
+	topMatrixArray = topMatrixArray[:10]
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(topMatrixArray)
+
+	//c.jpd = jsonPageData{
+	//	LeadRank:  leadRank,
+	//	CallID:    callID,
+	//	Kth:       Kth,
+	//	Dis:	   Dis,
+	//	HeatMap:   jsonSendHeetMap,
+	//	CallsData: c.mainData.Calls,
+	//}
+}
+
+func findCountRankFileList(pwd string) ([]string, error) {
+	fileInfoList, err := ioutil.ReadDir(pwd)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	var fileList []string
+	for _, file := range fileInfoList {
+		if strings.HasPrefix(file.Name(), patterns.CountFilePrefix) {
+			fileList = append(fileList, filepath.Join(pwd, file.Name()))
+		}
+	}
+	return fileList, nil
 }
 
 func (c *Config) loadData() error {
@@ -351,12 +507,27 @@ func (c *Config) serviceCallsRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Config) serviceHeatmapRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.mainData = callsPageData{
+		PageTitle: c.Name,
+		Calls:     c.allCallsData,
+	}
+}
+
 func findPatternsSummaryFile(c *Config) (string, error) {
 	files, err := ioutil.ReadDir(c.DatasetDir)
 	if err != nil {
 		return "", err
 	}
-
+	// where we get all the data we need and put it into c
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), patterns.SummaryFilePrefix) {
 			return filepath.Join(c.DatasetDir, file.Name()), nil
@@ -466,6 +637,8 @@ func Init() *Config {
 	cfg.indexTemplatePath = cfg.getTemplateFilePath("index")
 	cfg.callsTemplatePath = cfg.getTemplateFilePath("callsLayout")
 	cfg.callTemplatePath = cfg.getTemplateFilePath("callDetails")
+	cfg.heatmapTemplatePath = cfg.getTemplateFilePath("heatmapLayout")
+	cfg.heatTemplatePath = cfg.getTemplateFilePath("heatDetails")
 	cfg.stopTemplatePath = cfg.getTemplateFilePath("bye")
 	cfg.patternsTemplatePath = cfg.getTemplateFilePath("patterns")
 	return cfg
@@ -483,6 +656,16 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 func (s *server) calls(w http.ResponseWriter, r *http.Request) {
 	s.cfg.serviceCallsRequest(w, r)
 	s.callsTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
+}
+
+func (s *server) heatmap(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceHeatmapRequest(w, r)
+	s.heatmapTemplate.Execute(w, s.cfg.mainData /*s.cfg*/)
+}
+
+func (s *server) heat(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceCallDetailsRequest(w, r)
+	s.callsTemplate.Execute(w, s.cfg.cpd /*s.cfg*/)
 }
 
 func (s *server) call(w http.ResponseWriter, r *http.Request) {
@@ -509,6 +692,10 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/call", s.call)
 	s.mux.HandleFunc("/patterns", s.patterns)
 	s.mux.HandleFunc("/stop", s.stop)
+	s.mux.HandleFunc("/heatmap", s.heatmap)
+	s.mux.HandleFunc("/he", cfg.serviceHeatDetailsRequest)
+	//serviceHeatDetailsRequest
+	//s.mux.HandleFunc("/call_json", s.call_json)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
 }
@@ -541,6 +728,7 @@ func (c *Config) Start() error {
 			return fmt.Sprintf("profiler_rank%d_call%d.png", leadRank, callID)
 		}}).ParseFiles(c.callTemplatePath))
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
+	s.heatmapTemplate = template.Must(template.ParseFiles(c.heatmapTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
 

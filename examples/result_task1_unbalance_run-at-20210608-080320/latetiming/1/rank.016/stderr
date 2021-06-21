@@ -1,0 +1,143 @@
+[nia1580.scinet.local:417428] mca: base: components_register: registering framework btl components
+[nia1580.scinet.local:417428] mca: base: components_register: found loaded component self
+[nia1580.scinet.local:417428] mca: base: components_register: component self register function successful
+[nia1580.scinet.local:417428] mca: base: components_open: opening btl components
+[nia1580.scinet.local:417428] mca: base: components_open: found loaded component self
+[nia1580.scinet.local:417428] mca: base: components_open: component self open function successful
+[nia1580.scinet.local:417428] select: initializing btl component self
+[nia1580.scinet.local:417428] select: init of component self returned success
+[nia1580.scinet.local:417428] mca: base: components_register: registering framework pml components
+[nia1580.scinet.local:417428] mca: base: components_register: found loaded component ucx
+[nia1580.scinet.local:417428] mca: base: components_register: component ucx register function successful
+[nia1580.scinet.local:417428] mca: base: components_open: opening pml components
+[nia1580.scinet.local:417428] mca: base: components_open: found loaded component ucx
+[nia1580.scinet.local:417428] mca: base: components_open: component ucx open function successful
+[nia1580.scinet.local:417428] select: initializing pml component ucx
+[nia1580.scinet.local:417428] select: init returned priority 51
+[nia1580.scinet.local:417428] selected ucx best priority 51
+[nia1580.scinet.local:417428] select: component ucx selected
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] check:select: modex not reqd
+[nia1580.scinet.local:417428] mca: base: close: component ucx closed
+[nia1580.scinet.local:417428] mca: base: close: unloading component ucx
+[nia1580.scinet.local:417428] mca: base: close: component self closed
+[nia1580.scinet.local:417428] mca: base: close: unloading component self

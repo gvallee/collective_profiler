@@ -694,6 +694,157 @@ func CallData(dir string, outputDir string, leadRank int, callID int, hostMap ma
 	return pngFile, runGnuplot(gnuplotScript, outputDir)
 }
 
+// generateHeatDataFiles aims to make the different kind of distribution(Task 5) for the map
+func generateHeatDataFiles(dir string, outputDir string, SizeHeatMap map[int][]int, schema string) (string, string, error) {
+	if schema == "linear" {
+
+	} else if schema == "logarithmic" {
+
+	} else if schema == "shanghaitech" {
+
+	}
+
+
+	return "_","_",runGnuplot(schema, outputDir)
+}
+
+// Element is a TopK item
+type Element struct {
+	Key   [10][]int
+	Count int
+	CurrentSum int
+}
+
+func getSum(arr[]int)int{
+	var sum int
+	for _,val := range arr{
+		sum+=val
+	}
+	return sum
+}
+
+
+//Top-k getWeight
+func getWeight(SizeHeatMap map[int]map[int][]int) map[int][]int{
+	commits := make(map [int][]int)
+	var k Element
+	for _, temp_map := range SizeHeatMap{
+		for _, inner_map := range temp_map{
+ 			k.checkSame(inner_map)
+		}
+	}
+	// Map from sum to item
+	for _, item:= range k.Key{
+		if item!=nil{
+			commits[getSum(item)] = item
+		}
+	}
+
+	return commits
+}
+
+//cell(x,y)<-Sum{Wi*Ti(xj,yk)}
+func getWeightedMap(SizeHeatMap map[int]map[int][]int)map[int][]int{
+	commits := make(map [int][]int)
+	for i,outer_map :=range SizeHeatMap{
+	  for j,temp_map := range SizeHeatMap {
+		for k, inner_map := range temp_map {
+			commits[j][k] += inner_map[k] * outer_map[i][k]
+		}
+	  }
+	}
+
+
+	return commits
+}
+
+func checkSame(arr1 []int,arr2 []int) bool{
+	if len(arr2)!=len(arr1){
+		return false
+	}
+	for index,eles:=range arr1{
+		if eles!= arr2[index]{
+			return false
+		}
+	}
+	return true
+}
+
+func (k *Element) checkSame(arr []int) bool{
+	//check the sum of item is lower than the last one
+	if getSum(arr) < k.CurrentSum && k.Count==10{
+		return false
+	}
+	var test = len(arr)
+	var i int
+	if k.Key[0]==nil{
+		for i=0;i<test;i++ {
+			k.Key[0]= append(k.Key[0],0)
+		}
+	}
+	var get_diff = 0
+	for _,eles := range k.Key{
+		if checkSame(arr,eles){
+			get_diff = 1
+		}
+	}
+
+	// check whether the item is all locate in the Element k, O3
+	// check the item can be the same with one array
+	for index, eles :=range k.Key {
+	array_count :=0
+		for i,item := range arr{
+			if item!=eles[i] && array_count<len(arr){
+				if get_diff==0 {
+					if k.Count < 10 {
+						k.Key[k.Count] = arr
+						k.Count++
+						if k.CurrentSum > getSum(arr) || k.Count == 1 {
+							k.CurrentSum = getSum(arr)
+						}
+						return true
+					} else {
+						if getSum(eles) < getSum(arr) {
+							k.Key[index] = arr
+						}
+						return true
+					}
+				}
+			} else {
+				if array_count==len(arr)-1{
+					return false
+				}
+				array_count++
+			}
+		}
+	}
+	return true
+}
+
+// HeatData the Backend for the heat part
+func HeatData(dir string, outputDir string, SizeHeatMap map[int]map[int][]int, weighted bool, schema string) (string, error) {
+	if len(SizeHeatMap) == 0 {
+		return "", fmt.Errorf("empty list of hosts")
+	}
+	var test  map[int][]int
+	if weighted{
+		test = getWeightedMap(SizeHeatMap)
+	} else {
+		test = getWeight(SizeHeatMap)
+	}
+
+
+	pngFile, gnuplotScript,err := generateHeatDataFiles(dir, outputDir, test ,schema)
+
+	if err != nil {
+		return "", fmt.Errorf("Gen-Graph Fail")
+	}
+
+	return pngFile, runGnuplot(gnuplotScript, outputDir)
+}
+
+
+
 // Avgs plots the average statistics gathered during the post-mortem analysis
 func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, avgSendHeatMap map[int]int, avgRecvHeatMap map[int]int, avgExecTimeMap map[int]float64, avgLateArrivalTimeMap map[int]float64) error {
 	gnuplotScript, err := generateAvgsDataFiles(dir, outputDir, hostMap, avgSendHeatMap, avgRecvHeatMap, avgExecTimeMap, avgLateArrivalTimeMap)
@@ -703,3 +854,4 @@ func Avgs(dir string, outputDir string, numRanks int, hostMap map[string][]int, 
 
 	return runGnuplot(gnuplotScript, outputDir)
 }
+

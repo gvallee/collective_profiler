@@ -633,10 +633,10 @@ func sameRawCounts(counts1 []string, counts2 []string) bool {
 	return true
 }
 
-func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+func rawSendCountsAlreadyExists(rc RawCountsT, list []rawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
-		if rc.sendDatatypeSize == d.counts.sendDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.sendCounts, d.counts.sendCounts) {
+		if rc.sendDatatypeSize == d.counts.sendDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.SendCounts, d.counts.SendCounts) {
 			return idx
 		}
 		idx++
@@ -645,7 +645,7 @@ func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
 	return -1
 }
 
-func rawRecvCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+func rawRecvCountsAlreadyExists(rc RawCountsT, list []rawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
 		if rc.recvDatatypeSize == d.counts.recvDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.recvCounts, d.counts.recvCounts) {
@@ -760,7 +760,7 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 		}
 
 		if context == "S" {
-			sendCompressedCounts := compressCounts(c.counts.sendCounts)
+			sendCompressedCounts := compressCounts(c.counts.SendCounts)
 			_, err = fd.WriteString(strings.Join(sendCompressedCounts, "\n"))
 			if err != nil {
 				return err
@@ -817,7 +817,7 @@ func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, fil
 	defer progress.EndBar(b)
 	for _, file := range files {
 		b.Increment(1)
-		rc, err := parseRawFile(file)
+		rc, err := ParseRawFile(file)
 		if err != nil {
 			return err
 		}
@@ -926,8 +926,8 @@ func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 	return nil
 }
 
-func parseRawFile(file string) (rawCountsT, error) {
-	var rc rawCountsT
+func ParseRawFile(file string) (RawCountsT, error) {
+	var rc RawCountsT
 
 	fd, err := os.Open(file)
 	if err != nil {
@@ -989,7 +989,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		if err != nil {
 			return rc, err
 		}
-		rc.sendCounts = append(rc.sendCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
+		rc.SendCounts = append(rc.SendCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
 	}
 
 	// We have two empty lines

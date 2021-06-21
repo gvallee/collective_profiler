@@ -100,6 +100,8 @@ src/alltoall/examples/results_alltoallv/*
 examples/alltoallv_dt_c
 src/alltoall/examples/alltoall
 examples/alltoall_simple_c
+examples/alltoall_c
+examples/task1_c
 examples/alltoall_bigcounts_c
 examples/alltoall_demo
 
@@ -109,6 +111,15 @@ examples/alltoall_dt_c
 examples/alltoall_multicomms_c
 examples/alltoall_muticomms_c
 
+task1_bak
+
+
 # results files before approval are held in unchecked/
 tests/alltoall_*/*/unchecked/*
 examples/results_validation/*
+
+results*
+task1_balance_c
+task1_unbalance_c
+ISC21-code-challenge
+.idea

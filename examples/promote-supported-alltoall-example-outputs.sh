@@ -2,7 +2,7 @@
 echo "Promoting ..."
 # profiling environment variables
 export JOB_NOW=$( date +%Y%m%d-%H%M%S )
-export PROJECT_ROOT=/global/home/users/cyrusl/placement/expt0070/alltoall_profiling
+export PROJECT_ROOT=/home/l/lcl_uotiscscc/lcl_uotiscsccs1034/scratch/code-challenge/collective_profiler/
 
 EXAMPLE_PROGS=(alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c)  
 

@@ -1,0 +1,9 @@
+	linux-vdso.so.1 =>  (0x00007ffcbaffe000)
+	libpthread.so.0 => /lib64/libpthread.so.0 (0x00002b1d6e2af000)
+	libc.so.6 => /lib64/libc.so.6 (0x00002b1d6e4cb000)
+	libdl.so.2 => /lib64/libdl.so.2 (0x00002b1d6e899000)
+	libutil.so.1 => /lib64/libutil.so.1 (0x00002b1d6ea9d000)
+	librt.so.1 => /lib64/librt.so.1 (0x00002b1d6eca0000)
+	libm.so.6 => /lib64/libm.so.6 (0x00002b1d6eea8000)
+	/lib64/ld-linux-x86-64.so.2 (0x00002b1d6dcee000)
+in this example are using PRELOAD so this may not be giving the right information to compare to that

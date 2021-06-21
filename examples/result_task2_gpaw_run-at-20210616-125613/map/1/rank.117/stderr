@@ -1,0 +1,610 @@
+[nia0073.scinet.local:59113] mca: base: components_register: registering framework btl components
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component self
+[nia0073.scinet.local:59113] mca: base: components_register: component self register function successful
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component sm
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component tcp
+[nia0073.scinet.local:59113] mca: base: components_register: component tcp register function successful
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component vader
+[nia0073.scinet.local:59113] mca: base: components_register: component vader register function successful
+[nia0073.scinet.local:59113] mca: base: components_open: opening btl components
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component self
+[nia0073.scinet.local:59113] mca: base: components_open: component self open function successful
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component tcp
+[nia0073.scinet.local:59113] mca: base: components_open: component tcp open function successful
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component vader
+[nia0073.scinet.local:59113] mca: base: components_open: component vader open function successful
+[nia0073.scinet.local:59113] select: initializing btl component self
+[nia0073.scinet.local:59113] select: init of component self returned success
+[nia0073.scinet.local:59113] select: initializing btl component tcp
+[nia0073.scinet.local:59113] btl: tcp: Searching for exclude address+prefix: 127.0.0.1 / 8
+[nia0073.scinet.local:59113] btl: tcp: Found match: 127.0.0.1 (lo)
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1024
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1025
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1026
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1027
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1028
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1029
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1030
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1031
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1032
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1033
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1034
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1035
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1036
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1037
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1038
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1039
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1040
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1041
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1042
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1043
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1044
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1045
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1046
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1047
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1048
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1049
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1050
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1051
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1052
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1053
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1054
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1055
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1056
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1057
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1058
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1059
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1060
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1061
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1062
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1063
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1064
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1065
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1066
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1067
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1068
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1069
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1070
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1071
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1072
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1073
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1074
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1075
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1076
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1077
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1078
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1079
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1080
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1081
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1082
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1083
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1084
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1085
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1086
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1087
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1088
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1089
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1090
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1091
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1092
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1093
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1094
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1095
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1096
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1097
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1098
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1099
+[nia0073.scinet.local:59113] btl:tcp: Attempting to bind to AF_INET port 1100
+[nia0073.scinet.local:59113] btl:tcp: Successfully bound to AF_INET port 1100
+[nia0073.scinet.local:59113] btl:tcp: my listening v4 socket is 0.0.0.0:1100
+[nia0073.scinet.local:59113] btl:tcp: examining interface eno1
+[nia0073.scinet.local:59113] btl:tcp: using ipv6 interface eno1
+[nia0073.scinet.local:59113] btl:tcp: examining interface ib0
+[nia0073.scinet.local:59113] btl:tcp: using ipv6 interface ib0
+[nia0073.scinet.local:59113] select: init of component tcp returned success
+[nia0073.scinet.local:59113] select: initializing btl component vader
+[nia0073.scinet.local:59113] select: init of component vader returned success
+[nia0073.scinet.local:59113] mca: base: components_register: registering framework pml components
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component cm
+[nia0073.scinet.local:59113] mca: base: components_register: component cm register function successful
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component ob1
+[nia0073.scinet.local:59113] mca: base: components_register: component ob1 register function successful
+[nia0073.scinet.local:59113] mca: base: components_register: found loaded component v
+[nia0073.scinet.local:59113] mca: base: components_register: component v register function successful
+[nia0073.scinet.local:59113] mca: base: components_open: opening pml components
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component cm
+[nia0073.scinet.local:59113] mca: base: close: component cm closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component cm
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component ob1
+[nia0073.scinet.local:59113] mca: base: components_open: component ob1 open function successful
+[nia0073.scinet.local:59113] mca: base: components_open: found loaded component v
+[nia0073.scinet.local:59113] mca: base: components_open: component v open function successful
+[nia0073.scinet.local:59113] select: initializing pml component ob1
+[nia0073.scinet.local:59113] select: init returned priority 20
+[nia0073.scinet.local:59113] select: component v not in the include list
+[nia0073.scinet.local:59113] selected ob1 best priority 20
+[nia0073.scinet.local:59113] select: component ob1 selected
+[nia0073.scinet.local:59113] mca: base: close: component v closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component v
+[nia0073.scinet.local:59113] check:select: modex not reqd
+[nia0073.scinet.local:59113] mca: bml: Using self btl for send to [[10191,1],117] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],80] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],81] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],82] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],83] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],84] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],85] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],86] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],87] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],88] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],89] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],90] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],91] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],92] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],93] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],94] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],95] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],96] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],97] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],98] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],99] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],100] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],101] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],102] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],103] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],104] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],105] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],106] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],107] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],108] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],109] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],110] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],111] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],112] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],113] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],114] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],115] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],116] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],118] on node nia0073
+[nia0073.scinet.local:59113] mca: bml: Using vader btl for send to [[10191,1],119] on node nia0073
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.2.1: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.2.1: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.1.72, process [[10191,1],53]
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.19.4, process [[10191,1],121]
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.19.4, process [[10191,1],133]
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.19.4, process [[10191,1],125]
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.19.4, process [[10191,1],149]
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],53] on node nia0072
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],53] on node nia0072
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.1.71, process [[10191,1],21]
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],149] on node nia1300
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],149] on node nia1300
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.1.71, process [[10191,1],7]
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],7] on node nia0071
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],7] on node nia0071
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],125] on node nia1300
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],125] on node nia1300
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],43] on node nia0072
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],43] on node nia0072
+[nia0073.scinet.local:59113] btl: tcp: attempting to connect() to [[10191,1],43] address 172.16.1.72 on port 1029
+[nia0073.scinet.local:59113] btl:tcp: would block, so allowing background progress
+[nia0073.scinet.local:59113] btl:tcp: connect() to 172.16.1.72:1029 completed (complete_connect), sending connect ACK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],157] on node nia1300
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.19.4: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.19.4: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],157] on node nia1300
+[nia0073.scinet.local:59113] btl: tcp: attempting to connect() to [[10191,1],157] address 172.16.19.4 on port 1099
+[nia0073.scinet.local:59113] btl:tcp: would block, so allowing background progress
+[nia0073.scinet.local:59113] btl: tcp: Match incoming connection from [[10191,1],157] 172.16.19.4 with locally known IP 10.20.19.4 failed (iface 1/2)!
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.19.4, process [[10191,1],157]
+[nia0073.scinet.local:59113] btl:tcp: connect() to 172.16.19.4:1099 completed (complete_connect), sending connect ACK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],37] on node nia0071
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.71: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.71: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] mca: bml: Using tcp btl for send to [[10191,1],37] on node nia0071
+[nia0073.scinet.local:59113] btl: tcp: attempting to connect() to [[10191,1],37] address 172.16.1.71 on port 1085
+[nia0073.scinet.local:59113] btl:tcp: would block, so allowing background progress
+[nia0073.scinet.local:59113] btl:tcp: connect() to 172.16.1.71:1085 completed (complete_connect), sending connect ACK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 172.16.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 172.16.2.1 to 10.20.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 172.16.1.72: IPV4 PRIVATE DIFFERENT NETWORK
+[nia0073.scinet.local:59113] btl:tcp: path from 10.20.2.1 to 10.20.1.72: IPV4 PRIVATE SAME NETWORK
+[nia0073.scinet.local:59113] btl:tcp: now connected to 172.16.1.72, process [[10191,1],77]
+[nia0073.scinet.local:59113] mca: base: close: component ob1 closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component ob1
+[nia0073.scinet.local:59113] mca: base: close: component self closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component self
+[nia0073.scinet.local:59113] mca: base: close: component tcp closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component tcp
+[nia0073.scinet.local:59113] mca: base: close: component vader closed
+[nia0073.scinet.local:59113] mca: base: close: unloading component vader

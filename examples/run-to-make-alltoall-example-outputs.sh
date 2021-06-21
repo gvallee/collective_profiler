@@ -3,7 +3,10 @@
 # module for HPCAC
 spack unload --all
 module purge
-module load gcc/8.3.1 hpcx/2.7.0
+spack load gcc@11
+
+module load intel/2019u4  openmpi/4.0.1
+
 
 # one of these tests makes 1E6 files, so using temporary files, which are hoped to be in RAM
 TMPROOT=$(mktemp -td alltoalltest.XXX)
