@@ -607,3 +607,12 @@ func WriteData(patternsFd *os.File, patternsSummaryFd *os.File, patternsData Dat
 
 	return nil
 }
+
+// Returns the array of maps of the send counts. The outer array is the number of pattern
+func GetSendDataForTask3() ([]map[int][]int) {
+	return counts.SendDataForTask3;
+}
+
+func GetNumberSendDataForTask3() (int) {
+	return counts.NumberSendDataForTask3;
+}

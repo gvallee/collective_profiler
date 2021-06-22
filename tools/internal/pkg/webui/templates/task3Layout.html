@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<html>
+
+<head>
+    <style>
+        .body {
+            overflow: hidden;
+        }
+
+        .selected {
+            background: lightgreen;
+        }
+
+        table.heatmapList {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.heatmapList,
+        td.heatmapList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.heatmapList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.heatmapList {
+            max-width: 200px;
+            margin: auto;
+            min-height: 330px;
+            float: left;
+            border: 1px solid black;
+            overflow-y: scroll;
+        }
+
+        div.heatmapDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            position: sticky;
+            top: 0;
+        }
+
+        td.heatmapDetails {
+            vertical-align: top;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Task 3: {{ .PageTitle }}</h1>
+    <div class="mainPanel">
+        <div class="heatmapList">
+            <table class="heatmapList" id="heatmapListTable">
+                <tr>
+                    <th>Patterns&nbsp;&nbsp;&nbsp;&nbsp;</th>
+                </tr>
+                {{range $num, $pattern := .NumberOfPatterns}}
+                <tr class="heatmapList">
+                    <td class="heatmapList" id="NumPattern">{{ $num }}</td>
+                </tr>
+                {{end}}
+            </table>
+        </div>
+    </div>
+    <div class="heatmapDetails">
+        <table>
+            <tr>
+                <td class="heatmapDetails">
+                    <div class="heatmapDetails">
+                        <table id="heatmapInfo">
+
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <script type="text/javascript">
+        function highlight(e) {
+            e.target.parentNode.className = 'selected';
+            if (e.target.className == "heatmapList") {
+                // Restore previously selected element(s) of the table
+                var t = document.getElementById('heatmapListTable')
+                for (var i = 1, row; row = t.rows[i]; i++) {
+                    row.className = 'heatmapList';
+                }
+                e.target.parentNode.className = 'selected';
+                var NumPattern = e.target.parentNode.children[0].innerHTML;
+
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        document.getElementById("heatmapInfo").innerHTML = xhr.responseText;
+                    }
+                }
+                var params = 'NumPattern=' + NumPattern;
+                xhr.open("GET", "/task3Heatmap" + "?" + params);
+                xhr.send();
+            }
+        }
+
+        var table = document.getElementById('heatmapListTable');
+        table.onclick = highlight;
+    </script>
+</body>
+</html>
