@@ -106,7 +106,16 @@ func saveGlobalHeatMap(codeBaseDir string, heatmap map[int]int, filepath string)
 		}
 	}
 	defer fd.Close()
-	for key, value := range heatmap {
+
+	// sort heatmap by rank
+	var sortedKey []int
+	for k := range heatmap {
+		sortedKey = append(sortedKey, k)
+	}
+	sort.Ints(sortedKey)
+
+	for _, key := range sortedKey {
+		value := heatmap[key]
 		_, err := fd.WriteString(fmt.Sprintf("Rank %d: %d bytes\n", key, value))
 		if err != nil {
 			return err
@@ -176,7 +185,15 @@ func saveHostHeatMap(codeBaseDir string, heatMap map[string]int, filepath string
 		return err
 	}
 
-	for key, value := range heatMap {
+	// sort heatMap by key
+	keys := make([]string, 0)
+	for k := range heatMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := heatMap[key]
 		_, err := fd.WriteString(fmt.Sprintf("Host %s: %d bytes\n", key, value))
 		if err != nil {
 			return err
@@ -341,42 +358,43 @@ func createHeatMap(codeBaseDir string, collectiveName string, dir string, leadRa
 	return nil
 }
 
-func commCreate(codeBaseDir string, collectiveName string, dir string, leadRank int, allCallsData map[int]*counts.CallData, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int, rankNumCallsMap map[int]int) (*location.RankFileData, CallsDataT, error) {
+func commCreate(codeBaseDir string, collectiveName string, dir string, leadRank int, allCallsData map[int]*counts.CallData, globalSendHeatMap map[int]int, globalRecvHeatMap map[int]int, rankNumCallsMap map[int]int) (*location.RankFileData, []*location.Data, CallsDataT, error) {
 	commMaps := CallsDataT{
 		SendHeatMap: map[int]map[int]int{},
 		RecvHeatMap: map[int]map[int]int{},
 	}
 	var rankFileData *location.RankFileData
+	var rankData []*location.Data
 	var err error
-	rankFileData, _, commMaps.RanksMap, err = prepareRanksMap(codeBaseDir, dir)
+	rankFileData, _, commMaps.RanksMap, rankData, err = prepareRanksMap(codeBaseDir, dir)
 	if err != nil {
-		return nil, commMaps, err
+		return nil, nil, commMaps, err
 	}
 
 	err = createHeatMap(codeBaseDir, collectiveName, dir, leadRank, rankFileData, allCallsData, &commMaps, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
 	if err != nil {
-		return rankFileData, commMaps, err
+		return rankFileData, rankData, commMaps, err
 	}
 
 	// Save the heat maps for the entire execution
 	globalSendHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-send.md")
 	err = saveGlobalHeatMap(codeBaseDir, globalSendHeatMap, globalSendHeatMapFilePath)
 	if err != nil {
-		return rankFileData, commMaps, err
+		return rankFileData, rankData, commMaps, err
 	}
 
 	globalRecvHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-recv.md")
 	err = saveGlobalHeatMap(codeBaseDir, globalRecvHeatMap, globalRecvHeatMapFilePath)
 	if err != nil {
-		return rankFileData, commMaps, err
+		return rankFileData, rankData, commMaps, err
 	}
 
-	return rankFileData, commMaps, nil
+	return rankFileData, rankData, commMaps, nil
 }
 
 // Create is the main function to create heat maps. The id identifies what type of maps
 // need to be created.
-func Create(codeBaseDir string, collectiveName string, id int, dir string, allCallsData []counts.CommDataT) (map[int]*location.RankFileData, map[int]CallsDataT, map[int]int, map[int]int, map[int]int, error) {
+func Create(codeBaseDir string, collectiveName string, id int, dir string, allCallsData []counts.CommDataT) (map[int]*location.RankFileData, map[int]CallsDataT, []*location.Data, map[int]int, map[int]int, map[int]int, error) {
 	switch id {
 	case Heat:
 		var err error
@@ -385,13 +403,15 @@ func Create(codeBaseDir string, collectiveName string, id int, dir string, allCa
 		globalCallsData := make(map[int]CallsDataT)
 		// fixme: RankFileData is supposed to be static and dealing with ranks on comm world, no need to track per lead rank
 		globalCommRankFileData := make(map[int]*location.RankFileData)
+		// all calls have the same location data
+		globalCommData := make([]*location.Data, 0)
 		globalSendHeatMap := make(map[int]int) // The comm world rank is the key, the value amount of data sent to it
 		globalRecvHeatMap := make(map[int]int)
 
 		for _, commData := range allCallsData {
-			globalCommRankFileData[commData.LeadRank], globalCallsData[commData.LeadRank], err = commCreate(codeBaseDir, collectiveName, dir, commData.LeadRank, commData.CallData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
+			globalCommRankFileData[commData.LeadRank], globalCommData, globalCallsData[commData.LeadRank], err = commCreate(codeBaseDir, collectiveName, dir, commData.LeadRank, commData.CallData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap)
 			if err != nil {
-				return nil, nil, nil, nil, nil, err
+				return nil, nil, nil, nil, nil, nil, err
 			}
 		}
 
@@ -399,19 +419,19 @@ func Create(codeBaseDir string, collectiveName string, id int, dir string, allCa
 		globalSendHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-send.md")
 		err = saveGlobalHeatMap(codeBaseDir, globalSendHeatMap, globalSendHeatMapFilePath)
 		if err != nil {
-			return nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, nil, err
 		}
 
 		globalRecvHeatMapFilePath := filepath.Join(dir, GlobalHeatMapPrefix+"-recv.md")
 		err = saveGlobalHeatMap(codeBaseDir, globalRecvHeatMap, globalRecvHeatMapFilePath)
 		if err != nil {
-			return nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, nil, err
 		}
 
-		return globalCommRankFileData, globalCallsData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, nil
+		return globalCommRankFileData, globalCallsData, globalCommData, globalSendHeatMap, globalRecvHeatMap, rankNumCallsMap, nil
 	}
 
-	return nil, nil, nil, nil, nil, fmt.Errorf("unknown map type: %d", id)
+	return nil, nil, nil, nil, nil, nil, fmt.Errorf("unknown map type: %d", id)
 }
 
 func saveProcessedLocationData(dir string, leadRank int, info map[int]int) error {
@@ -481,7 +501,15 @@ func createRankFile(dir string, hm *location.RankFileData) error {
 		return err
 	}
 
-	for host, rankList := range hm.HostMap {
+	// sort hm.HostMap by key
+	keys := make([]string, 0)
+	for k := range hm.HostMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, host := range keys {
+		rankList := hm.HostMap[host]
 		sort.Ints(rankList)
 		_, err = fd.WriteString(fmt.Sprintf("Host %s - %d ranks: %s\n", host, len(rankList), notation.CompressIntArray(rankList)))
 		if err != nil {
@@ -492,7 +520,7 @@ func createRankFile(dir string, hm *location.RankFileData) error {
 	return nil
 }
 
-func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, map[int][]*location.RankLocation, map[int]map[int]int, error) {
+func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, map[int][]*location.RankLocation, map[int]map[int]int, []*location.Data, error) {
 	callMap := make(map[int][]*location.RankLocation)
 	callsRanksMap := make(map[int]map[int]int)
 	// This is to track the files for a specific communicator
@@ -503,7 +531,7 @@ func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, ma
 	// Find all the location files
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	var locationFiles []string
 	for _, file := range f {
@@ -513,13 +541,15 @@ func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, ma
 			locationFiles = append(locationFiles, filepath.Join(dir, filename))
 		}
 	}
+	locationsDataList := make([]*location.Data, 0)
 
 	// Parse each file and aggregate the results from each file.
 	for _, locationFile := range locationFiles {
 		callsData, locationsData, err := location.ParseLocationFile(codeBaseDir, locationFile)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
+		locationsDataList = append(locationsDataList, locationsData)
 		for callID := range callsData {
 			if _, ok := callsRanksMap[callID]; !ok {
 				// Transform the array of locations into a map
@@ -547,10 +577,10 @@ func prepareRanksMap(codeBaseDir string, dir string) (*location.RankFileData, ma
 
 	err = createRankFile(dir, hm)
 	if err != nil {
-		return hm, nil, nil, err
+		return hm, nil, nil, nil, err
 	}
 
-	return hm, callMap, callsRanksMap, nil
+	return hm, callMap, callsRanksMap, locationsDataList, nil
 }
 
 // CreateAvgMaps uses the send and receive counts to create an average heat map of the data that is sent/received

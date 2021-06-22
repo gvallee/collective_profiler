@@ -49,7 +49,7 @@ func main() {
 	collectiveName := "alltoallv" // harcoded for now, detection coming soon
 
 	// We do not care about the data returned by Create, we only care here about the files that are generated.
-	_, _, _, _, _, err := maps.Create(codeBaseDir, collectiveName, maps.Heat, *dir, nil)
+	_, _, _, _, _, _, err := maps.Create(codeBaseDir, collectiveName, maps.Heat, *dir, nil)
 	if err != nil {
 		fmt.Printf("ERROR: unable to create heat map: %s", err)
 		os.Exit(1)
