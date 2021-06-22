@@ -86,14 +86,14 @@ Like any PMPI option, users need to use `LD_PRELOAD` while executing their appli
 On a platform where `mpirun` is directly used, the command to start the application
 looks like:
 ```
-LD_PRELOAD=$HOME<path_to_repo>/src/alltoallv/liballtoallv.so mpirun --oversubscribe -np 3 app.exe 
+LD_PRELOAD=$HOME<path_to_repo>/alltoallv/liballtoallv.so mpirun --oversubscribe -np 3 app.exe 
 ```
 
 On a platform where a job manager is used, such as Slurm, users need to update the
 batch script used to submit an application run. For instance, with Open MPI and Slurm,
 it would look like:
 ```
-mpirun -np $NPROC -x LD_PRELOAD=<path_to_repo>/src/alltoallv/liballtoallv_counts.so app.exe
+mpirun -np $NPROC -x LD_PRELOAD=/global/home/users/geoffroy/projects/alltoall_profiling/alltoallv/liballtoallv_counts.so app.exe
 ```
 
 When using a job scheduler, users are required to correctly set the LD_PRELOAD details

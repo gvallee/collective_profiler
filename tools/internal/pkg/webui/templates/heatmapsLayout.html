@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<html>
+
+<head>
+    <style>
+        .body {
+            overflow: hidden;
+        }
+
+        .selected {
+            background: lightgreen;
+        }
+
+        table.PatternList {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.patternList,
+        td.patternList {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.patternList:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.patternList {
+            max-width: 200px;
+            margin: auto;
+            float: left;
+            border: 1px solid black;
+            overflow-y: scroll;
+        }
+
+        table.ColorSchemes {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th.colorSchemes,
+        td.colorSchemes {
+            font-size: 12px;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr.colorSchemes:nth-child(odd) {
+            background-color: Lightskyblue;
+        }
+
+        div.colorSchemes {
+            max-width: 200px;
+            margin: auto;
+            float: left;
+            border: 1px solid black;
+            overflow-y: scroll;
+        }
+
+        div.patternDetails {
+            max-width: 600px;
+            margin: auto;
+            min-height: 800px;
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            position: sticky;
+            top: 0;
+        }
+
+        td.patternDetails {
+            vertical-align: top;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Pattern display</h1>
+    <div class="mainPanel">
+        <div class="patternList">
+            <table class="patternList" id="patternListTable">
+                <tr>
+                    <th>Pattern</th>
+                    <th>Weight</th>
+                </tr>
+                {{range $patternID, $weight := .Weights}}
+                <tr class="patternList">
+                    <td class="patternList" id="patternID">{{ $patternID }}</td>
+                    <td class="patternList" id="weight">{{ $weight }}</td>
+                </tr>
+                {{end}}
+            </table>
+        </div>
+        <div class="colorSchemes">
+            <table class="colorSchemes" id="colorSchemesTable">
+                <tr>
+                    <th>Color Scheme</th>
+                </tr>
+                <tr class="selected">
+                    <td class="colorSchemes">default</td>
+                </tr>
+                <tr class="colorSchemes">
+                    <td class="colorSchemes">linear</td>
+                </tr>
+                <tr class="colorSchemes">
+                    <td class="colorSchemes">logarithmic</td>
+                </tr>
+                <tr class="colorSchemes">
+                    <td class="colorSchemes">own</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="patternDetails">
+        <table>
+            <tr>
+                <td class="patternDetails">
+                    <div class="patternDetails">
+                        <table id="patternInfo">
+
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <script type="text/javascript">
+        function highlight(e) {
+            e.target.parentNode.className = 'selected';
+            if (e.target.className == "patternList") {
+                // Restore previously selected element(s) of the table
+                var t = document.getElementById('patternListTable')
+                for (var i = 1, row; row = t.rows[i]; i++) {
+                    row.className = 'patternList';
+                }
+                e.target.parentNode.className = 'selected';
+                var patternID = e.target.parentNode.children[0].innerHTML;
+
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        document.getElementById("patternInfo").innerHTML = xhr.responseText;
+                    }
+                }
+                var params = "patternID=" + patternID;
+                xhr.open("GET", "/heatmap" + "?" + params);
+                xhr.send();
+            }
+        }
+
+        var table = document.getElementById('patternListTable');
+        table.onclick = highlight;
+    </script>
+</body>
+
+</html>
