@@ -51,14 +51,19 @@
         <div class="tab">
             <button class="tablinks" onclick="openTab(event, 'Calls')">Calls</button>
             <button class="tablinks" onclick="openTab(event, 'Patterns')">Patterns</button>
+            <button class="tablinks" onclick="openTab(event, 'Heatmaps')">Heatmaps</button>
         </div>
 
         <div id="Calls" class="tabcontent">
-            <object type="text/html" data="/calls" width="1600" height="600"></object>
+            <object type="text/html" data="/calls" width="1600" height="800"></object>
         </div>
 
         <div id="Patterns" class="tabcontent">
-            <object type="text/html" data="/patterns" width="1600" height="600"></object>
+            <object type="text/html" data="/patterns" width="1600" height="800"></object>
+        </div>
+
+        <div id="Heatmaps" class="tabcontent">
+            <object type="text/html" data="/heatmaps" width="1600" height="800"></object>
         </div>
     </div>
     <script>

@@ -48,6 +48,14 @@ type patternsSummaryData struct {
 	Content string
 }
 
+type heatmapsPageData struct {
+	Weights []int
+}
+
+type heatmapPageData struct {
+	PatternID int
+}
+
 type server struct {
 	mux              *http.ServeMux
 	cfg              *Config
@@ -55,6 +63,8 @@ type server struct {
 	callsTemplate    *template.Template
 	callTemplate     *template.Template
 	patternsTemplate *template.Template
+	heatmapsTemplate *template.Template
+	heatmapTemplate  *template.Template
 	stopTemplate     *template.Template
 }
 
@@ -97,11 +107,15 @@ type Config struct {
 	mainData callsPageData
 	cpd      callPageData
 	psd      patternsSummaryData
+	patterns heatmapsPageData
+	hpd      heatmapPageData
 
 	indexTemplatePath    string
 	callsTemplatePath    string
-	patternsTemplatePath string
 	callTemplatePath     string
+	patternsTemplatePath string
+	heatmapsTemplatePath string
+	heatmapTemplatePath  string
 	stopTemplatePath     string
 }
 
@@ -403,6 +417,39 @@ func (c *Config) servicePatternRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Config) serviceHeatmapsRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.patterns = heatmapsPageData{
+		Weights: []int{0, 0, 0, 0},
+	}
+}
+
+func (c *Config) serviceHeatmapDetailsRequest(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	patternID := 0
+	params := r.URL.Query()
+	for k, v := range params {
+		if k == "patternID" {
+			patternID, err = strconv.Atoi(v[0])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
+	}
+
+	c.hpd = heatmapPageData{
+		PatternID: patternID,
+	}
+}
+
 // Stop cleanly terminates a running webUI
 func (c *Config) Stop() error {
 	err := c.srv.Shutdown(context.TODO())
@@ -468,6 +515,8 @@ func Init() *Config {
 	cfg.callTemplatePath = cfg.getTemplateFilePath("callDetails")
 	cfg.stopTemplatePath = cfg.getTemplateFilePath("bye")
 	cfg.patternsTemplatePath = cfg.getTemplateFilePath("patterns")
+	cfg.heatmapsTemplatePath = cfg.getTemplateFilePath("heatmapsLayout")
+	cfg.heatmapTemplatePath = cfg.getTemplateFilePath("heatmapDetails")
 	return cfg
 }
 
@@ -495,6 +544,16 @@ func (s *server) patterns(w http.ResponseWriter, r *http.Request) {
 	s.patternsTemplate.Execute(w, s.cfg.psd /*s.cfg*/)
 }
 
+func (s *server) heatmaps(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceHeatmapsRequest(w, r)
+	s.heatmapsTemplate.Execute(w, s.cfg.patterns /*s.cfg*/)
+}
+
+func (s *server) heatmap(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceHeatmapDetailsRequest(w, r)
+	s.heatmapTemplate.Execute(w, s.cfg.hpd)
+}
+
 func (s *server) stop(w http.ResponseWriter, r *http.Request) {
 	s.stopTemplate.Execute(w, s.cfg)
 }
@@ -508,6 +567,8 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/calls", s.calls)
 	s.mux.HandleFunc("/call", s.call)
 	s.mux.HandleFunc("/patterns", s.patterns)
+	s.mux.HandleFunc("/heatmaps", s.heatmaps)
+	s.mux.HandleFunc("/heatmap", s.heatmap)
 	s.mux.HandleFunc("/stop", s.stop)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
@@ -542,6 +603,11 @@ func (c *Config) Start() error {
 		}}).ParseFiles(c.callTemplatePath))
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
+	s.heatmapTemplate = template.Must(template.New("heatmapDetails.html").Funcs(template.FuncMap{
+		"displayHeatmap": func(patternID int) string {
+			return fmt.Sprintf("%d_task3.png", patternID)
+		}}).ParseFiles(c.heatmapTemplatePath))
+	s.heatmapsTemplate = template.Must(template.ParseFiles(c.heatmapsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
 
 	c.srv = &http.Server{
