@@ -749,7 +749,8 @@ func GetNumberOfCalls(dir string, jobid int, callNum int) ([]string, error) {
 		}
 	}
 	for i := 0; i < len(numberCallsCleaned); i++ {
-		numberCallsCleaned[i] = fmt.Sprintf("%s/%s", numberCallsCleaned[i], numberTotalCallsCleaned[i])
+		total, _ := strconv.Atoi(numberTotalCallsCleaned[i])
+		numberCallsCleaned[i] = fmt.Sprintf("%s/%d", numberCallsCleaned[i], total+1)
 	}
 
 	return numberCallsCleaned, nil

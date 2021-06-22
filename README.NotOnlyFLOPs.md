@@ -32,6 +32,8 @@ Inside the files we have "replicated" the functions and variables of the call an
 
 The two added files `task3Details.html` and `task3Layout` are also very similar to the `callDetails.html` and `callsLayout` files.
 
+The table showing the number of patterns adapts the size with the number of patterns found, with a maximum of 10 (the 10 heaviest patterns).
+
 # Changes made for Task 4
 
 ## Generating heatmaps

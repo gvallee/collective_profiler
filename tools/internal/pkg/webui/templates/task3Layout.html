@@ -63,12 +63,11 @@
                 <tr>
                     <th>Patterns&nbsp;&nbsp;&nbsp;&nbsp;</th>
                 </tr>
-                <script>
-                    for (var i = 0; i < 10; i++) {
-                        document.write("<tr class=\"heatmapList\"><td class=\"heatmapList\" id=\"NumPattern\">"+ i +"</td></tr>");
-                    }
-                </script>
-
+                {{range $num, $pattern := .NumberOfPatterns}}
+                <tr class="heatmapList">
+                    <td class="heatmapList" id="NumPattern">{{ $num }}</td>
+                </tr>
+                {{end}}
             </table>
         </div>
     </div>

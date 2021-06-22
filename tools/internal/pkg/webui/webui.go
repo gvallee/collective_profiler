@@ -46,6 +46,7 @@ type callPageData struct {
 
 type task3HeatmapsPageData struct {
 	PageTitle string
+	NumberOfPatterns []string
 }
 
 type task4HeatmapsPageData struct {
@@ -387,7 +388,6 @@ func (c *Config) serviceCallsRequest(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("unable to load data: %s\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-
 	c.mainData = callsPageData{
 		PageTitle: c.Name,
 		Calls:     c.allCallsData,
@@ -402,9 +402,13 @@ func (c *Config) serviceTask3HeatmapsRequest(w http.ResponseWriter, r *http.Requ
 		fmt.Printf("unable to load data: %s\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	// Get an array with the proportion of calls of the pattern over the total number of calls
+	// We only want the lenght of this array, to iterate for it in the task3Layout.html
+	ProportionOfCalls, err := counts.GetNumberOfCalls(c.DatasetDir, 0, 0)
 
 	c.mainDataHeatmap = task3HeatmapsPageData{
 		PageTitle: "Heatmaps of patterns",
+		NumberOfPatterns: ProportionOfCalls,
 	}
 }
 
