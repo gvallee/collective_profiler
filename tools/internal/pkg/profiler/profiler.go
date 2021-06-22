@@ -891,6 +891,7 @@ type step1ResultsT struct {
 type step3ResultsT struct {
 	rankFileData      map[int]*location.RankFileData
 	callMaps          map[int]maps.CallsDataT
+	locationData      []*location.Data
 	globalSendHeatMap map[int]int
 	globalRecvHeatMap map[int]int
 	rankNumCallsMap   map[int]int
@@ -1010,7 +1011,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 		}
 		t := timer.Start()
 		resultsStep3 = new(step3ResultsT)
-		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(cfg.CodeBaseDir, cfg.CollectiveName, maps.Heat, cfg.DatasetDir, resultsStep1.allCallsData)
+		resultsStep3.rankFileData, resultsStep3.callMaps, resultsStep3.locationData, resultsStep3.globalSendHeatMap, resultsStep3.globalRecvHeatMap, resultsStep3.rankNumCallsMap, err = maps.Create(cfg.CodeBaseDir, cfg.CollectiveName, maps.Heat, cfg.DatasetDir, resultsStep1.allCallsData)
 		if err != nil {
 			return fmt.Errorf("unable to create heat map: %s", err)
 		}
@@ -1118,6 +1119,19 @@ func (cfg *PostmortemConfig) Analyze() error {
 			if err != nil {
 				return fmt.Errorf("unable to plot average data: %s", err)
 			}
+
+			fmt.Printf("* Generating graphs for heavy patterns\n")
+			err = plot.HeavyPatterns(cfg.DatasetDir, cfg.DatasetDir, resultsStep1.allPatterns)
+			if err != nil {
+				return fmt.Errorf("unable to plot heavy patterns data: %s", err)
+			}
+
+			fmt.Printf("* Generating graphs for sum of all patterns\n")
+			err = plot.AllPatterns(cfg.DatasetDir, cfg.DatasetDir, len(resultsStep3.rankFileData[0].RankMap), resultsStep1.allPatterns, resultsStep3.locationData)
+			if err != nil {
+				return fmt.Errorf("unable to plot all patterns data: %s", err)
+			}
+
 			duration := t.Stop()
 			fmt.Printf("Step completed in %s\n", duration)
 		} else {
@@ -1148,4 +1162,28 @@ func (cfg *PostmortemConfig) Analyze() error {
 	fmt.Printf("\n")
 
 	return nil
+}
+
+func FindHeavyPatternsFile(dir string) ([]int, error) {
+	m := make(map[int]struct{}, 0)
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		filename := filepath.Base(path)
+		if strings.HasPrefix(filename, "heavy_patterns_index") && strings.HasSuffix(filename, ".png") {
+			index := 0
+			fmt.Sscanf(filename, "heavy_patterns_index%d.png", &index)
+			m[index] = struct{}{}
+		}
+		return nil
+	})
+
+	res := make([]int, 0)
+	for key := range m {
+		res = append(res, key)
+	}
+	sort.Ints(res)
+
+	return res, err
 }

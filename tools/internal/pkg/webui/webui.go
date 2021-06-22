@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -48,14 +49,31 @@ type patternsSummaryData struct {
 	Content string
 }
 
+type heavyPatternsData struct {
+	PageTitle     string
+	HeavyPatterns []int
+}
+
+type heavyPatternData struct {
+	HeavyPatternID int
+	PlotPath       string
+}
+
+type allPatternsData struct {
+	PlotPath string
+}
+
 type server struct {
-	mux              *http.ServeMux
-	cfg              *Config
-	indexTemplate    *template.Template
-	callsTemplate    *template.Template
-	callTemplate     *template.Template
-	patternsTemplate *template.Template
-	stopTemplate     *template.Template
+	mux                   *http.ServeMux
+	cfg                   *Config
+	indexTemplate         *template.Template
+	callsTemplate         *template.Template
+	callTemplate          *template.Template
+	patternsTemplate      *template.Template
+	stopTemplate          *template.Template
+	heavyPatternsTemplate *template.Template
+	heavyPatternTemplate  *template.Template
+	allPatternsTemplate   *template.Template
 }
 
 // Config represents the configuration of a webUI
@@ -77,7 +95,9 @@ type Config struct {
 	allPatterns    map[int]patterns.Data
 	allCallsData   []counts.CommDataT
 	rankFileData   map[int]*location.RankFileData
+	locaitonData   []*location.Data
 	callMaps       map[int]maps.CallsDataT
+	heavyPatterns  []int
 
 	// callsSendHeatMap represents the heat on a per-call basis.
 	// The first key is the lead rank to identify the communicator and the value a map where the key is a callID and the value a map with the key being a rank and the value its ordered counts
@@ -97,12 +117,18 @@ type Config struct {
 	mainData callsPageData
 	cpd      callPageData
 	psd      patternsSummaryData
+	hpsd     heavyPatternsData
+	hpd      heavyPatternData
+	apd      allPatternsData
 
-	indexTemplatePath    string
-	callsTemplatePath    string
-	patternsTemplatePath string
-	callTemplatePath     string
-	stopTemplatePath     string
+	indexTemplatePath         string
+	callsTemplatePath         string
+	patternsTemplatePath      string
+	callTemplatePath          string
+	stopTemplatePath          string
+	heavyPatternsTemplatePath string
+	heavyPatternTemplatePath  string
+	allPatternsTemplatePath   string
 }
 
 const (
@@ -246,7 +272,7 @@ func (c *Config) serviceCallDetailsRequest(w http.ResponseWriter, r *http.Reques
 			}
 		} else {
 			if c.callMaps == nil {
-				c.rankFileData, c.callMaps, c.globalSendHeatMap, c.globalRecvHeatMap, c.rankNumCallsMap, err = maps.Create(c.codeBaseDir, c.collectiveName, maps.Heat, c.DatasetDir, c.allCallsData)
+				c.rankFileData, c.callMaps, c.locaitonData, c.globalSendHeatMap, c.globalRecvHeatMap, c.rankNumCallsMap, err = maps.Create(c.codeBaseDir, c.collectiveName, maps.Heat, c.DatasetDir, c.allCallsData)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
@@ -331,6 +357,11 @@ func (c *Config) loadData() error {
 		if err != nil {
 			return err
 		}
+
+		c.heavyPatterns, err = profiler.FindHeavyPatternsFile(c.DatasetDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -403,6 +434,56 @@ func (c *Config) servicePatternRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Config) serviceHeavyPatternsRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.hpsd = heavyPatternsData{
+		PageTitle:     c.Name,
+		HeavyPatterns: c.heavyPatterns,
+	}
+}
+
+func (c *Config) serviceHeavyPatternRequest(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	heavyPatternID := 0
+	params := r.URL.Query()
+	for k, v := range params {
+		if k == "heavyPatternID" {
+			heavyPatternID, err = strconv.Atoi(v[0])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
+
+	}
+
+	c.hpd = heavyPatternData{
+		HeavyPatternID: heavyPatternID,
+		PlotPath:       path.Join(c.DatasetDir, fmt.Sprintf("heavy_patterns_index%d", heavyPatternID)),
+	}
+}
+
+func (c *Config) serviceAllPatternsRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
+	err := c.loadData()
+	if err != nil {
+		fmt.Printf("unable to load data: %s\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.apd = allPatternsData{
+		PlotPath: "all_patterns",
+	}
+}
+
 // Stop cleanly terminates a running webUI
 func (c *Config) Stop() error {
 	err := c.srv.Shutdown(context.TODO())
@@ -468,6 +549,9 @@ func Init() *Config {
 	cfg.callTemplatePath = cfg.getTemplateFilePath("callDetails")
 	cfg.stopTemplatePath = cfg.getTemplateFilePath("bye")
 	cfg.patternsTemplatePath = cfg.getTemplateFilePath("patterns")
+	cfg.heavyPatternsTemplatePath = cfg.getTemplateFilePath("heavyPatterns")
+	cfg.heavyPatternTemplatePath = cfg.getTemplateFilePath("heavyPattern")
+	cfg.allPatternsTemplatePath = cfg.getTemplateFilePath("allPatterns")
 	return cfg
 }
 
@@ -495,6 +579,21 @@ func (s *server) patterns(w http.ResponseWriter, r *http.Request) {
 	s.patternsTemplate.Execute(w, s.cfg.psd /*s.cfg*/)
 }
 
+func (s *server) heavyPatterns(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceHeavyPatternsRequest(w, r)
+	s.heavyPatternsTemplate.Execute(w, s.cfg.hpsd)
+}
+
+func (s *server) heavyPattern(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceHeavyPatternRequest(w, r)
+	s.heavyPatternTemplate.Execute(w, s.cfg.hpd)
+}
+
+func (s *server) allPatterns(w http.ResponseWriter, r *http.Request) {
+	s.cfg.serviceAllPatternsRequest(w, r)
+	s.allPatternsTemplate.Execute(w, s.cfg.apd)
+}
+
 func (s *server) stop(w http.ResponseWriter, r *http.Request) {
 	s.stopTemplate.Execute(w, s.cfg)
 }
@@ -508,6 +607,9 @@ func newServer(cfg *Config) *server {
 	s.mux.HandleFunc("/calls", s.calls)
 	s.mux.HandleFunc("/call", s.call)
 	s.mux.HandleFunc("/patterns", s.patterns)
+	s.mux.HandleFunc("/heavyPatterns", s.heavyPatterns)
+	s.mux.HandleFunc("/heavyPattern", s.heavyPattern)
+	s.mux.HandleFunc("/allPatterns", s.allPatterns)
 	s.mux.HandleFunc("/stop", s.stop)
 	s.mux.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(s.cfg.DatasetDir))))
 	return s
@@ -542,6 +644,9 @@ func (c *Config) Start() error {
 		}}).ParseFiles(c.callTemplatePath))
 	s.callsTemplate = template.Must(template.ParseFiles(c.callsTemplatePath))
 	s.patternsTemplate = template.Must(template.ParseFiles(c.patternsTemplatePath))
+	s.heavyPatternsTemplate = template.Must(template.ParseFiles(c.heavyPatternsTemplatePath))
+	s.heavyPatternTemplate = template.Must(template.ParseFiles(c.heavyPatternTemplatePath))
+	s.allPatternsTemplate = template.Must(template.ParseFiles(c.allPatternsTemplatePath))
 	s.stopTemplate = template.Must(template.ParseFiles(c.stopTemplatePath))
 
 	c.srv = &http.Server{

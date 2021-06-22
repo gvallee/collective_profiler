@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
@@ -34,6 +35,18 @@ type CallData struct {
 	Calls []int
 }
 
+type HeavyPattern struct {
+	// The number of calls
+	Occurrence int
+
+	// Raw string presentation of counts
+	RawCounts string
+
+	// Counts are the counts for all ranks involved in the operation
+	// The key is the rank sending/receiving the data and the value an array of integers representing counts for each destination/source
+	Counts map[int][]int
+}
+
 // Data holds the data all the patterns the infrastructure was able to detect
 type Data struct {
 	// AllPatterns is the data for all the patterns that have been detected
@@ -50,6 +63,19 @@ type Data struct {
 
 	// Empty is the data of all the patterns that do not exchange any data (all counts are equal to 0)
 	Empty []*CallData
+
+	// HeavyPatterns is the list of patterns sorted by occurrence
+	HeavyPatterns []HeavyPattern
+}
+
+// Convert raw counts to string to store the slice as key
+func rawCountsToKey(counts []string) string {
+	var buf strings.Builder
+	for _, count := range counts {
+		fmt.Fprintf(&buf, "%s\n", count)
+	}
+
+	return buf.String()
 }
 
 func CompareCallPatterns(p1 map[int]int, p2 map[int]int) bool {
@@ -187,6 +213,11 @@ func GetFilePath(basedir string, jobid int, rank int) string {
 // GetSummaryFilePath returns the full path to the pattern summary file associated to a rank within a job
 func GetSummaryFilePath(basedir string, jobid int, rank int) string {
 	return filepath.Join(basedir, fmt.Sprintf("%sjob%d-rank%d.md", SummaryFilePrefix, jobid, rank))
+}
+
+// GetHeavyFilePath returns the full path to the heavy pattern file
+func GetHeavyFilePath(basedir string) string {
+	return filepath.Join(basedir, fmt.Sprintf("heavy-patterns.md"))
 }
 
 func getPatterns(reader *bufio.Reader) (string, error) {
@@ -496,6 +527,10 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 		return nil, patterns, fmt.Errorf("counts.LoadCallsData() did not return any data")
 	}
 
+	// collect heavy patterns
+	// the key is RawCount
+	var heavyPattern = make(map[string]HeavyPattern)
+
 	b := progress.NewBar(numCalls, "Analyzing alltoallv calls")
 	defer progress.EndBar(b)
 	for i := 0; i < numCalls; i++ {
@@ -518,6 +553,20 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 			return nil, patterns, fmt.Errorf("no recv patterns available")
 		}
 
+		// Analyze heavy pattern
+		key := rawCountsToKey(callData[i].SendData.RawCounts)
+		pattern, ok := heavyPattern[key]
+		if !ok {
+			// does not exist
+			pattern.RawCounts = key
+			for _, counts := range callData[i].SendData.Counts {
+				// use the first map, all values are the same
+				pattern.Counts = counts
+			}
+		}
+		pattern.Occurrence += 1
+		heavyPattern[key] = pattern
+
 		// Analyze the send/receive pattern from the call
 		err := patterns.addPattern(i, callData[i].SendData.Statistics.Patterns, callData[i].RecvData.Statistics.Patterns)
 		if err != nil {
@@ -537,6 +586,18 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank
 		return nil, patterns, fmt.Errorf("extracted data of %d calls instead of %d", len(callData), numCalls)
 	}
 
+	// sort heavy patterns by occurrence
+	for _, val := range heavyPattern {
+		patterns.HeavyPatterns = append(patterns.HeavyPatterns, val)
+	}
+	sort.Slice(patterns.HeavyPatterns, func(i, j int) bool {
+		if patterns.HeavyPatterns[i].Occurrence != patterns.HeavyPatterns[j].Occurrence {
+			return patterns.HeavyPatterns[i].Occurrence > patterns.HeavyPatterns[j].Occurrence
+		} else {
+			return patterns.HeavyPatterns[i].RawCounts > patterns.HeavyPatterns[j].RawCounts
+		}
+	})
+
 	return callData, patterns, nil
 }
 
@@ -555,6 +616,7 @@ func WriteData(patternsFd *os.File, patternsSummaryFd *os.File, patternsData Dat
 		num++
 	}
 
+	// patterns summary
 	if !NoSummary(patternsData) {
 		if len(patternsData.OneToN) != 0 {
 			_, err := patternsSummaryFd.WriteString("# 1 to N patterns\n\n")

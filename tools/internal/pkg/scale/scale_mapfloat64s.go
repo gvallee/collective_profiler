@@ -84,7 +84,7 @@ func MapFloat64s(unitID string, values map[int]float64) (string, map[int]float64
 	if len(sortedValues) >= 2 && sortedValues[0] >= 0 && sortedValues[len(values)-1] <= 1 {
 		// We scale down all the values if possible
 
-		// Translate the human reading unit into something we can inteprete
+		// Translate the human reading unit into something we can interpret
 		unitType, unitScale := unit.FromString(unitID)
 		unitType, unitScale, newValues := mapFloat64sScaleDown(unitType, unitScale, values)
 		newUnitID := unit.ToString(unitType, unitScale)

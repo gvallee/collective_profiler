@@ -17,18 +17,18 @@
             width: 100%;
         }
 
-        th.callList,
-        td.callList {
+        th.heavyPatternsList,
+        td.heavyPatternsList {
             font-size: 12px;
             text-align: left;
             padding: 8px;
         }
 
-        tr.callList:nth-child(odd) {
+        tr.heavyPatternsList:nth-child(odd) {
             background-color: Lightskyblue;
         }
 
-        div.callList {
+        div.heavyPatternsList {
             max-width: 200px;
             margin: auto;
             min-height: 800px;
@@ -37,7 +37,7 @@
             overflow-y: scroll;
         }
 
-        div.callDetails {
+        div.heavyPatternsDetails {
             max-width: 600px;
             margin: auto;
             min-height: 800px;
@@ -48,7 +48,7 @@
             top: 0;
         }
 
-        td.callDetails {
+        td.heavyPatternsDetails {
             vertical-align: top;
             text-align: left;
         }
@@ -58,30 +58,25 @@
 <body>
     <h1>Profile: {{ .PageTitle }}</h1>
     <div class="mainPanel">
-        <div class="callList">
-            <table class="callList" id="callListTable">
+        <div class="heavyPatternsList">
+            <table class="heavyPatternsList" id="heavyPatternsListTable">
                 <tr>
-                    <th>Communicator</th>
-                    <th>Call</th>
+                    <th>Top</th>
                 </tr>
-                {{range .Calls}}
-                {{ $leadRank := .LeadRank }}
-                {{range $callID, $callData := .CallData}}
-                <tr class="callList">
-                    <td class="callList" id="leadRank">{{ $leadRank}}</td>
-                    <td class="callList" id="callID">{{ $callID }}</td>
+                {{range $heavyPatternsID := .HeavyPatterns}}
+                <tr class="heavyPatternsList">
+                    <td class="heavyPatternsList" id="heavyPatternsID">{{ $heavyPatternsID }}</td>
                 </tr>
-                {{end}}
                 {{end}}
             </table>
         </div>
     </div>
-    <div class="callDetails">
+    <div class="heavyPatternsDetails">
         <table>
             <tr>
-                <td class="callDetails">
-                    <div class="callDetails">
-                        <table id="callInfo">
+                <td class="heavyPatternsDetails">
+                    <div class="heavyPatternsDetails">
+                        <table id="heavyPatternsInfo">
 
                         </table>
                     </div>
@@ -92,31 +87,30 @@
     <script type="text/javascript">
         function highlight(e) {
             // Check if table or tr is being clicked
-            if (e.target.className == "callList" && e.target.tagName === "TD") {
+            if (e.target.className == "heavyPatternsList" && e.target.tagName === "TD") {
                 e.target.parentNode.className = 'selected';
 
                 // Restore previously selected element(s) of the table
-                var t = document.getElementById('callListTable')
+                var t = document.getElementById('heavyPatternsListTable')
                 for (var i = 1, row; row = t.rows[i]; i++) {
-                    row.className = 'callList';
+                    row.className = 'heavyPatternsList';
                 }
                 e.target.parentNode.className = 'selected';
-                var leadRank = e.target.parentNode.children[0].innerHTML;
-                var callID = e.target.parentNode.children[1].innerHTML;
+                var heavyPatternsID = e.target.parentNode.children[0].innerHTML;
 
                 var xhr = new XMLHttpRequest();
                 xhr.onreadystatechange = function () {
                     if (xhr.readyState == 4 && xhr.status == 200) {
-                        document.getElementById("callInfo").innerHTML = xhr.responseText;
+                        document.getElementById("heavyPatternsInfo").innerHTML = xhr.responseText;
                     }
                 }
-                var params = 'leadRank=' + leadRank + "&callID=" + callID;
-                xhr.open("GET", "/call" + "?" + params);
+                var params = "&heavyPatternID=" + heavyPatternsID;
+                xhr.open("GET", "/heavyPattern" + "?" + params);
                 xhr.send();
             }
         }
 
-        var table = document.getElementById('callListTable');
+        var table = document.getElementById('heavyPatternsListTable');
         table.onclick = highlight;
     </script>
 </body>

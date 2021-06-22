@@ -114,18 +114,18 @@ func IsMax(unitType int, unitScale int) bool {
 	case DATA:
 		internalUnitData := getDataUnits()
 		_, ok := internalUnitData[unitScale+1]
-		return ok
+		return !ok
 	case TIME:
 		internalUnitData := getTimeUnits()
 		_, ok := internalUnitData[unitScale+1]
-		return ok
+		return !ok
 	case BW:
 		internalUnitData := getBWUnits()
 		_, ok := internalUnitData[unitScale+1]
-		return ok
+		return !ok
 	}
 
-	return false
+	return true
 }
 
 // IsMin checks if a unit can be scaled down further
