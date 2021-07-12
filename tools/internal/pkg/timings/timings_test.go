@@ -50,7 +50,7 @@ func TestGetLeadRankFromFilename(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		leadRank, commID, jobID, err := getMetadataFromFilename(tt.input)
+		leadRank, commID, jobID, err := GetMetadataFromFilename(tt.input)
 		if err != nil {
 			t.Fatalf("getMetadataFromFilename() failed: %s", err)
 		}

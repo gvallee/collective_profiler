@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plugins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
@@ -64,7 +65,6 @@ func main() {
 	codeBaseDir := filepath.Join(filepath.Dir(filename), "..", "..", "..")
 
 	collectiveName := "alltoallv" // hardcoded for now detection coming soon
-
 	profilerCfg := profiler.PostmortemConfig{
 		CodeBaseDir:    codeBaseDir,
 		CollectiveName: collectiveName,
@@ -74,9 +74,16 @@ func main() {
 		Steps:          *steps,
 		CallsToPlot:    *plotCalls,
 	}
-	err := profilerCfg.Analyze()
+
+	err := plugins.Load(codeBaseDir, &profilerCfg.Plugins)
 	if err != nil {
-		fmt.Printf("profiler.AnalyzeDataset() failed: %s\n", err)
+		fmt.Printf("ERROR: unable to load plugins: %s\n", err)
+		os.Exit(1)
+	}
+
+	err = profilerCfg.Analyze()
+	if err != nil {
+		fmt.Printf("ERROR: profiler.AnalyzeDataset() failed: %s\n", err)
 		os.Exit(1)
 	}
 }
