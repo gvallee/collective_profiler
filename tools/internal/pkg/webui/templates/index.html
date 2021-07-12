@@ -51,6 +51,7 @@
         <div class="tab">
             <button class="tablinks" onclick="openTab(event, 'Calls')">Calls</button>
             <button class="tablinks" onclick="openTab(event, 'Patterns')">Patterns</button>
+            <button class="tablinks" onclick="openTab(event, 'Imbalance')">Imbalance</button>
         </div>
 
         <div id="Calls" class="tabcontent">
@@ -60,6 +61,11 @@
         <div id="Patterns" class="tabcontent">
             <object type="text/html" data="/patterns" width="1600" height="600"></object>
         </div>
+
+        <div id="Imbalance" class="tabcontent">
+            <object type="text/html" data="/imbalance" width="1600" height="600"></object>
+        </div>
+
     </div>
     <script>
         function openTab(evt, tabName) {

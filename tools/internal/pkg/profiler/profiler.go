@@ -31,6 +31,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plot"
+	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plugins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
@@ -67,6 +68,7 @@ type PostmortemConfig struct {
 	SizeThreshold  int
 	Steps          string
 	CallsToPlot    string
+	Plugins        plugins.Plugins
 }
 
 // OutputFileInfo gathers all the data for the handling of output files while analysis counts
@@ -135,10 +137,7 @@ type ProfileFilesT struct {
 
 // IncludesRawCountsFiles checks if we detected raw counts files
 func (info *ProfileFilesT) IncludesRawCountsFiles() bool {
-	if len(info.RawCounts.Files) > 0 {
-		return true
-	}
-	return false
+	return len(info.RawCounts.Files) > 0
 }
 
 // LookupCall is a high-level function to get information about a specific MPI collection call, across all supported
@@ -158,6 +157,7 @@ func LookupCall(sendCountsFile string, recvCountsFile string, numCall int, msgSi
 	return info, nil
 }
 
+/*
 func containsCall(callNum int, calls []int) bool {
 	for i := 0; i < len(calls); i++ {
 		if calls[i] == callNum {
@@ -166,6 +166,7 @@ func containsCall(callNum int, calls []int) bool {
 	}
 	return false
 }
+*/
 
 // GetCallRankData returns the counts for a specific rank and a specific MPI collective
 func GetCallRankData(sendCountersFile string, recvCountersFile string, callNum int, rank int) (int, int, error) {
@@ -376,7 +377,7 @@ func GetCallData(codeBaseDir string, collectiveName string, dir string, commid i
 		return info, profilerErr.GetInternal()
 	}
 	if info.CountsData.CommSize != countsHeader.NumRanks {
-		return info, fmt.Errorf("Communicator of different size: %d vs. %d", info.CountsData.CommSize, countsHeader.NumRanks)
+		return info, fmt.Errorf("communicator of different size: %d vs. %d", info.CountsData.CommSize, countsHeader.NumRanks)
 	}
 	info.CountsData.RecvData.Statistics.DatatypeSize = countsHeader.DatatypeSize
 
@@ -801,11 +802,11 @@ func plotCallsData(codeBaseDir string, dir string, listCalls []int, allCallsData
 					// We are dealing with a single communicator so we can expect to find all the calls in the same
 					// map
 					if callMaps[leadRank].SendHeatMap == nil || callMaps[leadRank].SendHeatMap[callID] == nil {
-						err = fmt.Errorf("Send heat map for call %d is undefined for communicator led by %d", i, leadRank)
+						err = fmt.Errorf("send heat map for call %d is undefined for communicator led by %d", i, leadRank)
 						errChannel <- err
 					}
 					if callMaps[leadRank].RecvHeatMap == nil || callMaps[leadRank].RecvHeatMap[callID] == nil {
-						err = fmt.Errorf("Receive heat map for call %d is undefined for communicator led by %d", i, leadRank)
+						err = fmt.Errorf("receive heat map for call %d is undefined for communicator led by %d", i, leadRank)
 						errChannel <- err
 					}
 				} else {
@@ -936,32 +937,41 @@ func (cfg *PostmortemConfig) Analyze() error {
 		cfg.Steps = AllSteps
 	}
 	listSteps, err := notation.ConvertCompressedCallListToIntSlice(cfg.Steps)
+	if err != nil {
+		return err
+	}
 
 	// Transform the list of steps in a map to make it easier to handle
 	requestedSteps := make(map[int]bool)
+
+	if cfg.Plugins.ImbalanceDetect != nil {
+		requestedSteps[4] = true
+		totalNumSteps++
+	}
+
 	for _, step := range listSteps {
 		requestedSteps[step] = true
 	}
 	// Deal with dependencies between steps
-	if requestedSteps[7] == true {
+	if requestedSteps[7] {
 		requestedSteps[1] = true
 	}
-	if requestedSteps[6] == true {
+	if requestedSteps[6] {
 		requestedSteps[5] = true
 		requestedSteps[4] = true
 		requestedSteps[3] = true
 	}
-	if requestedSteps[5] == true {
+	if requestedSteps[5] {
 		requestedSteps[4] = true
 		requestedSteps[3] = true
 	}
-	if requestedSteps[4] == true {
+	if requestedSteps[4] {
 		requestedSteps[1] = true
 	}
-	if requestedSteps[3] == true {
+	if requestedSteps[3] {
 		requestedSteps[1] = true
 	}
-	if requestedSteps[2] == true {
+	if requestedSteps[2] {
 		requestedSteps[1] = true
 	}
 
@@ -969,7 +979,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 
 	currentStep := 1
 	// STEP 1
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		fmt.Printf("* Step %d/%d: analyzing counts...\n", currentStep, totalNumSteps)
 		t := timer.Start()
 		resultsStep1 = new(step1ResultsT)
@@ -985,7 +995,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 2
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		fmt.Printf("\n* Step %d/%d: analyzing MPI communicator data...\n", currentStep, totalNumSteps)
 		if resultsStep1 == nil {
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
@@ -1003,7 +1013,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 3
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		fmt.Printf("\n* Step %d/%d: create maps...\n", currentStep, totalNumSteps)
 		if resultsStep1 == nil {
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
@@ -1024,7 +1034,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 4
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		fmt.Printf("\n* Step %d/%d: analyzing timing files...\n", currentStep, totalNumSteps)
 		if resultsStep1 == nil {
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
@@ -1043,7 +1053,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 5
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		t := timer.Start()
 		fmt.Printf("\n* Step %d/%d: Calculate stats over entire dataset...\n", currentStep, totalNumSteps)
 		if resultsStep3 == nil {
@@ -1085,7 +1095,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 6
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		// Check whether gunplot is available, if not skip step
 		_, err = exec.LookPath("gnuplot")
 		if err == nil {
@@ -1129,7 +1139,7 @@ func (cfg *PostmortemConfig) Analyze() error {
 	currentStep++
 
 	// STEP 7
-	if requestedSteps[currentStep] == true {
+	if requestedSteps[currentStep] {
 		fmt.Printf("\n* Step %d/%d: creating bins...\n", currentStep, totalNumSteps)
 		if resultsStep1 == nil {
 			return fmt.Errorf("step %d requires results for step 1 which are undefined", currentStep)
@@ -1144,8 +1154,28 @@ func (cfg *PostmortemConfig) Analyze() error {
 		fmt.Printf("\n* Step %d/%d is not required", currentStep, totalNumSteps)
 	}
 	currentStep++
-
 	fmt.Printf("\n")
+
+	// Plugin code - OPTIONAL
+	if cfg.Plugins.ImbalanceDetect != nil {
+		fmt.Printf("\n* Step %d/%d: detecting imbalance...\n", currentStep, totalNumSteps)
+		for _, lateArrivalFile := range resultsStep4.collectiveOpsTimings[cfg.CollectiveName].LateArrivalFiles {
+			_, commID, _, err := timings.GetMetadataFromFilename(lateArrivalFile)
+			if err != nil {
+				fmt.Printf("ERROR: unable to get metadata from file name %s: %s\n", lateArrivalFile, err)
+			}
+			imbalanceOutputFilename := fmt.Sprintf("imbalance-comm%d.txt", commID)
+			imbalanceOutputFile := filepath.Join(cfg.DatasetDir, imbalanceOutputFilename)
+			err = cfg.Plugins.ImbalanceDetect(lateArrivalFile, imbalanceOutputFile)
+			if err != nil {
+				fmt.Printf("ERROR: internal error while detecting imbalance: %s\n", err)
+				os.Exit(1)
+			}
+
+		}
+		currentStep++
+		fmt.Printf("\n")
+	}
 
 	return nil
 }
