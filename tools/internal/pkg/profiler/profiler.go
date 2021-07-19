@@ -545,7 +545,7 @@ func CreateBinsFromCounts(basedir string, rank int, cs map[int]*counts.CallData,
 			b.Increment(1)
 			callData.SendData.BinThresholds = listBins
 			sendBins := bins.Create(listBins)
-			sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, callData.SendData.Statistics.TotalNumCalls, callData.SendData.Statistics.DatatypeSize)
+			sendBins, err = bins.GetFromCounts(callData.SendData.RawCounts, sendBins, len(callData.SendData.CountsMetadata.CallIDs), callData.SendData.Statistics.DatatypeSize)
 			if err != nil {
 				return err
 			}
@@ -601,7 +601,7 @@ func analyzeJobRankCounts(basedir string, jobid int, rank int, sizeThreshold int
 func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles []string, sizeThreshold int, listBins []int) (int, map[int]counts.SendRecvStats, map[int]patterns.Data, []counts.CommDataT, error) {
 	// Find all the files based on the rank who created the file.
 	// Remember that we have more than one rank creating files, it means that different communicators were
-	// used to run the alltoallv operations
+	// used to run the alltoallv operations.
 	sendRanks, err := datafilereader.GetRanksFromFileNames(sendCountFiles)
 	if err != nil || len(sendRanks) == 0 {
 		return 0, nil, nil, nil, err
