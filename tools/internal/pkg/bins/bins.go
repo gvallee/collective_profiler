@@ -90,6 +90,9 @@ func Create(listBins []int) []Data {
 }
 
 func GetFromCounts(counts []string, bins []Data, numCalls int, datatypeSize int) ([]Data, error) {
+	if numCalls == 0 {
+		return bins, fmt.Errorf("invalid number of calls (%d)", numCalls)
+	}
 	for _, c := range counts {
 		tokens := strings.Split(c, ": ")
 		ranks := tokens[0]
@@ -100,6 +103,9 @@ func GetFromCounts(counts []string, bins []Data, numCalls int, datatypeSize int)
 			return bins, err
 		}
 		nRanks := len(listRanks)
+		if nRanks == 0 {
+			return bins, fmt.Errorf("invalid number of ranks: %d", nRanks)
+		}
 
 		// Now we parse the counts one by one
 		for _, oneCount := range strings.Split(counts, " ") {
