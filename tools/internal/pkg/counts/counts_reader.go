@@ -33,6 +33,11 @@ const (
 // AnalyzeCounts analyses the count from a count file
 func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, map[int][]int, error) {
 	var stats Stats
+
+	if datatypeSize == 0 {
+		return stats, nil, fmt.Errorf("invalid datatype size (%d)", datatypeSize)
+	}
+
 	stats.Min = -1
 	stats.Max = -1
 	stats.MinWithoutZero = -1
@@ -470,7 +475,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 		cd.SendData.File = sendCountsFile
 
 		var sendCounts map[int][]int
-		cd.SendData.Statistics, sendCounts, err = AnalyzeCounts(cd.SendData.RawCounts, msgSizeThreshold, cd.SendData.Statistics.DatatypeSize)
+		cd.SendData.Statistics, sendCounts, err = AnalyzeCounts(cd.SendData.RawCounts, msgSizeThreshold, cd.SendData.CountsMetadata.DatatypeSize)
 		if err != nil {
 			return nil, err
 		}
@@ -507,7 +512,7 @@ func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThres
 
 		counts, readerErr := GetCounters(reader)
 		if readerErr != nil && readerErr != io.EOF {
-			return nil, fmt.Errorf("unavle to reader counts from %s: %w", recvCountsFile, readerErr)
+			return nil, fmt.Errorf("unable to reader counts from %s: %w", recvCountsFile, readerErr)
 		}
 
 		stats, data, err := AnalyzeCounts(counts, msgSizeThreshold, header.DatatypeSize)
