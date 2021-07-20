@@ -33,7 +33,7 @@ func main() {
 		"\t2 - detect patterms;\n"+
 		"\t3 - create heat maps;\n"+
 		"\t4 - analyze timing data;\n"+
-		"\t5 - gathering of statistics for every single calls\n"+
+		"\t5 - gathering of statistics for every single calls;\n"+
 		"\t6 - plot graphs;\n"+
 		"\t7 - create bins;\n")
 	sizeThreshold := flag.Int("size-threshold", profiler.DefaultMsgSizeThreshold, "Size to differentiate small and big messages")
@@ -83,7 +83,7 @@ func main() {
 
 	err = profilerCfg.Analyze()
 	if err != nil {
-		fmt.Printf("ERROR: profiler.AnalyzeDataset() failed: %s\n", err)
+		fmt.Printf("ERROR: profilerCfg.Analyze() failed: %s\n", err)
 		os.Exit(1)
 	}
 }
