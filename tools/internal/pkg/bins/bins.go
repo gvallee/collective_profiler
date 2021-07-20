@@ -93,6 +93,10 @@ func GetFromCounts(counts []string, bins []Data, numCalls int, datatypeSize int)
 	if numCalls == 0 {
 		return bins, fmt.Errorf("invalid number of calls (%d)", numCalls)
 	}
+	if datatypeSize == 0 {
+		return bins, fmt.Errorf("invalid datatype size (%d)", datatypeSize)
+	}
+
 	for _, c := range counts {
 		tokens := strings.Split(c, ": ")
 		ranks := tokens[0]
