@@ -260,6 +260,9 @@ func LoadCallsFileHeatMap(codeBaseDir string, path string) (map[int]map[int]int,
 }
 
 func createCallsMapsFromCounts(callID int, callCounts counts.Data, datatypeSize int, rankMap *location.RankFileData, ranksMap map[int]int, hostHeatMap map[string]int, globalHeatMap map[int]int, rankNumCallsMap map[int]int) (map[int]int, map[string]int, error) {
+	if datatypeSize == 0 {
+		return nil, nil, fmt.Errorf("invalid datatype size (%d)", datatypeSize)
+	}
 	// Now we can have send counts for all the ranks on the communicator as well as th translation comm rank to COMMWORLD rank
 	// We can populate the heat map
 	callHeatMap := make(map[int]int)
