@@ -666,7 +666,8 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 }
 
 // FindCompactFormatCountsFiles figures out all the send/recv counts files that are in
-// the compact format
+// the compact format. The function returns 1. the list of profile files, 2. the send counts
+// files, 3. the receive counts files, and finally an error.
 func FindCompactFormatCountsFiles(dir string) ([]string, []string, []string, error) {
 	f, err := ioutil.ReadDir(dir)
 	if err != nil {

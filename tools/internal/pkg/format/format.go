@@ -103,10 +103,10 @@ func CheckDataFormatLineFromProfileFile(line string, codeBaseDir string) (bool, 
 	line = strings.TrimRight(line, "\n")
 
 	if !strings.HasPrefix(line, DataFormatHeader) {
-		return false, fmt.Errorf("Invalid data format, format version missing")
+		return false, fmt.Errorf("invalid data format, format version missing")
 	}
 
-	dataFormatVersion, err := strconv.Atoi(strings.TrimLeft(line, DataFormatHeader))
+	dataFormatVersion, err := strconv.Atoi(strings.TrimPrefix(line, DataFormatHeader))
 	if err != nil {
 		return false, err
 	}

@@ -65,7 +65,7 @@ func ReadBacktraceFile(codeBaseDir string, path string, m map[int]string) (map[i
 
 	// Followed by a reference to the binary and PID; and another empty line
 	// ATM we do not use it, we skip it.
-	line, err = reader.ReadString('\n')
+	_, err = reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func ReadBacktraceFile(codeBaseDir string, path string, m map[int]string) (map[i
 	if !strings.HasPrefix(line, callsToken) {
 		return nil, fmt.Errorf("invalid format, %s does nto start with %s", line, callsToken)
 	}
-	line = strings.TrimLeft(line, callsToken)
+	line = strings.TrimPrefix(line, callsToken)
 	line = strings.TrimRight(line, "\n")
 	calls, err := notation.ConvertCompressedCallListToIntSlice(line)
 	if err != nil {

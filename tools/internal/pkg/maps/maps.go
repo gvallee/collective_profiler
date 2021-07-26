@@ -29,8 +29,8 @@ const (
 	// Heat is used as an identifier to refer to heat map
 	Heat = 1
 
-	heatFilePrefix    = "heat-map."
-	commRankMapPrefix = "comm-rank-map."
+	//heatFilePrefix    = "heat-map."
+	//commRankMapPrefix = "comm-rank-map."
 
 	// CommHeatMapPrefix is the prefix used for the file storing the communicator heat map
 	CommHeatMapPrefix = "heat-map-subcomm"
@@ -48,6 +48,7 @@ const (
 	RankFilename = "rankfile.txt"
 )
 
+/*
 type commFiles struct {
 	calls []int
 	files []string
@@ -57,6 +58,7 @@ type rankMapInfo struct {
 	calls []int
 	file  string
 }
+*/
 
 // CallsDataT stores mapping of ranks, send heat map and recv heat map of all the alltoallv calls
 type CallsDataT struct {
@@ -70,6 +72,7 @@ type CallsDataT struct {
 	RecvHeatMap map[int]map[int]int
 }
 
+/*
 func findCountFile(countsFiles []string, rankID int) string {
 	for _, file := range countsFiles {
 		if strings.Contains(file, ".rank"+strconv.Itoa(rankID)+".") {
@@ -86,6 +89,7 @@ func getRankMapFromLocations(locations []location.RankLocation) map[int]int {
 	}
 	return m
 }
+*/
 
 func saveGlobalHeatMap(codeBaseDir string, heatmap map[int]int, filepath string) error {
 	var fd *os.File
@@ -230,7 +234,7 @@ func LoadCallsFileHeatMap(codeBaseDir string, path string) (map[int]map[int]int,
 
 		line = strings.TrimRight(line, "\n")
 		if strings.HasPrefix(line, "# Call ") {
-			line = strings.TrimLeft(line, "# Call ")
+			line = strings.TrimPrefix(line, "# Call ")
 			line = strings.TrimRight(line, ":")
 			callID, err = strconv.Atoi(line)
 			if err != nil {
@@ -240,8 +244,8 @@ func LoadCallsFileHeatMap(codeBaseDir string, path string) (map[int]map[int]int,
 		}
 
 		if strings.HasPrefix(line, "Rank ") {
-			line = strings.TrimLeft(line, "Rank ")
-			line = strings.TrimRight(line, " bytes")
+			line = strings.TrimPrefix(line, "Rank ")
+			line = strings.TrimSuffix(line, " bytes")
 			tokens := strings.Split(line, ": ")
 			if len(tokens) != 2 {
 				return nil, fmt.Errorf("%s is not a valid format", line)
@@ -260,6 +264,9 @@ func LoadCallsFileHeatMap(codeBaseDir string, path string) (map[int]map[int]int,
 }
 
 func createCallsMapsFromCounts(callID int, callCounts counts.Data, datatypeSize int, rankMap *location.RankFileData, ranksMap map[int]int, hostHeatMap map[string]int, globalHeatMap map[int]int, rankNumCallsMap map[int]int) (map[int]int, map[string]int, error) {
+	if datatypeSize == 0 {
+		return nil, nil, fmt.Errorf("invalid datatype size (%d)", datatypeSize)
+	}
 	// Now we can have send counts for all the ranks on the communicator as well as th translation comm rank to COMMWORLD rank
 	// We can populate the heat map
 	callHeatMap := make(map[int]int)
@@ -414,6 +421,7 @@ func Create(codeBaseDir string, collectiveName string, id int, dir string, allCa
 	return nil, nil, nil, nil, nil, fmt.Errorf("unknown map type: %d", id)
 }
 
+/*
 func saveProcessedLocationData(dir string, leadRank int, info map[int]int) error {
 	targetFile := filepath.Join(dir, commRankMapPrefix+strconv.Itoa(leadRank)+".txt")
 	fd, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
@@ -467,6 +475,7 @@ func getRankMapFromFile(codeBaseDir string, info map[string]*rankMapInfo, hm loc
 
 	return m, callMap, nil
 }
+*/
 
 func createRankFile(dir string, hm *location.RankFileData) error {
 	rankFilePath := filepath.Join(dir, RankFilename)

@@ -24,10 +24,10 @@ import (
 
 const (
 	// separateTimingsFiles represents the case where the profiler generates two file: one for all a2a execution time and one for all late arrival timings
-	separateTimingsFiles = iota
+	//separateTimingsFiles = iota
 
 	// singleProfileFile identifies the old format where the profiler generated a single file with all the timings in it
-	singleProfileFile
+	//singleProfileFile
 
 	// execTimingsFilenameIdentifier is the string to use to identify files that have timing data
 	execTimingsFilenameIdentifier = "_execution_times.rank"
@@ -76,8 +76,8 @@ type CollectiveTimings struct {
 	// ExecTimes is a hash of a hash of a hash: leadRank/commID -> callID -> rank
 	ExecTimes        map[CommT]map[int]map[int]float64
 	LateArrivalTimes map[CommT]map[int]map[int]float64
-	execStats        Stats
-	lateArrivalStats Stats
+	//execStats        Stats
+	//lateArrivalStats Stats
 }
 
 func getExecTimingsFilePath(collective string, dir string, jobid int, commID int, rank int) string {
@@ -90,6 +90,7 @@ func getLateArrivalTimingsFilePath(collective string, dir string, jobid int, com
 	return filepath.Join(dir, filename)
 }
 
+/*
 func (s *Stats) groupTimings() error {
 	if s.Grouping == nil {
 		s.Grouping = grouping.Init()
@@ -115,6 +116,7 @@ func (s *Stats) groupTimings() error {
 
 	return nil
 }
+*/
 
 // GetMetadataFromFilename returns the metadata contained in the name of a timing file, i.e., the lead rank, communicator ID, job ID
 func GetMetadataFromFilename(filename string) (int, int, int, error) {
@@ -131,12 +133,12 @@ func GetMetadataFromFilename(filename string) (int, int, int, error) {
 	if err != nil {
 		return -1, -1, -1, fmt.Errorf("unable to parse filename %s: %s", filename, err)
 	}
-	commIDstr := strings.TrimLeft(tokens[1], "comm")
+	commIDstr := strings.TrimPrefix(tokens[1], "comm")
 	commid, err := strconv.Atoi(commIDstr)
 	if err != nil {
 		return -1, -1, -1, err
 	}
-	jobIDstr := strings.TrimLeft(tokens[2], "job")
+	jobIDstr := strings.TrimPrefix(tokens[2], "job")
 	jobid, err := strconv.Atoi(jobIDstr)
 	if err != nil {
 		return -1, -1, -1, err
@@ -162,7 +164,7 @@ func readMetaData(reader *bufio.Reader, codeBaseDir string, skipCheckMetadata bo
 			return nil, fmt.Errorf("invalid data format, format version missing")
 		}
 
-		dataFormatVersion, err := strconv.Atoi(strings.TrimLeft(line, format.DataFormatHeader))
+		dataFormatVersion, err := strconv.Atoi(strings.TrimPrefix(line, format.DataFormatHeader))
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +208,7 @@ func getCallID(reader *bufio.Reader) (int, error) {
 		return -1, fmt.Errorf("invalid format %s does not start with %s", line, callIDtoken)
 	}
 
-	callID, err := strconv.Atoi(strings.TrimLeft(line, callIDtoken))
+	callID, err := strconv.Atoi(strings.TrimPrefix(line, callIDtoken))
 	if err != nil {
 		return -1, err
 	}
@@ -542,6 +544,7 @@ func GetCallData(collectiveName string, dir string, commID int, jobID int, leadR
 	return callData, nil
 }
 
+/*
 func readBlockFromSingleTimingFile(reader *bufio.Reader) []string {
 	var lines []string
 	for {
@@ -562,6 +565,7 @@ func readBlockFromSingleTimingFile(reader *bufio.Reader) []string {
 	}
 	return lines
 }
+*/
 
 // GetExecTimingFilename returns the expected execution time file name for a given configuration
 func GetExecTimingFilename(collectiveName string, leadRank int, commID int, jobID int) string {

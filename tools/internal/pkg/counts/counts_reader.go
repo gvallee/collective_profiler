@@ -60,12 +60,15 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 	for _, line := range counts {
 		tokens := strings.Split(line, ": ")
 		c := tokens[0]
-		c = strings.ReplaceAll(c, "Rank(s) ", "")
+		c = strings.TrimPrefix(c, rankListPrefix)
 		numberOfRanks, err := notation.GetNumberOfRanksFromCompressedNotation(c)
 		if err != nil {
-			return stats, nil, err
+			return stats, nil, fmt.Errorf("notation.GetNumberOfRanksFromCompressedNotation() failed: %w", err)
 		}
 		ranks, err := notation.ConvertCompressedCallListToIntSlice(c)
+		if err != nil {
+			return stats, nil, fmt.Errorf("notation.ConvertCompressedCallListToIntSlice() failed: %w", err)
+		}
 
 		zeros = 0
 		nonZeros = 0
@@ -124,27 +127,15 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 		}
 
 		if nonZeros > 0 {
-			if _, ok := stats.Patterns[nonZeros]; ok {
-				stats.Patterns[nonZeros] += numberOfRanks
-			} else {
-				stats.Patterns[nonZeros] = numberOfRanks
-			}
+			stats.Patterns[nonZeros] += numberOfRanks
 		}
 
 		if zeros > 0 {
-			if _, ok := stats.ZerosPerRankPatterns[zeros]; ok {
-				stats.ZerosPerRankPatterns[zeros] += numberOfRanks
-			} else {
-				stats.ZerosPerRankPatterns[zeros] = numberOfRanks
-			}
+			stats.ZerosPerRankPatterns[zeros] += numberOfRanks
 		}
 
 		if stats.SmallNotZeroMsgs > 0 {
-			if _, ok := stats.NoZerosPerRankPatterns[smallNotZeroMsgs]; ok {
-				stats.NoZerosPerRankPatterns[smallNotZeroMsgs] += numberOfRanks
-			} else {
-				stats.NoZerosPerRankPatterns[smallNotZeroMsgs] = numberOfRanks
-			}
+			stats.NoZerosPerRankPatterns[smallNotZeroMsgs] += numberOfRanks
 		}
 	}
 
@@ -230,10 +221,10 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 
 		if strings.HasPrefix(line, marker) {
 			line = strings.ReplaceAll(line, "\n", "")
-			strParsing := line
+			//strParsing := line
 			tokens := strings.Split(line, " - ")
 			if len(tokens) > 1 {
-				strParsing = tokens[0]
+				//strParsing = tokens[0]
 				header.CallIDsStr = tokens[1]
 				tokens2 := strings.Split(header.CallIDsStr, " (")
 				if len(tokens2) > 1 {
@@ -241,8 +232,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 				}
 			}
 
-			strParsing = strings.ReplaceAll(strParsing, marker, "")
-			strParsing = strings.ReplaceAll(strParsing, " calls", "")
+			//strParsing = strings.ReplaceAll(strParsing, marker, "")
+			//strParsing = strings.ReplaceAll(strParsing, " calls", "")
 
 			if header.CallIDsStr != "" {
 				header.CallIDs, err = notation.ConvertCompressedCallListToIntSlice(header.CallIDsStr)
@@ -354,7 +345,7 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 		ts := strings.Split(callCounters[i], ": ")
 		ranks := ts[0]
 		counters := ts[1]
-		ranksListStr := strings.Split(strings.ReplaceAll(ranks, "Rank(s) ", ""), " ")
+		ranksListStr := strings.Split(strings.TrimPrefix(ranks, rankListPrefix), " ")
 		for j := 0; j < len(ranksListStr); j++ {
 			// We may have a list that includes ranges
 			tokens := strings.Split(ranksListStr[j], ",")
@@ -411,7 +402,7 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 
 			var readerErr2 error
 			var callCounters []string
-			if targetCall == true {
+			if targetCall {
 				callCounters, readerErr2 = GetCounters(reader)
 				if readerErr2 != nil && readerErr2 != io.EOF {
 					return counters, datatypeSize, found, readerErr2
@@ -668,10 +659,10 @@ func getInfoFromRawCountsFileName(filename string) (int, int, error) {
 		return -1, -1, fmt.Errorf("%s is of wrong format", filename)
 	}
 
-	callStr := strings.TrimLeft(tokens[1], "call")
-	callStr = strings.TrimRight(callStr, ".md")
+	callStr := strings.TrimPrefix(tokens[1], "call")
+	callStr = strings.TrimSuffix(callStr, ".md")
 
-	rankStr := strings.TrimLeft(tokens[0], "counts.rank")
+	rankStr := strings.TrimPrefix(tokens[0], "counts.rank")
 
 	leadRank, err := strconv.Atoi(rankStr)
 	if err != nil {
@@ -717,7 +708,7 @@ func compressCounts(counts []string) []string {
 
 	for _, s := range uniqueCountsSeries {
 		ranksStr := notation.CompressIntArray(s.ranks)
-		compressedCounts = append(compressedCounts, fmt.Sprintf("Rank(s) %s: %s", ranksStr, strings.TrimRight(s.counts, "\n")))
+		compressedCounts = append(compressedCounts, rankListPrefix+ranksStr+": "+strings.TrimRight(s.counts, "\n"))
 	}
 
 	return compressedCounts
@@ -872,11 +863,7 @@ func LoadRawCountsFromFiles(listFiles []string, outputDir string) error {
 		if err != nil {
 			return err
 		}
-		if _, ok := commMap[leadRank]; ok {
-			commMap[leadRank] = append(commMap[leadRank], file)
-		} else {
-			commMap[leadRank] = []string{file}
-		}
+		commMap[leadRank] = append(commMap[leadRank], file)
 		numCalls++ // One call per file, we just parsed one file.
 	}
 
@@ -911,11 +898,7 @@ func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 			if err != nil {
 				return err
 			}
-			if _, ok := commMap[leadRank]; ok {
-				commMap[leadRank] = append(commMap[leadRank], filepath.Join(dir, file.Name()))
-			} else {
-				commMap[leadRank] = []string{filepath.Join(dir, file.Name())}
-			}
+			commMap[leadRank] = append(commMap[leadRank], filepath.Join(dir, file.Name()))
 			numCalls++ // One call per file, we just parsed one file.
 		}
 	}
@@ -947,7 +930,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		return rc, err
 	}
 	line = strings.TrimRight(line, "\n")
-	rc.sendDatatypeSize, err = strconv.Atoi(strings.TrimLeft(line, rawCountsSendDatatypePrefix))
+	rc.sendDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsSendDatatypePrefix))
 	if err != nil {
 		return rc, err
 	}
@@ -958,7 +941,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		return rc, err
 	}
 	line = strings.TrimRight(line, "\n")
-	rc.recvDatatypeSize, err = strconv.Atoi(strings.TrimLeft(line, rawCountsRecvDatatypePrefix))
+	rc.recvDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsRecvDatatypePrefix))
 	if err != nil {
 		return rc, err
 	}
@@ -969,7 +952,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 		return rc, err
 	}
 	line = strings.TrimRight(line, "\n")
-	rc.commSize, err = strconv.Atoi(strings.TrimLeft(line, rawCountsCommSizePrefix))
+	rc.commSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsCommSizePrefix))
 	if err != nil {
 		return rc, err
 	}
@@ -987,7 +970,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 	}
 	line = strings.TrimRight(line, "\n")
 	if line != rawCountsSendCountsPrefix {
-		return rc, fmt.Errorf("Wrong format, we have %s instead of %s", line, rawCountsSendCountsPrefix)
+		return rc, fmt.Errorf("wrong format, we have %s instead of %s", line, rawCountsSendCountsPrefix)
 	}
 	for i := 0; i < rc.commSize; i++ {
 		line, err = reader.ReadString('\n')
@@ -1014,7 +997,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 	}
 	line = strings.TrimRight(line, "\n")
 	if line != rawCountsRecvCountsPrefix {
-		return rc, fmt.Errorf("Wrong format, we have %s instead of %s", line, rawCountsRecvCountsPrefix)
+		return rc, fmt.Errorf("wrong format, we have %s instead of %s", line, rawCountsRecvCountsPrefix)
 	}
 	for i := 0; i < rc.commSize; i++ {
 		line, err = reader.ReadString('\n')

@@ -77,12 +77,12 @@ func parseCommFile(codeBaseDir string, path string, leadRank int) (*CommsInfo, e
 		if len(tokens) != 2 {
 			return nil, fmt.Errorf("parseCommFile() - invalid format: %s", line)
 		}
-		commIDStr := strings.TrimLeft(tokens[0], "ID: ")
+		commIDStr := strings.TrimPrefix(tokens[0], "ID: ")
 		commID, err := strconv.Atoi(commIDStr)
 		if err != nil {
 			return nil, err
 		}
-		rankStr := strings.TrimLeft(tokens[1], "world rank: ")
+		rankStr := strings.TrimPrefix(tokens[1], "world rank: ")
 		rank, err := strconv.Atoi(rankStr)
 		if err != nil {
 			return nil, err
@@ -139,10 +139,7 @@ func GetData(codeBaseDir string, dir string) (*CommsInfo, error) {
 				return nil, err
 			}
 			// Merge results with the ones we already have
-			for _, comm := range comms.Comms {
-				allComms.Comms = append(allComms.Comms, comm)
-			}
-
+			allComms.Comms = append(allComms.Comms, comms.Comms...)
 			for rank, listComms := range comms.LeadMap {
 				allComms.LeadMap[rank] = append(allComms.LeadMap[rank], listComms...)
 			}

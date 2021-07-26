@@ -66,7 +66,7 @@ func GetLocationDataFromStrings(lines []string, readIndex int) (*Data, error) {
 		return nil, fmt.Errorf("invalid format, %s does not start with %s", lines[readIndex], communicatorIDToken)
 	}
 	commIDStr := strings.TrimRight(lines[readIndex], "\n")
-	commIDStr = strings.TrimLeft(commIDStr, communicatorIDToken)
+	commIDStr = strings.TrimPrefix(commIDStr, communicatorIDToken)
 	commID, err := strconv.Atoi(commIDStr)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func GetLocationDataFromStrings(lines []string, readIndex int) (*Data, error) {
 		return nil, fmt.Errorf("invalid format, %s does not start with %s", lines[readIndex], callsToken)
 	}
 	callsListStr := strings.TrimRight(lines[readIndex], "\n")
-	callsListStr = strings.TrimLeft(callsListStr, callsToken)
+	callsListStr = strings.TrimPrefix(callsListStr, callsToken)
 	info.Calls, err = notation.ConvertCompressedCallListToIntSlice(callsListStr)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func GetLocationDataFromStrings(lines []string, readIndex int) (*Data, error) {
 		return nil, fmt.Errorf("invalid format, %s does not start with %s", lines[readIndex], commWorldRanksToken)
 	}
 	commWorldRanksStr := strings.TrimRight(lines[readIndex], "\n")
-	commWorldRanksStr = strings.TrimLeft(commWorldRanksStr, commWorldRanksToken)
+	commWorldRanksStr = strings.TrimPrefix(commWorldRanksStr, commWorldRanksToken)
 	commWorldRanks, err := notation.ConvertCompressedCallListToIntSlice(commWorldRanksStr)
 	if err != nil {
 		return nil, err

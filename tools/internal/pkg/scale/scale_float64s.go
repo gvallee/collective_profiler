@@ -71,9 +71,7 @@ func Float64s(unitID string, values []float64) (string, []float64, error) {
 	}
 
 	// Copy and sort the values to figure out what can be done
-	for _, v := range values {
-		sortedValues = append(sortedValues, v)
-	}
+	sortedValues = append(sortedValues, values...)
 	sort.Float64s(sortedValues)
 
 	// If all values are 0 nothing can be done

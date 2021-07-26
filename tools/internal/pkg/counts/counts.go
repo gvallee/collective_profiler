@@ -31,6 +31,7 @@ const (
 	alltoallvCallNumbersMarker = "Alltoallv calls "
 	beginningDataMarker        = "BEGINNING DATA"
 	endDataMarker              = "END DATA"
+	rankListPrefix             = "Rank(s) "
 
 	// SendCountersFilePrefix is the prefix used for all send counts files
 	SendCountersFilePrefix = "send-counters."
@@ -262,8 +263,9 @@ type CommDataT struct {
 	// LeadRank is the rank on COMMWORLD that is rank 0 on the communicator used for the alltoallv operation
 	LeadRank int
 
-	// CallData is the data for all the alltoallv calls performed on the communicator(s) led by leadRank
-	CallData map[int]*CallData // key is the call number and the value a pointer to the call's data (several calls can share the same data)
+	// CallData is the data for all the alltoallv calls performed on the communicator(s) led by leadRank;
+	// rhw key is the call number and the value a pointer to the call's data (several calls can share the same data)
+	CallData map[int]*CallData
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
@@ -395,11 +397,11 @@ func Validate(jobid int, pid int, dir string) error {
 		}
 
 		if sendCounters1 != sendCounters2 {
-			return fmt.Errorf("Send counters do not match with %s: expected '%s' but got '%s'\nReceive counts are: %s vs. %s", filepath.Base(f), sendCounters1, sendCounters2, recvCounters1, recvCounters2)
+			return fmt.Errorf("send counters do not match with %s: expected '%s' but got '%s'\nReceive counts are: %s vs. %s", filepath.Base(f), sendCounters1, sendCounters2, recvCounters1, recvCounters2)
 		}
 
 		if recvCounters1 != recvCounters2 {
-			return fmt.Errorf("Receive counters do not match %s: expected '%s' but got '%s'\nSend counts are: %s vs. %s", filepath.Base(f), recvCounters1, recvCounters2, sendCounters1, sendCounters2)
+			return fmt.Errorf("receive counters do not match %s: expected '%s' but got '%s'\nSend counts are: %s vs. %s", filepath.Base(f), recvCounters1, recvCounters2, sendCounters1, sendCounters2)
 		}
 
 		fmt.Printf("File %s validated\n", filepath.Base(f))
@@ -506,71 +508,17 @@ func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, size
 		cs.NumSendSmallNotZeroMsgs += callData.SendData.Statistics.SmallNotZeroMsgs
 		cs.NumSendLargeMsgs += callData.SendData.Statistics.LargeMsgs
 
-		if _, ok := cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize]; ok {
-			cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize]++
-		} else {
-			cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize] = 1
-		}
-
-		if _, ok := cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize]; ok {
-			cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize]++
-		} else {
-			cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize] = 1
-		}
-
-		if _, ok := cs.CommSizes[callData.CommSize]; ok {
-			cs.CommSizes[callData.CommSize]++
-		} else {
-			cs.CommSizes[callData.CommSize] = 1
-		}
-
-		if _, ok := cs.SendMins[callData.SendData.Statistics.Min]; ok {
-			cs.SendMins[callData.SendData.Statistics.Min]++
-		} else {
-			cs.SendMins[callData.SendData.Statistics.Min] = 1
-		}
-
-		if _, ok := cs.RecvMins[callData.RecvData.Statistics.Min]; ok {
-			cs.RecvMins[callData.RecvData.Statistics.Min]++
-		} else {
-			cs.RecvMins[callData.RecvData.Statistics.Min] = 1
-		}
-
-		if _, ok := cs.SendMaxs[callData.SendData.Statistics.Max]; ok {
-			cs.SendMaxs[callData.SendData.Statistics.Max]++
-		} else {
-			cs.SendMaxs[callData.SendData.Statistics.Max] = 1
-		}
-
-		if _, ok := cs.RecvMaxs[callData.RecvData.Statistics.Max]; ok {
-			cs.RecvMaxs[callData.RecvData.Statistics.Max]++
-		} else {
-			cs.RecvMaxs[callData.RecvData.Statistics.Max] = 1
-		}
-
-		if _, ok := cs.SendNotZeroMins[callData.SendData.Statistics.NotZeroMin]; ok {
-			cs.SendMins[callData.SendData.Statistics.NotZeroMin]++
-		} else {
-			cs.SendMins[callData.SendData.Statistics.NotZeroMin] = 1
-		}
-
-		if _, ok := cs.RecvNotZeroMins[callData.RecvData.Statistics.NotZeroMin]; ok {
-			cs.RecvMins[callData.RecvData.Statistics.NotZeroMin]++
-		} else {
-			cs.RecvMins[callData.RecvData.Statistics.NotZeroMin] = 1
-		}
-
-		if _, ok := cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts]; ok {
-			cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts]++
-		} else {
-			cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts] = 1
-		}
-
-		if _, ok := cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts]; ok {
-			cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts]++
-		} else {
-			cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts] = 1
-		}
+		cs.DatatypesSend[callData.SendData.Statistics.DatatypeSize]++
+		cs.DatatypesRecv[callData.RecvData.Statistics.DatatypeSize]++
+		cs.CommSizes[callData.CommSize]++
+		cs.SendMins[callData.SendData.Statistics.Min]++
+		cs.RecvMins[callData.RecvData.Statistics.Min]++
+		cs.SendMaxs[callData.SendData.Statistics.Max]++
+		cs.RecvMaxs[callData.RecvData.Statistics.Max]++
+		cs.SendMins[callData.SendData.Statistics.NotZeroMin]++
+		cs.RecvMins[callData.RecvData.Statistics.NotZeroMin]++
+		cs.CallSendSparsity[callData.SendData.Statistics.TotalZeroCounts]++
+		cs.CallRecvSparsity[callData.RecvData.Statistics.TotalZeroCounts]++
 	}
 
 	return cs, nil
@@ -598,96 +546,21 @@ func GatherStatsFromCallData(cd map[int]*CallData, sizeThreshold int) (SendRecvS
 
 		cs.TotalRecvNonZeroCounts += d.RecvData.Statistics.TotalNonZeroCounts
 		cs.TotalRecvZeroCounts += d.RecvData.Statistics.TotalZeroCounts
-
-		if _, ok := cs.SendMins[d.SendData.Statistics.Min]; ok {
-			cs.SendMins[d.SendData.Statistics.Min]++
-		} else {
-			cs.SendMins[d.SendData.Statistics.Min] = 1
-		}
-
-		if _, ok := cs.RecvMins[d.RecvData.Statistics.Min]; ok {
-			cs.RecvMins[d.RecvData.Statistics.Min]++
-		} else {
-			cs.RecvMins[d.RecvData.Statistics.Min] = 1
-		}
-
-		if _, ok := cs.SendMaxs[d.SendData.Statistics.Max]; ok {
-			cs.SendMaxs[d.SendData.Statistics.Max]++
-		} else {
-			cs.SendMaxs[d.SendData.Statistics.Max] = 1
-		}
-
-		if _, ok := cs.RecvMaxs[d.RecvData.Statistics.Max]; ok {
-			cs.RecvMaxs[d.RecvData.Statistics.Max]++
-		} else {
-			cs.RecvMaxs[d.RecvData.Statistics.Max] = 1
-		}
-
-		if _, ok := cs.DatatypesSend[d.SendData.Statistics.DatatypeSize]; ok {
-			cs.DatatypesSend[d.SendData.Statistics.DatatypeSize]++
-		} else {
-			cs.DatatypesSend[d.SendData.Statistics.DatatypeSize] = 1
-		}
-
-		if _, ok := cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize]; ok {
-			cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize]++
-		} else {
-			cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize] = 1
-		}
-
-		if _, ok := cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin]; ok {
-			cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin]++
-		} else {
-			cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin] = 1
-		}
-
-		if _, ok := cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin]; ok {
-			cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin]++
-		} else {
-			cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin] = 1
-		}
-
-		if _, ok := cs.CommSizes[d.CommSize]; ok {
-			cs.CommSizes[d.CommSize]++
-		} else {
-			cs.CommSizes[d.CommSize] = 1
-		}
-
-		if _, ok := cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts]; ok {
-			cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts]++
-		} else {
-			cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts] = 1
-		}
-
-		if _, ok := cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts]; ok {
-			cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts]++
-		} else {
-			cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts] = 1
-		}
-
-		if _, ok := cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts]; ok {
-			cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts]++
-		} else {
-			cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts] = 1
-		}
-
-		if _, ok := cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts]; ok {
-			cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts]++
-		} else {
-			cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts] = 1
-		}
-
-		if _, ok := cs.SendSums[d.SendData.Statistics.Sum]; ok {
-			cs.SendSums[d.SendData.Statistics.Sum]++
-		} else {
-			cs.SendSums[d.SendData.Statistics.Sum] = 1
-		}
-
-		if _, ok := cs.RecvSums[d.RecvData.Statistics.Sum]; ok {
-			cs.RecvSums[d.RecvData.Statistics.Sum]++
-		} else {
-			cs.RecvSums[d.RecvData.Statistics.Sum] = 1
-		}
+		cs.SendMins[d.SendData.Statistics.Min]++
+		cs.RecvMins[d.RecvData.Statistics.Min]++
+		cs.SendMaxs[d.SendData.Statistics.Max]++
+		cs.RecvMaxs[d.RecvData.Statistics.Max]++
+		cs.DatatypesSend[d.SendData.Statistics.DatatypeSize]++
+		cs.DatatypesRecv[d.RecvData.Statistics.DatatypeSize]++
+		cs.SendNotZeroMins[d.SendData.Statistics.NotZeroMin]++
+		cs.RecvNotZeroMins[d.RecvData.Statistics.NotZeroMin]++
+		cs.CommSizes[d.CommSize]++
+		cs.CallSendSparsity[d.SendData.Statistics.TotalZeroCounts]++
+		cs.CallRecvSparsity[d.RecvData.Statistics.TotalZeroCounts]++
+		cs.SendNotZeroCounts[d.SendData.Statistics.TotalNonZeroCounts]++
+		cs.RecvNotZeroCounts[d.RecvData.Statistics.TotalNonZeroCounts]++
+		cs.SendSums[d.SendData.Statistics.Sum]++
+		cs.RecvSums[d.RecvData.Statistics.Sum]++
 
 		// FIXME: what to do with SendPatterns?
 		// FIXME: what to do with RecvPatterns?

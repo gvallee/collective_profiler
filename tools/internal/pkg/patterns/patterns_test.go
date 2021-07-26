@@ -69,7 +69,7 @@ func TestParsingCounts(t *testing.T) {
 				"Rank(s) 6: 7 0 0 0 0 0 0 0 0 0",
 				"Rank(s) 7: 8 0 0 0 0 0 0 0 0 0",
 				"Rank(s) 8: 9 0 0 0 0 0 0 0 0 0",
-				"Ranks(s) 9: 10 0 0 0 0 0 0 0 0 0"},
+				"Rank(s) 9: 10 0 0 0 0 0 0 0 0 0"},
 		},
 		{
 			name:       "threeRanksSendNToNRecvNToN",
