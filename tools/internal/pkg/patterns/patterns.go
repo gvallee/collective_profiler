@@ -85,7 +85,7 @@ func GetPatternHeader(reader *bufio.Reader) ([]int, string, error) {
 
 	var err error
 	callIDsStr = strings.TrimPrefix(line, "Alltoallv calls: ")
-	callIDsStr = strings.TrimSuffix(callIDsStr, "\n")
+	callIDsStr = strings.TrimRight(callIDsStr, "\n")
 	callIDs, err = notation.ConvertCompressedCallListToIntSlice(callIDsStr)
 	if err != nil {
 		return callIDs, callIDsStr, err
