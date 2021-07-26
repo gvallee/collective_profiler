@@ -60,14 +60,14 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 	for _, line := range counts {
 		tokens := strings.Split(line, ": ")
 		c := tokens[0]
-		c = strings.ReplaceAll(c, "Rank(s) ", "")
+		c = strings.TrimPrefix(c, rankListPrefix)
 		numberOfRanks, err := notation.GetNumberOfRanksFromCompressedNotation(c)
 		if err != nil {
-			return stats, nil, err
+			return stats, nil, fmt.Errorf("notation.GetNumberOfRanksFromCompressedNotation() failed: %w", err)
 		}
 		ranks, err := notation.ConvertCompressedCallListToIntSlice(c)
 		if err != nil {
-			return stats, nil, err
+			return stats, nil, fmt.Errorf("notation.ConvertCompressedCallListToIntSlice() failed: %w", err)
 		}
 
 		zeros = 0
@@ -345,7 +345,7 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 		ts := strings.Split(callCounters[i], ": ")
 		ranks := ts[0]
 		counters := ts[1]
-		ranksListStr := strings.Split(strings.ReplaceAll(ranks, "Rank(s) ", ""), " ")
+		ranksListStr := strings.Split(strings.TrimPrefix(ranks, rankListPrefix), " ")
 		for j := 0; j < len(ranksListStr); j++ {
 			// We may have a list that includes ranges
 			tokens := strings.Split(ranksListStr[j], ",")
@@ -708,7 +708,7 @@ func compressCounts(counts []string) []string {
 
 	for _, s := range uniqueCountsSeries {
 		ranksStr := notation.CompressIntArray(s.ranks)
-		compressedCounts = append(compressedCounts, fmt.Sprintf("Rank(s) %s: %s", ranksStr, strings.TrimRight(s.counts, "\n")))
+		compressedCounts = append(compressedCounts, rankListPrefix+ranksStr+": "+strings.TrimRight(s.counts, "\n"))
 	}
 
 	return compressedCounts

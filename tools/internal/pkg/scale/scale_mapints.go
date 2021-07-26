@@ -13,6 +13,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
 )
 
+/*
 func mapIntsScaleDown(unitType int, unitScale int, values map[int]int) (int, int, map[int]int) {
 	if unitScale == -1 {
 		// Unit not recognized, nothing we can do
@@ -29,6 +30,7 @@ func mapIntsScaleDown(unitType int, unitScale int, values map[int]int) (int, int
 
 	return unitType, newUnitScale, values
 }
+*/
 
 func mapIntsScaleUp(unitType int, unitScale int, values map[int]int) (int, int, map[int]int) {
 	if unitScale == -1 {

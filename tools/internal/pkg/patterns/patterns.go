@@ -84,8 +84,8 @@ func GetPatternHeader(reader *bufio.Reader) ([]int, string, error) {
 	}
 
 	var err error
-	callIDsStr = strings.TrimLeft(line, "Alltoallv calls: ")
-	callIDsStr = strings.TrimRight(callIDsStr, "\n")
+	callIDsStr = strings.TrimPrefix(line, "Alltoallv calls: ")
+	callIDsStr = strings.TrimSuffix(callIDsStr, "\n")
 	callIDs, err = notation.ConvertCompressedCallListToIntSlice(callIDsStr)
 	if err != nil {
 		return callIDs, callIDsStr, err
@@ -99,6 +99,7 @@ func Same(patterns1, patterns2 Data) bool {
 	return sameListOfPatterns(patterns1.AllPatterns, patterns2.AllPatterns)
 }
 
+/*
 func displayPatterns(pattern []*CallData) {
 	for _, p := range pattern {
 		for numPeers, numRanks := range p.Send {
@@ -109,6 +110,7 @@ func displayPatterns(pattern []*CallData) {
 		}
 	}
 }
+*/
 
 // patternIsInList checks whether a given pattern is in a list of patterns. If so, it returns the
 // number of alltoallv calls that have the pattern, otherwise it returns 0
@@ -116,13 +118,13 @@ func patternIsInList(numPeers int, numRanks int, ctx string, patterns []*CallDat
 	for _, p := range patterns {
 		if ctx == "SEND" {
 			for numP, numR := range p.Send {
-				if numP == numP && numRanks == numR {
+				if numPeers == numP && numRanks == numR {
 					return p.Count
 				}
 			}
 		} else {
 			for numP, numR := range p.Recv {
-				if numP == numP && numRanks == numR {
+				if numPeers == numP && numRanks == numR {
 					return p.Count
 				}
 			}

@@ -13,6 +13,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
 )
 
+/*
 func intsScaleDown(unitType int, unitScale int, values []int) (int, int, []int) {
 	if unitScale == -1 {
 		// Unit not recognized, nothing we can do
@@ -29,6 +30,7 @@ func intsScaleDown(unitType int, unitScale int, values []int) (int, int, []int) 
 
 	return unitType, newUnitScale, values
 }
+*/
 
 func intsScaleUp(unitType int, unitScale int, values []int) (int, int, []int) {
 	if unitScale == -1 {
@@ -71,9 +73,7 @@ func Ints(unitID string, values []int) (string, []int, error) {
 	}
 
 	// Copy and sort the values to figure out what can be done
-	for _, v := range values {
-		sortedValues = append(sortedValues, v)
-	}
+	sortedValues = append(sortedValues, values...)
 	sort.Ints(sortedValues)
 
 	// If all values are 0 nothing can be done

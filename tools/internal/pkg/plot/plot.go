@@ -229,7 +229,7 @@ func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) 
 
 		scaledSendRankBW := d.sendRankBW
 		if d.sendRankBW[rank] != 0 && !math.IsNaN(d.sendRankBW[rank]) {
-			scaledSendRankBWUnit := d.sBWUnit
+			var scaledSendRankBWUnit string
 			scaledSendRankBWUnit, scaledSendRankBW, err = scale.MapFloat64s("B/s", d.sendRankBW)
 			if err != nil {
 				return err
@@ -244,7 +244,7 @@ func (d *plotData) generateCallsAvgs(hostname string, leadRank int, callID int) 
 
 		scaledRecvRankBW := d.recvRankBW
 		if d.recvRankBW[rank] != 0 && !math.IsNaN(d.recvRankBW[rank]) {
-			scaledRecvRankBWUnit := d.rBWUnit
+			var scaledRecvRankBWUnit string
 			scaledRecvRankBWUnit, scaledRecvRankBW, err = scale.MapFloat64s("B/s", d.recvRankBW)
 			if err != nil {
 				return err

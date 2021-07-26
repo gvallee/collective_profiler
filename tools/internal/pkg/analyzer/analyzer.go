@@ -149,14 +149,7 @@ func (a *analyzer) handleRankCounters(rankString string, d rankData) error {
 		}
 	}
 	a.ranksComm[d.ranksRealComm] = finalStr
-
-	if _, ok := a.realEndpoints[d.ranksRealComm]; ok {
-		a.realEndpoints[d.ranksRealComm]++
-		//fmt.Printf("Record for communications with %d ranks is now: %d\n", d.ranksRealComm, a.realDests[d.ranksRealComm])
-	} else {
-		//fmt.Printf("Rank communicating with %d other ranks and adding a new record about communications with %d ranks\n", d.ranksRealComm, d.ranksRealComm)
-		a.realEndpoints[d.ranksRealComm] = 1
-	}
+	a.realEndpoints[d.ranksRealComm]++
 	return nil
 }
 
@@ -454,14 +447,14 @@ func (a *AlltoallvCallers) addInfo(info CallerInfo, callNum int) error {
 }
 
 func getNumCallFromBacktraceFile(filename string) (int, error) {
-	str := strings.TrimLeft(filename, backtraceFilePrefix)
+	str := strings.TrimPrefix(filename, backtraceFilePrefix)
 	tokens := strings.Split(str, "_")
 	if len(tokens) != 2 {
 		return -1, fmt.Errorf("invalid format: %s", str)
 	}
 	str = tokens[1]
-	str = strings.TrimLeft(str, "call")
-	str = strings.TrimRight(str, ".md")
+	str = strings.TrimPrefix(str, "call")
+	str = strings.TrimSuffix(str, ".md")
 	n, err := strconv.Atoi(str)
 	if err != nil {
 		return -1, err
