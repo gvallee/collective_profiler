@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
+	"github.com/gvallee/collective_profiler/tools/pkg/errors"
 )
 
 const (

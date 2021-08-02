@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/scale"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/scale"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

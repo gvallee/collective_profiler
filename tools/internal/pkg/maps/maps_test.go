@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
-	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/location"
+	"github.com/gvallee/collective_profiler/tools/pkg/counts"
 )
 
 func getRanksMapFromLocations(locations []*location.RankLocation) map[int]int {

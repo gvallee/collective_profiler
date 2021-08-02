@@ -11,7 +11,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/format"
 )
 
 // WriteDatatypeToFile save datatype stats to a file

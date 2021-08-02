@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/format"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/notation"
 )
 
 const (

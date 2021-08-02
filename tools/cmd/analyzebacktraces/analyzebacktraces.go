@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/analyzer"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/analyzer"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/notation"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

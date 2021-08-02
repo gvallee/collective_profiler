@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
-	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/notation"
+	"github.com/gvallee/collective_profiler/tools/pkg/counts"
 	"github.com/gvallee/go_util/pkg/util"
 )
 
