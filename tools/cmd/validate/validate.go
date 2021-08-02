@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/webui"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

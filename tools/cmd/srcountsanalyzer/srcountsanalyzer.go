@@ -15,10 +15,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
-
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

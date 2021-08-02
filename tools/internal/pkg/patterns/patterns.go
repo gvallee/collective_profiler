@@ -16,10 +16,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 )
 
 const (

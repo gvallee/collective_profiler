@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/hash"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 )
 
 func compareFiles(t *testing.T, file1 string, file2 string) {

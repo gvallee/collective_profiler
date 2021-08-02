@@ -23,7 +23,6 @@ import (
 	"github.com/gomarkdown/markdown"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/maps"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/patterns"
@@ -31,6 +30,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/plugins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

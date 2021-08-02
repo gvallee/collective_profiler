@@ -24,7 +24,7 @@ const (
 	// Header is the string used as a prefix to indicate raw counters in the count files
 	Header = "# Raw counters"
 
-	compactCountsFileHeader    = "# Raw counters\n"
+	CompactCountsFileHeader    = "# Raw counters\n"
 	marker                     = "Count: "
 	numberOfRanksMarker        = "Number of ranks: "
 	datatypeSizeMarker         = "Datatype size: "

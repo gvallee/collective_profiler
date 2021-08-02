@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 )
 
 type analyzer struct {

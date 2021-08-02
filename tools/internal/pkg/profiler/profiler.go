@@ -24,7 +24,6 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/backtraces"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/comm"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/location"
@@ -36,6 +35,7 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timer"
 	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/timings"
+	"github.com/gvallee/alltoallv_profiling/tools/pkg/counts"
 	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 

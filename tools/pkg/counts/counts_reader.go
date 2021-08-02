@@ -162,8 +162,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 	}
 
 	// Are we at the beginning of a metadata block?
-	if !strings.HasPrefix(line, compactCountsFileHeader) {
-		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, compactCountsFileHeader, line)
+	if !strings.HasPrefix(line, CompactCountsFileHeader) {
+		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, CompactCountsFileHeader, line)
 	}
 
 	for {
