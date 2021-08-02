@@ -15,8 +15,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/analyzer"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/profiler"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/analyzer"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/profiler"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

@@ -15,8 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/bins"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/datafilereader"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/bins"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/datafilereader"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

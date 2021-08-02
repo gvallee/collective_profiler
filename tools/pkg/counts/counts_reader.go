@@ -17,9 +17,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/notation"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
-	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/notation"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/progress"
+	"github.com/gvallee/collective_profiler/tools/pkg/errors"
 )
 
 // AnalyzeCounts analyses the count from a count file
@@ -162,8 +162,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 	}
 
 	// Are we at the beginning of a metadata block?
-	if !strings.HasPrefix(line, compactCountsFileHeader) {
-		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, compactCountsFileHeader, line)
+	if !strings.HasPrefix(line, CompactCountsFileHeader) {
+		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, CompactCountsFileHeader, line)
 	}
 
 	for {
@@ -172,8 +172,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 			return header, readerErr
 		}
 
-		if strings.HasPrefix(line, numberOfRanksMarker) {
-			line = strings.ReplaceAll(line, numberOfRanksMarker, "")
+		if strings.HasPrefix(line, NumberOfRanksMarker) {
+			line = strings.ReplaceAll(line, NumberOfRanksMarker, "")
 			line = strings.ReplaceAll(line, "\n", "")
 			header.NumRanks, err = strconv.Atoi(line)
 			if err != nil {
@@ -182,9 +182,9 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 			}
 		}
 
-		if strings.HasPrefix(line, datatypeSizeMarker) {
+		if strings.HasPrefix(line, DatatypeSizeMarker) {
 			line = strings.ReplaceAll(line, "\n", "")
-			line = strings.ReplaceAll(line, datatypeSizeMarker, "")
+			line = strings.ReplaceAll(line, DatatypeSizeMarker, "")
 			header.DatatypeSize, err = strconv.Atoi(line)
 			if err != nil {
 				log.Println("[ERROR] unable to parse the datatype size")
@@ -192,9 +192,9 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 			}
 		}
 
-		if strings.HasPrefix(line, alltoallvCallNumbersMarker) {
+		if strings.HasPrefix(line, AlltoallvCallNumbersMarker) {
 			line = strings.ReplaceAll(line, "\n", "")
-			callRange := strings.ReplaceAll(line, alltoallvCallNumbersMarker, "")
+			callRange := strings.ReplaceAll(line, AlltoallvCallNumbersMarker, "")
 			tokens := strings.Split(callRange, "-")
 			if len(tokens) == 2 {
 				alltoallvCallStart, err = strconv.Atoi(strings.TrimLeft(tokens[0], " "))
@@ -211,7 +211,7 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 			}
 		}
 
-		if strings.HasPrefix(line, marker) {
+		if strings.HasPrefix(line, CountMarker) {
 			line = strings.ReplaceAll(line, "\n", "")
 			//strParsing := line
 			tokens := strings.Split(line, " - ")

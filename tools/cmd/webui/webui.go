@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/webui"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/webui"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

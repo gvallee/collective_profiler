@@ -16,9 +16,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/format"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/grouping"
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/progress"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/format"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/grouping"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/progress"
 	"github.com/gvallee/go_util/pkg/util"
 )
 

@@ -17,18 +17,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
+	"github.com/gvallee/collective_profiler/tools/pkg/errors"
 )
 
 const (
 	// Header is the string used as a prefix to indicate raw counters in the count files
 	Header = "# Raw counters"
 
-	compactCountsFileHeader    = "# Raw counters\n"
-	marker                     = "Count: "
-	numberOfRanksMarker        = "Number of ranks: "
-	datatypeSizeMarker         = "Datatype size: "
-	alltoallvCallNumbersMarker = "Alltoallv calls "
+	CompactCountsFileHeader    = "# Raw counters\n"
+	CountMarker                = "Count: "
+	NumberOfRanksMarker        = "Number of ranks: "
+	DatatypeSizeMarker         = "Datatype size: "
+	AlltoallvCallNumbersMarker = "Alltoallv calls "
 	beginningDataMarker        = "BEGINNING DATA"
 	endDataMarker              = "END DATA"
 	rankListPrefix             = "Rank(s) "

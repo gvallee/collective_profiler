@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/gvallee/alltoallv_profiling/tools/internal/pkg/unit"
+	"github.com/gvallee/collective_profiler/tools/internal/pkg/unit"
 )
 
 /*
