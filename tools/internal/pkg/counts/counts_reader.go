@@ -700,6 +700,8 @@ func LoadCommunicatorRawCounts(outputDir string, jobId int, commLeadRank int) ([
 	if err != nil {
 		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 	}
+
+	b.Increment(1)
 	file = filepath.Join(outputDir, recvCountFile)
 	recvRawCounters, _, recvDatatypeSize, err := parseRawFile(file)
 	if err != nil {
