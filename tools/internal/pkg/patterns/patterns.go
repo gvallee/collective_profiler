@@ -486,7 +486,10 @@ func WriteSubcommNto1Patterns(fd *os.File, ranks []int, stats map[int]counts.Sen
 	return nil
 }
 
-// ParseFiles parses all the count files to extract patterns
+// ParseFiles parses all the count files to extract patterns.
+// The returned data consist of:
+// 1. the map of all the calls (the key is the call number; the value is the data about the call),
+// 2. patterns' data.
 func ParseFiles(sendCountsFile string, recvCountsFile string, numCalls int, rank int, sizeThreshold int) (map[int]*counts.CallData, Data, error) {
 	var patterns Data
 

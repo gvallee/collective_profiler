@@ -170,8 +170,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 	}
 
 	// Are we at the beginning of a metadata block?
-	if !strings.HasPrefix(line, "# Raw") {
-		return header, fmt.Errorf("[ERROR] not a header")
+	if !strings.HasPrefix(line, compactCountsFileHeader) {
+		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, compactCountsFileHeader, line)
 	}
 
 	for {
@@ -370,6 +370,41 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
+func parseRawFile(f string) ([]string, []int, int, error) {
+	var counters []string
+	datatypeSize := 0
+	file, err := os.Open(f)
+	if err != nil {
+		return nil, nil, datatypeSize, fmt.Errorf("unable to open %s: %w", f, err)
+	}
+	defer file.Close()
+
+	var callIDs []int
+
+	reader := bufio.NewReader(file)
+	for {
+		header, readerErr1 := GetHeader(reader)
+		callIDs = append(callIDs, header.CallIDs...)
+		datatypeSize = header.DatatypeSize
+
+		if readerErr1 != nil && readerErr1 != io.EOF {
+			fmt.Printf("ERROR: %s", readerErr1)
+			return nil, nil, 0, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
+		}
+
+		callCounters, readerErr2 := GetCounters(reader)
+		if readerErr2 != nil && readerErr2 != io.EOF {
+			return nil, nil, 0, readerErr2
+		}
+		counters = append(counters, strings.Join(callCounters, "\n"))
+
+		if readerErr1 == io.EOF || readerErr2 == io.EOF {
+			break
+		}
+	}
+	return counters, callIDs, datatypeSize, nil
+}
+
 func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, bool, error) {
 	counters := ""
 	found := false
@@ -433,6 +468,7 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 }
 
 // LoadCallsData parses the count files and load all the data about all the calls.
+// The returned data is map where the key is the call number and the value the data about the call.
 func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThreshold int) (map[int]*CallData, error) {
 	var readerErr error
 
@@ -629,7 +665,7 @@ func sameRawCounts(counts1 []string, counts2 []string) bool {
 	return true
 }
 
-func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+func rawSendCountsAlreadyExists(rc *rawCountsT, list []RawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
 		if rc.sendDatatypeSize == d.counts.sendDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.sendCounts, d.counts.sendCounts) {
@@ -641,7 +677,7 @@ func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
 	return -1
 }
 
-func rawRecvCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+func rawRecvCountsAlreadyExists(rc rawCountsT, list []RawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
 		if rc.recvDatatypeSize == d.counts.recvDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.recvCounts, d.counts.recvCounts) {
@@ -677,6 +713,7 @@ func getInfoFromRawCountsFileName(filename string) (int, int, error) {
 	return leadRank, callID, nil
 }
 
+/*
 func countsSeriesExists(c string, list []compressedRanksCountsT) int {
 	idx := 0
 	for _, i := range list {
@@ -714,7 +751,7 @@ func compressCounts(counts []string) []string {
 	return compressedCounts
 }
 
-func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int, context string) error {
+func saveCountsInCompactFormat(fd *os.File, data []RawCountsCallsT, numCalls int, context string) error {
 	for _, c := range data {
 		_, err := fd.WriteString(compactCountsFileHeader)
 		if err != nil {
@@ -777,7 +814,7 @@ func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int
 	return nil
 }
 
-func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls int, sc []rawCountsCallsT, rc []rawCountsCallsT) error {
+func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls int, rc []RawCountsCallsT) error {
 	sendCountFile := filepath.Join(dir, fmt.Sprintf("%sjob%d.rank%d.txt", SendCountersFilePrefix, jobid, leadRank))
 	scFd, err := os.OpenFile(sendCountFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -785,7 +822,7 @@ func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls 
 	}
 	defer scFd.Close()
 
-	err = saveCountsInCompactFormat(scFd, sc, numCalls, "S")
+	err = saveCountsInCompactFormat(scFd, rc, numCalls, "S")
 	if err != nil {
 		return err
 	}
@@ -804,49 +841,58 @@ func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls 
 
 	return nil
 }
+*/
 
-func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, files []string) error {
-	var rawSendCounts []rawCountsCallsT
-	var rawRecvCounts []rawCountsCallsT
+func LoadCommunicatorRawCounts(outputDir string, jobId int, commLeadRank int) ([]RawCountsCallsT, error) {
+	var rawCounts []RawCountsCallsT
 
-	b := progress.NewBar(len(files), fmt.Sprintf("Converting count files for communicator %d", leadRank))
+	recvCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
+	sendCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
+
+	rc := new(rawCountsT)
+
+	b := progress.NewBar(2, fmt.Sprintf("Load count files for communicator %d", commLeadRank))
 	defer progress.EndBar(b)
-	for _, file := range files {
-		b.Increment(1)
-		rc, err := parseRawFile(file)
-		if err != nil {
-			return err
-		}
+	b.Increment(1)
 
-		_, callId, err := getInfoFromRawCountsFileName(file)
-		if err != nil {
-			return err
-		}
-
-		idx := rawSendCountsAlreadyExists(rc, rawSendCounts)
-		if idx == -1 {
-			newData := rawCountsCallsT{
-				calls:  []int{callId},
-				counts: &rc,
-			}
-			rawSendCounts = append(rawSendCounts, newData)
-		} else {
-			rawSendCounts[idx].calls = append(rawSendCounts[idx].calls, callId)
-		}
-
-		idx = rawRecvCountsAlreadyExists(rc, rawRecvCounts)
-		if idx == -1 {
-			newData := rawCountsCallsT{
-				calls:  []int{callId},
-				counts: &rc,
-			}
-			rawRecvCounts = append(rawRecvCounts, newData)
-		} else {
-			rawRecvCounts[idx].calls = append(rawRecvCounts[idx].calls, callId)
-		}
+	file := filepath.Join(outputDir, sendCountFile)
+	sendRawCounters, callIDs, sendDatatypeSize, err := parseRawFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
+	}
+	file = filepath.Join(outputDir, recvCountFile)
+	recvRawCounters, _, recvDatatypeSize, err := parseRawFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 	}
 
-	err := saveAllCountsInCompactFormat(outputDir, 0, leadRank, numCalls, rawSendCounts, rawRecvCounts)
+	rc.sendCounts = sendRawCounters
+	rc.sendDatatypeSize = sendDatatypeSize
+	rc.recvCounts = recvRawCounters
+	rc.recvDatatypeSize = recvDatatypeSize
+
+	idx := rawSendCountsAlreadyExists(rc, rawCounts)
+	if idx == -1 {
+		newData := RawCountsCallsT{
+			calls:  callIDs,
+			counts: rc,
+		}
+		rawCounts = append(rawCounts, newData)
+	} else {
+		rawCounts[idx].calls = append(rawCounts[idx].calls, callIDs...)
+	}
+
+	return rawCounts, nil
+}
+
+/*
+func saveCommunicatorRawCounts(outputDir string, jobID int, leadRank int, numCalls int, files []string) error {
+	rawCounts, err := LoadCommunicatorRawCounts(outputDir, jobID, leadRank)
+	if err != nil {
+		return nil
+	}
+
+	err = saveAllCountsInCompactFormat(outputDir, jobID, leadRank, numCalls, rawCounts)
 	if err != nil {
 		return err
 	}
@@ -854,39 +900,42 @@ func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, fil
 	return nil
 }
 
-func LoadRawCountsFromFiles(listFiles []string, outputDir string) error {
-	commMap := make(map[int][]string)
+func LoadRawCountsFromFiles(listFiles []string, outputDir string) ([]RawCountsCallsT, error) {
+	commCountFilesMap := make(map[int][]string)
+	var commRawCounts []RawCountsCallsT
 	numCalls := 0
 
 	for _, file := range listFiles {
 		leadRank, _, err := getInfoFromRawCountsFileName(file)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		commMap[leadRank] = append(commMap[leadRank], file)
+		commCountFilesMap[leadRank] = append(commCountFilesMap[leadRank], file)
 		numCalls++ // One call per file, we just parsed one file.
 	}
 
 	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
-	for leadRank, files := range commMap {
-		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
+	for _, files := range commCountFilesMap {
+		rawCounts, err := LoadCommunicatorRawCounts(outputDir, files)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		commRawCounts = append(commRawCounts, rawCounts...)
 	}
 
-	return nil
+	return commRawCounts, nil
 }
 
-func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
-	commMap := make(map[int][]string)
+func LoadRawCountsFromDirs(dirs []string, outputDir string) (map[int][]RawCountsCallsT, error) {
+	commCountFilesMap := make(map[int][]string)
+	commsRawCounts := make(map[int][]RawCountsCallsT)
 	numCalls := 0
 
 	// First we group all the file based on the lead rank of the communicator the call was made on
 	for _, dir := range dirs {
 		f, err := ioutil.ReadDir(dir)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, file := range f {
@@ -896,22 +945,23 @@ func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
 
 			leadRank, _, err := getInfoFromRawCountsFileName(file.Name())
 			if err != nil {
-				return err
+				return nil, err
 			}
-			commMap[leadRank] = append(commMap[leadRank], filepath.Join(dir, file.Name()))
+			commCountFilesMap[leadRank] = append(commCountFilesMap[leadRank], filepath.Join(dir, file.Name()))
 			numCalls++ // One call per file, we just parsed one file.
 		}
 	}
 
 	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
-	for leadRank, files := range commMap {
-		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
+	for leadRank, files := range commCountFilesMap {
+		rawCounts, err := LoadCommunicatorRawCounts(outputDir, files)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		commsRawCounts[leadRank] = rawCounts
 	}
 
-	return nil
+	return commsRawCounts, nil
 }
 
 func parseRawFile(file string) (rawCountsT, error) {
@@ -932,7 +982,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 	line = strings.TrimRight(line, "\n")
 	rc.sendDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsSendDatatypePrefix))
 	if err != nil {
-		return rc, err
+		return rc, fmt.Errorf("unable to extract send datatype size from %s: %w", line, err)
 	}
 
 	// Second line is recv datatype size
@@ -943,7 +993,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 	line = strings.TrimRight(line, "\n")
 	rc.recvDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsRecvDatatypePrefix))
 	if err != nil {
-		return rc, err
+		return rc, fmt.Errorf("unable to extract recv datatype size from %s: %w", line, err)
 	}
 
 	// Third line is comm size
@@ -954,7 +1004,7 @@ func parseRawFile(file string) (rawCountsT, error) {
 	line = strings.TrimRight(line, "\n")
 	rc.commSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsCommSizePrefix))
 	if err != nil {
-		return rc, err
+		return rc, fmt.Errorf("unable to extract the communicator size from %s: %w", line, err)
 	}
 
 	// Forth we have an empty line
@@ -1009,3 +1059,4 @@ func parseRawFile(file string) (rawCountsT, error) {
 
 	return rc, nil
 }
+*/
