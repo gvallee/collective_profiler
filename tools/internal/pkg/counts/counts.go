@@ -59,13 +59,6 @@ type HeaderT struct {
 	DatatypeSize int
 }
 
-/*
-type compressedRanksCountsT struct {
-	ranks  []int
-	counts string
-}
-*/
-
 type rawCountsT struct {
 	sendDatatypeSize int
 	recvDatatypeSize int
