@@ -1,4 +1,4 @@
-module github.com/gvallee/alltoallv_profiling/tools
+module github.com/gvallee/collective_profiler/tools
 
 go 1.13
 
