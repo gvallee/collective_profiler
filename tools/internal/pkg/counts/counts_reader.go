@@ -22,14 +22,6 @@ import (
 	"github.com/gvallee/alltoallv_profiling/tools/pkg/errors"
 )
 
-const (
-	rawCountsSendDatatypePrefix = "Send datatype size: "
-	rawCountsRecvDatatypePrefix = "Recv datatype size: "
-	rawCountsCommSizePrefix     = "Comm size: "
-	rawCountsSendCountsPrefix   = "Send counts"
-	rawCountsRecvCountsPrefix   = "Recv counts"
-)
-
 // AnalyzeCounts analyses the count from a count file
 func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Stats, map[int][]int, error) {
 	var stats Stats
@@ -170,8 +162,8 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 	}
 
 	// Are we at the beginning of a metadata block?
-	if !strings.HasPrefix(line, "# Raw") {
-		return header, fmt.Errorf("[ERROR] not a header")
+	if !strings.HasPrefix(line, compactCountsFileHeader) {
+		return header, fmt.Errorf("%s is not a header (.%s. vs. .%s.)", line, compactCountsFileHeader, line)
 	}
 
 	for {
@@ -370,6 +362,41 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
+func parseRawFile(f string) ([]string, []int, int, error) {
+	var counters []string
+	datatypeSize := 0
+	file, err := os.Open(f)
+	if err != nil {
+		return nil, nil, datatypeSize, fmt.Errorf("unable to open %s: %w", f, err)
+	}
+	defer file.Close()
+
+	var callIDs []int
+
+	reader := bufio.NewReader(file)
+	for {
+		header, readerErr1 := GetHeader(reader)
+		callIDs = append(callIDs, header.CallIDs...)
+		datatypeSize = header.DatatypeSize
+
+		if readerErr1 != nil && readerErr1 != io.EOF {
+			fmt.Printf("ERROR: %s", readerErr1)
+			return nil, nil, 0, fmt.Errorf("unable to read header from %s: %w", f, readerErr1)
+		}
+
+		callCounters, readerErr2 := GetCounters(reader)
+		if readerErr2 != nil && readerErr2 != io.EOF {
+			return nil, nil, 0, readerErr2
+		}
+		counters = append(counters, strings.Join(callCounters, "\n"))
+
+		if readerErr1 == io.EOF || readerErr2 == io.EOF {
+			break
+		}
+	}
+	return counters, callIDs, datatypeSize, nil
+}
+
 func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, bool, error) {
 	counters := ""
 	found := false
@@ -433,6 +460,7 @@ func ReadCallRankCounters(files []string, rank int, callNum int) (string, int, b
 }
 
 // LoadCallsData parses the count files and load all the data about all the calls.
+// The returned data is map where the key is the call number and the value the data about the call.
 func LoadCallsData(sendCountsFile, recvCountsFile string, rank int, msgSizeThreshold int) (map[int]*CallData, error) {
 	var readerErr error
 
@@ -629,7 +657,7 @@ func sameRawCounts(counts1 []string, counts2 []string) bool {
 	return true
 }
 
-func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+func rawSendCountsAlreadyExists(rc *rawCountsT, list []RawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
 		if rc.sendDatatypeSize == d.counts.sendDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.sendCounts, d.counts.sendCounts) {
@@ -641,7 +669,8 @@ func rawSendCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
 	return -1
 }
 
-func rawRecvCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
+/*
+func rawRecvCountsAlreadyExists(rc rawCountsT, list []RawCountsCallsT) int {
 	idx := 0
 	for _, d := range list {
 		if rc.recvDatatypeSize == d.counts.recvDatatypeSize && rc.commSize == d.counts.commSize && sameRawCounts(rc.recvCounts, d.counts.recvCounts) {
@@ -652,360 +681,48 @@ func rawRecvCountsAlreadyExists(rc rawCountsT, list []rawCountsCallsT) int {
 
 	return -1
 }
+*/
 
-func getInfoFromRawCountsFileName(filename string) (int, int, error) {
-	tokens := strings.Split(filepath.Base(filename), "_")
-	if len(tokens) != 2 {
-		return -1, -1, fmt.Errorf("%s is of wrong format", filename)
-	}
+func LoadCommunicatorRawCounts(outputDir string, jobId int, commLeadRank int) ([]RawCountsCallsT, error) {
+	var rawCounts []RawCountsCallsT
 
-	callStr := strings.TrimPrefix(tokens[1], "call")
-	callStr = strings.TrimSuffix(callStr, ".md")
+	recvCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
+	sendCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
 
-	rankStr := strings.TrimPrefix(tokens[0], "counts.rank")
+	rc := new(rawCountsT)
 
-	leadRank, err := strconv.Atoi(rankStr)
-	if err != nil {
-		return -1, -1, err
-	}
-
-	callID, err := strconv.Atoi(callStr)
-	if err != nil {
-		return -1, -1, err
-	}
-
-	return leadRank, callID, nil
-}
-
-func countsSeriesExists(c string, list []compressedRanksCountsT) int {
-	idx := 0
-	for _, i := range list {
-		if c == i.counts {
-			return idx
-		}
-		idx++
-	}
-	return -1
-}
-
-func compressCounts(counts []string) []string {
-	var uniqueCountsSeries []compressedRanksCountsT
-	var compressedCounts []string
-	curRank := 0
-	for _, s := range counts {
-		idx := countsSeriesExists(s, uniqueCountsSeries)
-		if idx == -1 {
-			newCountsSeries := compressedRanksCountsT{
-				counts: s,
-				ranks:  []int{curRank},
-			}
-			uniqueCountsSeries = append(uniqueCountsSeries, newCountsSeries)
-		} else {
-			uniqueCountsSeries[idx].ranks = append(uniqueCountsSeries[idx].ranks, curRank)
-		}
-		curRank++
-	}
-
-	for _, s := range uniqueCountsSeries {
-		ranksStr := notation.CompressIntArray(s.ranks)
-		compressedCounts = append(compressedCounts, rankListPrefix+ranksStr+": "+strings.TrimRight(s.counts, "\n"))
-	}
-
-	return compressedCounts
-}
-
-func saveCountsInCompactFormat(fd *os.File, data []rawCountsCallsT, numCalls int, context string) error {
-	for _, c := range data {
-		_, err := fd.WriteString(compactCountsFileHeader)
-		if err != nil {
-			return err
-		}
-
-		_, err = fd.WriteString(fmt.Sprintf("%s%d\n", numberOfRanksMarker, c.counts.commSize))
-		if err != nil {
-			return err
-		}
-
-		if context == "S" {
-			_, err = fd.WriteString(fmt.Sprintf("%s%d\n", datatypeSizeMarker, c.counts.sendDatatypeSize))
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err = fd.WriteString(fmt.Sprintf("%s%d\n", datatypeSizeMarker, c.counts.recvDatatypeSize))
-			if err != nil {
-				return err
-			}
-
-		}
-
-		_, err = fd.WriteString(fmt.Sprintf("%s 0-%d\n", alltoallvCallNumbersMarker, numCalls-1))
-		if err != nil {
-			return err
-		}
-
-		compressedListCalls := notation.CompressIntArray(c.calls)
-		_, err = fd.WriteString(fmt.Sprintf("%s%d calls - %s\n", marker, len(c.calls), compressedListCalls))
-		if err != nil {
-			return err
-		}
-
-		_, err = fd.WriteString(fmt.Sprintf("\n\n%s\n", beginningDataMarker))
-		if err != nil {
-			return err
-		}
-
-		if context == "S" {
-			sendCompressedCounts := compressCounts(c.counts.sendCounts)
-			_, err = fd.WriteString(strings.Join(sendCompressedCounts, "\n"))
-			if err != nil {
-				return err
-			}
-		} else {
-			recvCompressedCounts := compressCounts(c.counts.recvCounts)
-			_, err = fd.WriteString(strings.Join(recvCompressedCounts, "\n"))
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = fd.WriteString(fmt.Sprintf("\n%s\n", endDataMarker))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func saveAllCountsInCompactFormat(dir string, jobid int, leadRank int, numCalls int, sc []rawCountsCallsT, rc []rawCountsCallsT) error {
-	sendCountFile := filepath.Join(dir, fmt.Sprintf("%sjob%d.rank%d.txt", SendCountersFilePrefix, jobid, leadRank))
-	scFd, err := os.OpenFile(sendCountFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-	defer scFd.Close()
-
-	err = saveCountsInCompactFormat(scFd, sc, numCalls, "S")
-	if err != nil {
-		return err
-	}
-
-	recvCountFile := filepath.Join(dir, fmt.Sprintf("%sjob%d.rank%d.txt", RecvCountersFilePrefix, jobid, leadRank))
-	rcFd, err := os.OpenFile(recvCountFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-	defer rcFd.Close()
-
-	err = saveCountsInCompactFormat(rcFd, rc, numCalls, "R")
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func loadCommunicatorRawCounts(outputDir string, leadRank int, numCalls int, files []string) error {
-	var rawSendCounts []rawCountsCallsT
-	var rawRecvCounts []rawCountsCallsT
-
-	b := progress.NewBar(len(files), fmt.Sprintf("Converting count files for communicator %d", leadRank))
+	b := progress.NewBar(2, fmt.Sprintf("Load count files for communicator %d", commLeadRank))
 	defer progress.EndBar(b)
-	for _, file := range files {
-		b.Increment(1)
-		rc, err := parseRawFile(file)
-		if err != nil {
-			return err
+	b.Increment(1)
+
+	file := filepath.Join(outputDir, sendCountFile)
+	sendRawCounters, callIDs, sendDatatypeSize, err := parseRawFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
+	}
+
+	b.Increment(1)
+	file = filepath.Join(outputDir, recvCountFile)
+	recvRawCounters, _, recvDatatypeSize, err := parseRawFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
+	}
+
+	rc.sendCounts = sendRawCounters
+	rc.sendDatatypeSize = sendDatatypeSize
+	rc.recvCounts = recvRawCounters
+	rc.recvDatatypeSize = recvDatatypeSize
+
+	idx := rawSendCountsAlreadyExists(rc, rawCounts)
+	if idx == -1 {
+		newData := RawCountsCallsT{
+			calls:  callIDs,
+			counts: rc,
 		}
-
-		_, callId, err := getInfoFromRawCountsFileName(file)
-		if err != nil {
-			return err
-		}
-
-		idx := rawSendCountsAlreadyExists(rc, rawSendCounts)
-		if idx == -1 {
-			newData := rawCountsCallsT{
-				calls:  []int{callId},
-				counts: &rc,
-			}
-			rawSendCounts = append(rawSendCounts, newData)
-		} else {
-			rawSendCounts[idx].calls = append(rawSendCounts[idx].calls, callId)
-		}
-
-		idx = rawRecvCountsAlreadyExists(rc, rawRecvCounts)
-		if idx == -1 {
-			newData := rawCountsCallsT{
-				calls:  []int{callId},
-				counts: &rc,
-			}
-			rawRecvCounts = append(rawRecvCounts, newData)
-		} else {
-			rawRecvCounts[idx].calls = append(rawRecvCounts[idx].calls, callId)
-		}
+		rawCounts = append(rawCounts, newData)
+	} else {
+		rawCounts[idx].calls = append(rawCounts[idx].calls, callIDs...)
 	}
 
-	err := saveAllCountsInCompactFormat(outputDir, 0, leadRank, numCalls, rawSendCounts, rawRecvCounts)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func LoadRawCountsFromFiles(listFiles []string, outputDir string) error {
-	commMap := make(map[int][]string)
-	numCalls := 0
-
-	for _, file := range listFiles {
-		leadRank, _, err := getInfoFromRawCountsFileName(file)
-		if err != nil {
-			return err
-		}
-		commMap[leadRank] = append(commMap[leadRank], file)
-		numCalls++ // One call per file, we just parsed one file.
-	}
-
-	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
-	for leadRank, files := range commMap {
-		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func LoadRawCountsFromDirs(dirs []string, outputDir string) error {
-	commMap := make(map[int][]string)
-	numCalls := 0
-
-	// First we group all the file based on the lead rank of the communicator the call was made on
-	for _, dir := range dirs {
-		f, err := ioutil.ReadDir(dir)
-		if err != nil {
-			return err
-		}
-
-		for _, file := range f {
-			if !strings.HasPrefix(file.Name(), "counts.rank") {
-				continue
-			}
-
-			leadRank, _, err := getInfoFromRawCountsFileName(file.Name())
-			if err != nil {
-				return err
-			}
-			commMap[leadRank] = append(commMap[leadRank], filepath.Join(dir, file.Name()))
-			numCalls++ // One call per file, we just parsed one file.
-		}
-	}
-
-	// Then we parse the file based on the leadRank, which ultimately lets us deal with sub-communicators
-	for leadRank, files := range commMap {
-		err := loadCommunicatorRawCounts(outputDir, leadRank, numCalls, files)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func parseRawFile(file string) (rawCountsT, error) {
-	var rc rawCountsT
-
-	fd, err := os.Open(file)
-	if err != nil {
-		return rc, fmt.Errorf("unable to open %s: %w", file, err)
-	}
-	defer fd.Close()
-	reader := bufio.NewReader(fd)
-
-	// First line is send datatype size
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	line = strings.TrimRight(line, "\n")
-	rc.sendDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsSendDatatypePrefix))
-	if err != nil {
-		return rc, err
-	}
-
-	// Second line is recv datatype size
-	line, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	line = strings.TrimRight(line, "\n")
-	rc.recvDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsRecvDatatypePrefix))
-	if err != nil {
-		return rc, err
-	}
-
-	// Third line is comm size
-	line, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	line = strings.TrimRight(line, "\n")
-	rc.commSize, err = strconv.Atoi(strings.TrimPrefix(line, rawCountsCommSizePrefix))
-	if err != nil {
-		return rc, err
-	}
-
-	// Forth we have an empty line
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-
-	// Then we have send counts
-	line, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	line = strings.TrimRight(line, "\n")
-	if line != rawCountsSendCountsPrefix {
-		return rc, fmt.Errorf("wrong format, we have %s instead of %s", line, rawCountsSendCountsPrefix)
-	}
-	for i := 0; i < rc.commSize; i++ {
-		line, err = reader.ReadString('\n')
-		if err != nil {
-			return rc, err
-		}
-		rc.sendCounts = append(rc.sendCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
-	}
-
-	// We have two empty lines
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-
-	// Finally we have recv counts
-	line, err = reader.ReadString('\n')
-	if err != nil {
-		return rc, err
-	}
-	line = strings.TrimRight(line, "\n")
-	if line != rawCountsRecvCountsPrefix {
-		return rc, fmt.Errorf("wrong format, we have %s instead of %s", line, rawCountsRecvCountsPrefix)
-	}
-	for i := 0; i < rc.commSize; i++ {
-		line, err = reader.ReadString('\n')
-		if err != nil && err != io.EOF { // the last line does not include "\n"
-			return rc, err
-		}
-		rc.recvCounts = append(rc.recvCounts, strings.TrimRight(strings.TrimRight(line, "\n"), " "))
-	}
-
-	return rc, nil
+	return rawCounts, nil
 }

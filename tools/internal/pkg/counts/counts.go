@@ -24,7 +24,7 @@ const (
 	// Header is the string used as a prefix to indicate raw counters in the count files
 	Header = "# Raw counters"
 
-	compactCountsFileHeader    = "# Raw counters\n\n"
+	compactCountsFileHeader    = "# Raw counters\n"
 	marker                     = "Count: "
 	numberOfRanksMarker        = "Number of ranks: "
 	datatypeSizeMarker         = "Datatype size: "
@@ -59,11 +59,6 @@ type HeaderT struct {
 	DatatypeSize int
 }
 
-type compressedRanksCountsT struct {
-	ranks  []int
-	counts string
-}
-
 type rawCountsT struct {
 	sendDatatypeSize int
 	recvDatatypeSize int
@@ -72,7 +67,7 @@ type rawCountsT struct {
 	recvCounts       []string
 }
 
-type rawCountsCallsT struct {
+type RawCountsCallsT struct {
 	calls  []int
 	counts *rawCountsT
 }
@@ -266,6 +261,8 @@ type CommDataT struct {
 	// CallData is the data for all the alltoallv calls performed on the communicator(s) led by leadRank;
 	// rhw key is the call number and the value a pointer to the call's data (several calls can share the same data)
 	CallData map[int]*CallData
+
+	RawCounts []RawCountsCallsT
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {

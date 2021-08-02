@@ -353,19 +353,19 @@ func (c *Config) loadData() error {
 			return err
 		}
 		if len(sendCountsFiles) == 0 {
-			// We do not have the files in the right format: try to convert raw counts files
-			fileInfo := profiler.FindRawCountFiles(c.DatasetDir)
-			err := counts.LoadRawCountsFromDirs(fileInfo.Dirs, c.DatasetDir)
-			if err != nil {
-				return err
-			}
+			return fmt.Errorf("unable to find send count file(s) in %s", c.DatasetDir)
 		}
 
 		listBins := bins.GetFromInputDescr(binThresholds)
-		c.numCalls, c.stats, c.allPatterns, c.allCallsData, err = profiler.HandleCountsFiles(c.DatasetDir, sizeThreshold, listBins)
+		data, err := profiler.HandleCountsFiles(c.DatasetDir, sizeThreshold, listBins)
 		if err != nil {
 			return err
 		}
+
+		c.numCalls = data.TotalNumCalls
+		c.stats = data.AllStats
+		c.allPatterns = data.AllPatterns
+		c.allCallsData = data.AllCallsData
 	}
 
 	return nil
