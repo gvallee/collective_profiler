@@ -52,7 +52,7 @@ func AnalyzeCounts(counts []string, msgSizeThreshold int, datatypeSize int) (Sta
 	for _, line := range counts {
 		tokens := strings.Split(line, ": ")
 		c := tokens[0]
-		c = strings.TrimPrefix(c, rankListPrefix)
+		c = strings.TrimPrefix(c, RankListPrefix)
 		numberOfRanks, err := notation.GetNumberOfRanksFromCompressedNotation(c)
 		if err != nil {
 			return stats, nil, fmt.Errorf("notation.GetNumberOfRanksFromCompressedNotation() failed: %w", err)
@@ -237,7 +237,7 @@ func GetHeader(reader *bufio.Reader) (HeaderT, error) {
 		}
 
 		// We check for the beginning of the actual data
-		if strings.HasPrefix(line, beginningDataMarker) {
+		if strings.HasPrefix(line, BeginningDataMarker) {
 			break
 		}
 
@@ -337,7 +337,7 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 		ts := strings.Split(callCounters[i], ": ")
 		ranks := ts[0]
 		counters := ts[1]
-		ranksListStr := strings.Split(strings.TrimPrefix(ranks, rankListPrefix), " ")
+		ranksListStr := strings.Split(strings.TrimPrefix(ranks, RankListPrefix), " ")
 		for j := 0; j < len(ranksListStr); j++ {
 			// We may have a list that includes ranges
 			tokens := strings.Split(ranksListStr[j], ",")
@@ -362,7 +362,7 @@ func extractRankCounters(callCounters []string, rank int) (string, error) {
 	return "", fmt.Errorf("unable to find counters for rank %d", rank)
 }
 
-func parseRawFile(f string) ([]string, []int, int, error) {
+func ParseRawFile(f string) ([]string, []int, int, error) {
 	var counters []string
 	datatypeSize := 0
 	file, err := os.Open(f)
@@ -696,14 +696,14 @@ func LoadCommunicatorRawCounts(outputDir string, jobId int, commLeadRank int) ([
 	b.Increment(1)
 
 	file := filepath.Join(outputDir, sendCountFile)
-	sendRawCounters, callIDs, sendDatatypeSize, err := parseRawFile(file)
+	sendRawCounters, callIDs, sendDatatypeSize, err := ParseRawFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 	}
 
 	b.Increment(1)
 	file = filepath.Join(outputDir, recvCountFile)
-	recvRawCounters, _, recvDatatypeSize, err := parseRawFile(file)
+	recvRawCounters, _, recvDatatypeSize, err := ParseRawFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 	}

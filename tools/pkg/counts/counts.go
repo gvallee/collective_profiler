@@ -29,9 +29,9 @@ const (
 	NumberOfRanksMarker        = "Number of ranks: "
 	DatatypeSizeMarker         = "Datatype size: "
 	AlltoallvCallNumbersMarker = "Alltoallv calls "
-	beginningDataMarker        = "BEGINNING DATA"
-	endDataMarker              = "END DATA"
-	rankListPrefix             = "Rank(s) "
+	BeginningDataMarker        = "BEGINNING DATA"
+	EndDataMarker              = "END DATA"
+	RankListPrefix             = "Rank(s) "
 
 	// SendCountersFilePrefix is the prefix used for all send counts files
 	SendCountersFilePrefix = "send-counters."
