@@ -13,6 +13,7 @@ all: \
 	exec_timings.o                \
 	late_arrival_timings.o        \
 	backtrace.o                   \
+	buff_content.o                \
 	logger.o                      \
 	logger_counts.o               \
 	logger_exec_timings.o         \
@@ -33,6 +34,9 @@ location.o: location.c location.h format.h
 
 backtrace.o: backtrace.c backtrace.h format.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
+
+buff_content.o: buff_content.c buff_content.h format.h
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c buff_content.c
 
 comm.o: comm.c comm.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c comm.c

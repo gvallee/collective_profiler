@@ -53,6 +53,16 @@
 #define ENABLE_LOCATION_TRACKING (0)
 #endif // ENABLE_LOCATION_TRACKING
 
+// Switch to enable/disable tracking the content of buffers
+#ifndef ENABLE_SAVE_DATA_VALIDATION
+#define ENABLE_SAVE_DATA_VALIDATION (0)
+#endif // ENABLE_SAVE_DATA_VALIDATION
+
+// Switch to enable/disable compraing the content of buffers
+#ifndef ENABLE_COMPARE_DATA_VALIDATION
+#define ENABLE_COMPARE_DATA_VALIDATION (0)
+#endif // ENABLE_COMPARE_DATA_VALIDATION
+
 // A few switches that are less commonly used by users and that cannot be set a compiling time from the compiler command
 #define ENABLE_LIVE_GROUPING (0)         // Switch to enable/disable live grouping (can be very time consuming)
 #define ENABLE_POSTMORTEM_GROUPING (0)   // Switch to enable/disable post-mortem grouping analysis (when enabled, data will be saved to a file)
