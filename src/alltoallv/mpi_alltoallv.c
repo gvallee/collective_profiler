@@ -15,6 +15,7 @@
 #include "timings.h"
 #include "backtrace.h"
 #include "location.h"
+#include "buff_content.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -1069,6 +1070,18 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_LATE_ARRIVAL_TIMING
 		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
+
+#if ENABLE_SAVE_DATA_VALIDATION
+		int dtsize;
+		MPI_Type_size(sendtype, &dtsize);
+		store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+#endif // ENABLE_SAVE_DATA_VALIDATION
+
+#if ENABLE_COMPARE_DATA_VALIDATION
+		int dtsize;
+		MPI_Type_size(sendtype, &dtsize);
+		read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+#endif // ENABLE_COMPARE_DATA_VALIDATION
 
 #if ENABLE_LOCATION_TRACKING
 		int my_pid = getpid();
