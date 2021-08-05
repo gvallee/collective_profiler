@@ -276,7 +276,7 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
         (*logger)->filename = NULL;
     }
 
-    // Secification for the trace buffer says: "This array is malloc(3)ed by backtrace_symbols(), 
+    // Specification for the trace buffer says: "This array is malloc(3)ed by backtrace_symbols(), 
     // and must be freed by the caller. (The strings pointed to by the array of pointers need 
     // not and should not be freed.)"
     if ((*logger)->trace)

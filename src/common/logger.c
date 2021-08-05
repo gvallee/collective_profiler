@@ -16,6 +16,7 @@
 #include "timings.h"
 #include "backtrace.h"
 #include "location.h"
+#include "buff_content.h"
 
 char *get_output_dir()
 {
@@ -507,6 +508,12 @@ void logger_fini(logger_t **l)
     if (rc)
     {
         fprintf(stderr, "release_location_loggers() failed: %d\n", rc);
+    }
+
+    rc = release_buffcontent_loggers();
+    if (rc)
+    {
+        fprintf(stderr, "release_buffcontent_loggers() failed: %d\n", rc);
     }
 
     rc = release_comm_data((*l)->collective_name, (*l)->rank);
