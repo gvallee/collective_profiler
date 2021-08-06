@@ -1073,13 +1073,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 #if ENABLE_SAVE_DATA_VALIDATION
 		int dtsize;
-		MPI_Type_size(sendtype, &dtsize);
+		MPI_Type_size(recvtype, &dtsize);
 		store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
 #endif // ENABLE_SAVE_DATA_VALIDATION
 
 #if ENABLE_COMPARE_DATA_VALIDATION
 		int dtsize;
-		MPI_Type_size(sendtype, &dtsize);
+		MPI_Type_size(recvtype, &dtsize);
 		read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
 #endif // ENABLE_COMPARE_DATA_VALIDATION
 
