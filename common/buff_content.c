@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <openssl/sha.h>
+
 #include "buff_content.h"
 #include "collective_profiler_config.h"
 #include "common_utils.h"
@@ -238,8 +240,10 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
             continue;
         }
 
-        for (j = 0; j < data_size; j++) {
-            fprintf(buffcontent_logger->fd, "%02x", b[j]);
+        unsigned char sha256_buff[32];
+        SHA256(ptr, data_size, sha256_buff);
+        for (j = 0; j < 32; j++) {
+            fprintf(buffcontent_logger->fd, "%02x", sha256_buff[j]);
         }     
         fprintf(buffcontent_logger->fd, "\n");
     }
@@ -250,7 +254,7 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
 
 int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], int dtsize)
 {
-        uint32_t comm_id;
+    uint32_t comm_id;
     int rc;
     buffcontent_logger_t *buffcontent_logger = NULL;
 
@@ -287,7 +291,7 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
     int i;
     int comm_size;
     MPI_Comm_size(comm, &comm_size);
-    char buff[255];
+    
     // Read header ("Call X\n")
     uint64_t num_call;
     fscanf(buffcontent_logger->fd, "Call %"PRIu64"\n", &num_call);
@@ -301,14 +305,14 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
             continue;
         }
 
+        char buff[255];
         fscanf(buffcontent_logger->fd, "%s\n", buff);
-        uint8_t *b = (uint8_t*)ptr;
+        unsigned char sha256_buff[32];
+        SHA256(ptr, data_size, sha256_buff);
         char data[255];
-        int idx = 0;
-        for (j = 0; j < data_size; j++) {
+        for (j = 0; j < 32; j++) {
             // 3 because it adds EOC
-            snprintf(&data[idx], 3, "%02x", b[j]);
-            idx += 2;
+            snprintf(&data[j * 2], 3, "%02x", sha256_buff[j]);
         }
         
         if (strcmp(data, buff) != 0) {
@@ -316,5 +320,6 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
                 MPI_Abort(comm, 1);
         }     
     }
+    char buff[255];
     fscanf(buffcontent_logger->fd, "%s\n", buff);
 }

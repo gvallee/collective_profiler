@@ -24,10 +24,10 @@ liballtoallv_location.so: ${COMMON_OBJECTS} ../common/logger.o ../common/timings
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_LOCATION_TRACKING=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_location.so
 
 liballtoallv_savebuffcontent.so: ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_SAVE_DATA_VALIDATION=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_savebuffcontent.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_SAVE_DATA_VALIDATION=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_savebuffcontent.so -lssl -lcrypto
 
 liballtoallv_comparebuffcontent.so: ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPARE_DATA_VALIDATION=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_comparebuffcontent.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPARE_DATA_VALIDATION=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_comparebuffcontent.so -lssl -lcrypto
 
 liballtoallv.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger.o ../common/buff_content.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -I../ -I../common/ -g -shared -fPIC  ${COMMON_OBJECTS} ../common/timings.o ../common/logger.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv.so

@@ -36,7 +36,7 @@ backtrace.o: backtrace.c backtrace.h format.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
 
 buff_content.o: buff_content.c buff_content.h format.h
-	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c buff_content.c
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c buff_content.c -lssl -lcrypto
 
 comm.o: comm.c comm.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c comm.c
