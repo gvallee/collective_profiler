@@ -248,6 +248,7 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
         fprintf(buffcontent_logger->fd, "\n");
     }
     fprintf(buffcontent_logger->fd, "\n");
+    fflush(buffcontent_logger->fd);
 
     return 0;
 }
@@ -321,5 +322,5 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
         }     
     }
     char buff[255];
-    fscanf(buffcontent_logger->fd, "%s\n", buff);
+    fscanf(buffcontent_logger->fd, "\n");
 }
