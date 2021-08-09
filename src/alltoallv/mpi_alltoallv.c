@@ -1080,7 +1080,16 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if ENABLE_COMPARE_DATA_VALIDATION
 		int dtsize;
 		MPI_Type_size(recvtype, &dtsize);
-		read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+		char *max_call_num_envvar = getenv(COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR);
+		int max_call = -1;
+		if (max_call_num_envvar != NULL) {
+			max_call = atoi(max_call_num_envvar);
+		}
+		if (max_call == -1 || (max_call > -1 && avCalls < max_call)) {
+			read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize, true);
+		} else {
+			read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize, false);
+		}
 #endif // ENABLE_COMPARE_DATA_VALIDATION
 
 #if ENABLE_LOCATION_TRACKING
