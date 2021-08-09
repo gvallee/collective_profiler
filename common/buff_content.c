@@ -231,15 +231,13 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
     fprintf(buffcontent_logger->fd, "Call %"PRIu64"\n", n_call);
     for (i = 0; i < comm_size; i++) 
     {
-        void *ptr = (void*)(buf + (uintptr_t)displs[i]);
-        size_t data_size = counts[i] * dtsize;
-        size_t j;
-        uint8_t *b = (uint8_t*)ptr;
-
         if (counts[i] == 0) {
             continue;
         }
 
+        size_t data_size = counts[i] * dtsize;
+        void *ptr = (void*)(buf + (uintptr_t)(displs[i] * dtsize));
+        size_t j;
         unsigned char sha256_buff[32];
         SHA256(ptr, data_size, sha256_buff);
         for (j = 0; j < 32; j++) {
@@ -248,12 +246,12 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
         fprintf(buffcontent_logger->fd, "\n");
     }
     fprintf(buffcontent_logger->fd, "\n");
-    fflush(buffcontent_logger->fd);
+    //fflush(buffcontent_logger->fd);
 
     return 0;
 }
 
-int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], int dtsize)
+int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], int dtsize, bool check)
 {
     uint32_t comm_id;
     int rc;
@@ -298,28 +296,29 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
     fscanf(buffcontent_logger->fd, "Call %"PRIu64"\n", &num_call);
     for (i = 0; i < comm_size; i++) 
     {
-        void *ptr = (void*)(buf + (uintptr_t)displs[i]);
-        size_t data_size = counts[i] * dtsize;
-        size_t j;
-
         if (counts[i] == 0) {
             continue;
         }
 
+        size_t data_size = counts[i] * dtsize;
+        void *ptr = (void*)(buf + (uintptr_t)(displs[i] * dtsize));
+        size_t j;
         char buff[255];
         fscanf(buffcontent_logger->fd, "%s\n", buff);
-        unsigned char sha256_buff[32];
-        SHA256(ptr, data_size, sha256_buff);
-        char data[255];
-        for (j = 0; j < 32; j++) {
-            // 3 because it adds EOC
-            snprintf(&data[j * 2], 3, "%02x", sha256_buff[j]);
-        }
+        if (check) {
+            unsigned char sha256_buff[32];
+            SHA256(ptr, data_size, sha256_buff);
+            char data[255];
+            for (j = 0; j < 32; j++) {
+                // 3 because it adds EOC
+                snprintf(&data[j * 2], 3, "%02x", sha256_buff[j]);
+            }
         
-        if (strcmp(data, buff) != 0) {
-                fprintf(stderr, "Rank %d: Content differ (%s vs. %s)\n", world_rank, data, buff);
+            if (strcmp(data, buff) != 0) {
+                fprintf(stderr, "Rank %d: Content differ for call %"PRIu64" (%s vs. %s)\n", world_rank, n_call, data, buff);
                 MPI_Abort(comm, 1);
-        }     
+            }
+        }
     }
     char buff[255];
     fscanf(buffcontent_logger->fd, "\n");
