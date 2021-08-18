@@ -37,6 +37,9 @@ static uint64_t avCallStart = -1;  // Number of alltoallv call during which we s
 static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
 static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
 
+static int do_send_buffs = 0; // Specify that the focus is on send buffers rather than recv buffers
+static int max_call = -1; // Specify when to stop when checking content of buffers
+
 // Buffers used to store data through all alltoallv calls
 int *sbuf = NULL;
 int *rbuf = NULL;
@@ -225,7 +228,7 @@ char *alltoallv_get_full_filename(int ctxt, char *id, int jobid, int world_rank)
 	char *filename = NULL;
 	int size;
 	char *dir = get_output_dir();
-	
+
 	if (ctxt == MAIN_CTX)
 	{
 		if (id == NULL)
@@ -793,6 +796,19 @@ int mpi_init_(MPI_Fint *ierr)
 	int argc = 0;
 	char **argv = NULL;
 
+	char *buff_type = getenv(COLLECTIVE_PROFILER_CHECK_SEND_BUFF_ENVVAR);
+	if (buff_type != NULL)
+	{
+		do_send_buffs = atoi(buff_type);
+	}
+
+	char *max_call_num_envvar = getenv(COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR);		
+	if (max_call_num_envvar != NULL)
+	{
+		max_call = atoi(max_call_num_envvar);
+	}
+
+
 	c_ierr = _mpi_init(&argc, &argv);
 	if (NULL != ierr)
 		*ierr = OMPI_INT_2_FINT(c_ierr);
@@ -1072,23 +1088,46 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
 #if ENABLE_SAVE_DATA_VALIDATION
-		int dtsize;
-		MPI_Type_size(recvtype, &dtsize);
-		store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+		if (do_send_buffs > 0)
+		{
+			int dtsize;
+			MPI_Type_size(sendtype, &dtsize);
+			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, dtsize);
+		}
+		else
+		{
+			int dtsize;
+			MPI_Type_size(recvtype, &dtsize);
+			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, dtsize);
+		}
 #endif // ENABLE_SAVE_DATA_VALIDATION
 
 #if ENABLE_COMPARE_DATA_VALIDATION
-		int dtsize;
-		MPI_Type_size(recvtype, &dtsize);
-		char *max_call_num_envvar = getenv(COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR);
-		int max_call = -1;
-		if (max_call_num_envvar != NULL) {
-			max_call = atoi(max_call_num_envvar);
+		if (do_send_buffs > 0)
+		{
+			int dtsize;
+			MPI_Type_size(sendtype, &dtsize);
+			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
+			{
+				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, dtsize, true);
+			}
+			else
+			{
+				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, dtsize, false);
+			}
 		}
-		if (max_call == -1 || (max_call > -1 && avCalls < max_call)) {
-			read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize, true);
-		} else {
-			read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize, false);
+		else
+		{
+			int dtsize;
+			MPI_Type_size(recvtype, &dtsize);
+			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
+			{
+				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, dtsize, true);
+			}
+			else
+			{
+				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, dtsize, false);
+			}
 		}
 #endif // ENABLE_COMPARE_DATA_VALIDATION
 

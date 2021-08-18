@@ -31,12 +31,12 @@ static inline int _open_content_storage_file(char *collective_name, char **filen
     // filename schema: buffcontent_rank<WORLDRANK>.txt
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(_filename, rc, "%s/%s_buffcontent_comm%"PRIu64"_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank);
+        _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank);
         assert(rc > 0);
     }
     else
     {
-        _asprintf(_filename, rc, "%s_buffcontent_comm%"PRIu64"_rank%d.txt", collective_name, comm_id, world_rank);
+        _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d.txt", collective_name, comm_id, world_rank);
         assert(rc > 0);
     }
 
@@ -90,14 +90,18 @@ static inline int init_buffcontent_logger(char *collective_name, int world_rank,
         buffcontent_loggers_tail = new_logger;
     }
 
-    if (strcmp(mode, "w") == 0) {
+    if (strcmp(mode, "w") == 0)
+    {
         // Write the format version at the begining of the file
         FORMAT_VERSION_WRITE(new_logger->fd);
-    } else {
+    }
+    else
+    {
         // Read the format version so we can continue to read the file once we return from the function
         int version;
         fscanf(new_logger->fd, "FORMAT_VERSION: %d\n\n", &version);
-        if (version != FORMAT_VERSION) {
+        if (version != FORMAT_VERSION)
+        {
             fprintf(stderr, "incompatible version (%d vs. %d)\n", version, FORMAT_VERSION);
             return -1;
         }
@@ -119,7 +123,7 @@ static inline int _close_buffcontent_file(buffcontent_logger_t *logger)
         free(logger->filename);
         logger->filename = NULL;
     }
-    
+
     return 0;
 }
 
@@ -228,21 +232,23 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
     int i;
     int comm_size;
     MPI_Comm_size(comm, &comm_size);
-    fprintf(buffcontent_logger->fd, "Call %"PRIu64"\n", n_call);
-    for (i = 0; i < comm_size; i++) 
+    fprintf(buffcontent_logger->fd, "Call %" PRIu64 "\n", n_call);
+    for (i = 0; i < comm_size; i++)
     {
-        if (counts[i] == 0) {
+        if (counts[i] == 0)
+        {
             continue;
         }
 
         size_t data_size = counts[i] * dtsize;
-        void *ptr = (void*)(buf + (uintptr_t)(displs[i] * dtsize));
+        void *ptr = (void *)(buf + (uintptr_t)(displs[i] * dtsize));
         size_t j;
         unsigned char sha256_buff[32];
         SHA256(ptr, data_size, sha256_buff);
-        for (j = 0; j < 32; j++) {
+        for (j = 0; j < 32; j++)
+        {
             fprintf(buffcontent_logger->fd, "%02x", sha256_buff[j]);
-        }     
+        }
         fprintf(buffcontent_logger->fd, "\n");
     }
     fprintf(buffcontent_logger->fd, "\n");
@@ -290,32 +296,36 @@ int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_ra
     int i;
     int comm_size;
     MPI_Comm_size(comm, &comm_size);
-    
+
     // Read header ("Call X\n")
     uint64_t num_call;
-    fscanf(buffcontent_logger->fd, "Call %"PRIu64"\n", &num_call);
-    for (i = 0; i < comm_size; i++) 
+    fscanf(buffcontent_logger->fd, "Call %" PRIu64 "\n", &num_call);
+    for (i = 0; i < comm_size; i++)
     {
-        if (counts[i] == 0) {
+        if (counts[i] == 0)
+        {
             continue;
         }
 
         size_t data_size = counts[i] * dtsize;
-        void *ptr = (void*)(buf + (uintptr_t)(displs[i] * dtsize));
+        void *ptr = (void *)(buf + (uintptr_t)(displs[i] * dtsize));
         size_t j;
         char buff[255];
         fscanf(buffcontent_logger->fd, "%s\n", buff);
-        if (check) {
+        if (check)
+        {
             unsigned char sha256_buff[32];
             SHA256(ptr, data_size, sha256_buff);
             char data[255];
-            for (j = 0; j < 32; j++) {
+            for (j = 0; j < 32; j++)
+            {
                 // 3 because it adds EOC
                 snprintf(&data[j * 2], 3, "%02x", sha256_buff[j]);
             }
-        
-            if (strcmp(data, buff) != 0) {
-                fprintf(stderr, "Rank %d: Content differ for call %"PRIu64" (%s vs. %s)\n", world_rank, n_call, data, buff);
+
+            if (strcmp(data, buff) != 0)
+            {
+                fprintf(stderr, "Rank %d: Content differ for call %" PRIu64 " (%s vs. %s)\n", world_rank, n_call, data, buff);
                 MPI_Abort(comm, 1);
             }
         }

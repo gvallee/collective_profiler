@@ -9,10 +9,12 @@
 #define MPI_COLLECTIVE_PROFILER_BUFFCONTENT_H
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "mpi.h"
 
 #define COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR "COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT"
+#define COLLECTIVE_PROFILER_CHECK_SEND_BUFF_ENVVAR "COLLECTIVE_PROFILER_CHECK_SEND_BUFF"
 
 // buffcontent_logger is the central structure to track and profile backtrace in
 // the context of MPI collective. We track in a unique manner each trace but for each
