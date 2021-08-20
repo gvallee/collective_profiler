@@ -74,10 +74,7 @@ static char *add_range_uint64(char *str, uint64_t start, uint64_t end)
 
         if (s != NULL)
         {
-            if (str != NULL)
-            {
-                free(str);
-            }
+            free(str);
             str = s;
         }
 
@@ -148,10 +145,7 @@ static char *add_range(char *str, int start, int end)
 
         if (s != NULL)
         {
-            if (str != NULL)
-            {
-                free(str);
-            }
+            free(str);
             str = s;
         }
 
@@ -163,7 +157,6 @@ static char *add_singleton_uint64(char *str, uint64_t n)
 {
 
     int size;
-    int rc;
     if (str == NULL)
     {
         size = MAX_STRING_LEN;
@@ -172,18 +165,18 @@ static char *add_singleton_uint64(char *str, uint64_t n)
     {
         size = strlen(str) + (MAX_STRING_LEN - get_remainder(strlen(str), MAX_STRING_LEN));
     }
-    int ret = size;
     if (str == NULL)
     {
         str = (char *)malloc(size * sizeof(char));
         assert(str);
-        rc = sprintf(str, "%" PRIu64, n);
+        int rc = sprintf(str, "%" PRIu64, n);
         assert(rc <= size);
         return str;
     }
 
     // We make sure we do not get a truncated result
     char *s = NULL;
+    int ret = size;
     while (ret >= size)
     {
         if (s == NULL)
@@ -222,7 +215,6 @@ static char *add_singleton(char *str, int n)
 {
 
     int size;
-    int rc;
     if (str == NULL)
     {
         size = MAX_STRING_LEN;
@@ -236,7 +228,7 @@ static char *add_singleton(char *str, int n)
     {
         str = (char *)malloc(size * sizeof(char));
         assert(str);
-        rc = sprintf(str, "%d", n);
+        int rc = sprintf(str, "%d", n);
         assert(rc <= size);
         return str;
     }
@@ -283,19 +275,23 @@ static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size
     size_t i, start;
     char *compressedRep = NULL;
 
+    if (size == 0)
+        return NULL;
+
 #if DEBUG
     fprintf(stderr, "Compressing:");
     for (i = 0; i < size; i++)
     {
-        fprintf(stderr, " %d", array[i]);
+        fprintf(stderr, " %"PRIu64, array[i]);
     }
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = start_idx; i < start_idx + size; i++)
+    size_t end_idx = start_idx + size;
+    for (i = start_idx; i < end_idx; i++)
     {
         start = i;
-        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
+        while (i + 1 < end_idx && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -320,7 +316,6 @@ static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size
 // The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
 char *compress_uint64_array(uint64_t *array, size_t xsize,  size_t ysize)
 {
-    int rc;
     size_t idx;
     char *compressedRep = NULL;
     for (idx = 0; idx < xsize * ysize; idx += xsize) 
@@ -353,6 +348,10 @@ static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
     int i, start;
     char *compressedRep = NULL;
 
+    if (size == 0) {
+        return NULL;
+    }
+
 #if DEBUG
     fprintf(stderr, "Compressing:");
     for (i = 0; i < size; i++)
@@ -362,10 +361,11 @@ static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
     fprintf(stderr, "\n");
 #endif // DEBUG
 
-    for (i = start_idx; i < start_idx + size; i++)
+    size_t end_idx = start_idx + size;
+    for (i = start_idx; i < end_idx; i++)
     {
         start = i;
-        while (i + 1 < start_idx + size && array[i] + 1 == array[i + 1])
+        while (i + 1 < end_idx && array[i] + 1 == array[i + 1])
         {
             i++;
         }
@@ -390,7 +390,6 @@ static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
 // The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
 char *compress_int_array(int *array, int xsize,  int ysize)
 {
-    int rc;
     size_t idx;
     char *compressedRep = NULL;
     for (idx = 0; idx < xsize * ysize; idx += xsize) 
