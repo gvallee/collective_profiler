@@ -18,7 +18,7 @@ comm_timing_logger_t *timing_loggers_tail = NULL;
 
 int init_time_tracking(MPI_Comm comm, char *collective_name, int world_rank, int comm_rank, int jobid, comm_timing_logger_t **logger)
 {
-    int rc;
+    int rc = 1;
 
     uint32_t comm_id;
     GET_COMM_LOGGER(comm, world_rank, comm_rank, comm_id);
