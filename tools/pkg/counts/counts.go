@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,15 +25,17 @@ const (
 	/* All the constants related to the compact format */
 
 	// CompactHeader is the string used as a prefix to indicate raw counters in the count files
-	CompactHeader              = "# Raw counters"
-	CompactCountsFileHeader    = "# Raw counters\n"
-	CompactCountMarker         = "Count: "
-	NumberOfRanksMarker        = "Number of ranks: "
-	DatatypeSizeMarker         = "Datatype size: "
-	AlltoallvCallNumbersMarker = "Alltoallv calls "
-	BeginningCompactDataMarker = "BEGINNING DATA"
-	EndCompactDataMarker       = "END DATA"
-	RankListPrefix             = "Rank(s) "
+	CompactHeader               = "# Raw counters"
+	CompactCountsFileHeader     = "# Raw counters\n"
+	CompactCountMarker          = "Count: "
+	NumberOfRanksMarker         = "Number of ranks: "
+	DatatypeSizeMarker          = "Datatype size: "
+	AlltoallvCallNumbersMarker  = "Alltoallv calls "
+	BeginningCompactDataMarker  = "BEGINNING DATA"
+	EndCompactDataMarker        = "END DATA"
+	RankListPrefix              = "Rank(s) "
+	CompactFormatLeadRankMarker = ".rank"
+	CompactFormatJobIDMarker    = "job"
 
 	/* All the constants related to the standard format */
 	StandardFormatSendDatatypeMarker = "Send datatype size: "
@@ -86,16 +89,17 @@ type HeaderT struct {
 }
 
 type rawCountsT struct {
-	sendDatatypeSize int
-	recvDatatypeSize int
-	commSize         int
-	sendCounts       []string
-	recvCounts       []string
+	SendDatatypeSize int
+	RecvDatatypeSize int
+	CommSize         int
+	SendCounts       []string // One line per rank in order, based on the rank number of the communicator used
+	RecvCounts       []string // One line per rank in order, based on the rank number of the communicator used
 }
 
 type RawCountsCallsT struct {
-	calls  []int
-	counts *rawCountsT
+	LeadRank int
+	Calls    []int
+	Counts   *rawCountsT
 }
 
 // CallData gathers all the data related to one and only one alltoallv call
@@ -288,7 +292,7 @@ type CommDataT struct {
 	// rhw key is the call number and the value a pointer to the call's data (several calls can share the same data)
 	CallData map[int]*CallData
 
-	RawCounts []RawCountsCallsT
+	RawCounts []*RawCountsCallsT
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
@@ -609,7 +613,9 @@ func DetectFileFormat(path string) (int, error) {
 		return FormatUnknown, err
 	}
 
+	fmt.Printf("DBG - %s\n", line)
 	if strings.HasPrefix(line, "Send datatype size: ") {
+		fmt.Println("DBG - FormatPerCall")
 		return FormatPerCall, nil
 	}
 
@@ -618,4 +624,37 @@ func DetectFileFormat(path string) (int, error) {
 	}
 
 	return FormatUnknown, nil
+}
+
+func ParseCountFile(filePath string) (*RawCountsCallsT, error) {
+	format, err := DetectFileFormat(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if format == FormatUnknown {
+		return nil, fmt.Errorf("unknown count file format (%s)", filePath)
+	}
+
+	var countData *RawCountsCallsT
+	if format == FormatCompact {
+		filename := path.Base(filePath)
+		ctxt, _, leadRank, err := GetMetadataFromCompactFormatCountFileName(filename)
+		if err != nil {
+			return nil, err
+		}
+		countData, err = LoadCountsFromCompactFormatFile(filePath, ctxt)
+		if err != nil {
+			return nil, err
+		}
+		countData.LeadRank = leadRank
+	} else {
+		fmt.Printf("DBG - calling ParsePerCallFileCount()\n")
+		countData, err = ParsePerCallFileCount(filePath)
+		if err != nil {
+			return nil, err
+		}
+		countData.LeadRank = -1
+	}
+
+	return countData, nil
 }

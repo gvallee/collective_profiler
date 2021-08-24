@@ -32,8 +32,8 @@ func GetStandardCounts(reader *bufio.Reader) (*StandardCounts, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasSuffix(line, StandardFormatSendCountsMarker) {
-		return nil, fmt.Errorf("invalid header: %s", line)
+	if !strings.HasPrefix(line, StandardFormatSendCountsMarker) {
+		return nil, fmt.Errorf("invalid content: %s instead of %s", line, StandardFormatRecvCountsMarker)
 	}
 
 	// Send counts
@@ -45,10 +45,23 @@ func GetStandardCounts(reader *bufio.Reader) (*StandardCounts, error) {
 		if err != nil {
 			return nil, err
 		}
-		if line == "" {
+		if line == "" || line == "\n" {
 			break
 		}
+		line = strings.TrimRight(line, "\n")
 		callCounters.SendCounts = append(callCounters.SendCounts, line)
+	}
+
+	// Empty line
+	line, err = reader.ReadString('\n')
+	if err == io.EOF {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	if line != "\n" {
+		return nil, fmt.Errorf("invalid header: %s", line)
 	}
 
 	//  Recv counts header
@@ -59,8 +72,8 @@ func GetStandardCounts(reader *bufio.Reader) (*StandardCounts, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasSuffix(line, StandardFormatRecvCountsMarker) {
-		return nil, fmt.Errorf("invalid header: %s", line)
+	if !strings.HasPrefix(line, StandardFormatRecvCountsMarker) {
+		return nil, fmt.Errorf("invalid content: %s instead of %s", line, StandardFormatRecvCountsMarker)
 	}
 
 	// Recv counts
@@ -72,7 +85,8 @@ func GetStandardCounts(reader *bufio.Reader) (*StandardCounts, error) {
 		if err != nil {
 			return nil, err
 		}
-		callCounters.SendCounts = append(callCounters.RecvCounts, line)
+		line = strings.TrimRight(line, "\n")
+		callCounters.RecvCounts = append(callCounters.RecvCounts, line)
 	}
 
 	return callCounters, nil
@@ -89,12 +103,14 @@ func GetStandardHeader(reader *bufio.Reader) (HeaderT, error) {
 	if err != nil {
 		return header, err
 	}
-	if !strings.HasSuffix(line, StandardFormatSendDatatypeMarker) {
-		return header, fmt.Errorf("invalid header: %s", line)
+	if !strings.HasPrefix(line, StandardFormatSendDatatypeMarker) {
+		return header, fmt.Errorf("invalid header: %s does not start with %s", line, StandardFormatSendDatatypeMarker)
 	}
-	header.DatatypeInfo.StandardFormatDatatypeInfo.SendDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, StandardFormatSendDatatypeMarker))
+	line = strings.TrimPrefix(line, StandardFormatSendDatatypeMarker)
+	line = strings.TrimRight(line, "\n")
+	header.DatatypeInfo.StandardFormatDatatypeInfo.SendDatatypeSize, err = strconv.Atoi(line)
 	if err != nil {
-		return header, err
+		return header, fmt.Errorf("unable to get send datatype size from %s: %w", line, err)
 	}
 
 	// The second line is the recv datatype size
@@ -105,12 +121,14 @@ func GetStandardHeader(reader *bufio.Reader) (HeaderT, error) {
 	if err != nil {
 		return header, err
 	}
-	if !strings.HasSuffix(line, StandardFormatRecvDatatypeMarker) {
-		return header, fmt.Errorf("invalid header: %s", line)
+	if !strings.HasPrefix(line, StandardFormatRecvDatatypeMarker) {
+		return header, fmt.Errorf("invalid header: %s does not start with %s", line, StandardFormatRecvDatatypeMarker)
 	}
-	header.DatatypeInfo.StandardFormatDatatypeInfo.RecvDatatypeSize, err = strconv.Atoi(strings.TrimPrefix(line, StandardFormatRecvDatatypeMarker))
+	line = strings.TrimPrefix(line, StandardFormatRecvDatatypeMarker)
+	line = strings.TrimRight(line, "\n")
+	header.DatatypeInfo.StandardFormatDatatypeInfo.RecvDatatypeSize, err = strconv.Atoi(line)
 	if err != nil {
-		return header, err
+		return header, fmt.Errorf("unable to get recv datatype size from %s: %w", line, err)
 	}
 
 	// The third line is the communicator size
@@ -121,15 +139,14 @@ func GetStandardHeader(reader *bufio.Reader) (HeaderT, error) {
 	if err != nil {
 		return header, err
 	}
-	if !strings.HasSuffix(line, StandardFormatRecvDatatypeMarker) {
+	if !strings.HasPrefix(line, StandardFormatCommSizeMarker) {
 		return header, fmt.Errorf("invalid header: %s", line)
 	}
-	if !strings.HasSuffix(line, StandardFormatCommSizeMarker) {
-		return header, fmt.Errorf("invalid header: %s", line)
-	}
-	header.NumRanks, err = strconv.Atoi(strings.TrimPrefix(line, StandardFormatCommSizeMarker))
+	line = strings.TrimPrefix(line, StandardFormatCommSizeMarker)
+	line = strings.TrimRight(line, "\n")
+	header.NumRanks, err = strconv.Atoi(line)
 	if err != nil {
-		return header, err
+		return header, fmt.Errorf("unable to get the number of ranks from %s: %w", line, err)
 	}
 
 	// Finally the next line is empty
@@ -140,7 +157,7 @@ func GetStandardHeader(reader *bufio.Reader) (HeaderT, error) {
 	if err != nil {
 		return header, err
 	}
-	if line != "" {
+	if line != "\n" {
 		return header, fmt.Errorf("invalid header: %s", line)
 	}
 
@@ -165,9 +182,7 @@ func getCallIDFromFileName(filepath string) (int, error) {
 // ParsePerCallFileCount loads the counts from a non-compact count file.
 // With that format, details about each call (both send and receive counts)
 // are saved in separate files.
-func ParsePerCallFileCount(path string) ([]RawCountsCallsT, error) {
-	var rawCounts []RawCountsCallsT
-
+func ParsePerCallFileCount(path string) (*RawCountsCallsT, error) {
 	// Get the call ID from the file name
 	callID, err := getCallIDFromFileName(path)
 	if err != nil {
@@ -190,17 +205,14 @@ func ParsePerCallFileCount(path string) ([]RawCountsCallsT, error) {
 		return nil, err
 	}
 	rc := new(rawCountsT)
-	rc.commSize = header.NumRanks
-	rc.recvCounts = counts.RecvCounts
-	rc.sendCounts = counts.SendCounts
-	rc.recvDatatypeSize = header.DatatypeInfo.StandardFormatDatatypeInfo.RecvDatatypeSize
-	rc.sendDatatypeSize = header.DatatypeInfo.StandardFormatDatatypeInfo.SendDatatypeSize
+	rc.CommSize = header.NumRanks
+	rc.RecvCounts = counts.RecvCounts
+	rc.SendCounts = counts.SendCounts
+	rc.RecvDatatypeSize = header.DatatypeInfo.StandardFormatDatatypeInfo.RecvDatatypeSize
+	rc.SendDatatypeSize = header.DatatypeInfo.StandardFormatDatatypeInfo.SendDatatypeSize
+	newData := new(RawCountsCallsT)
+	newData.Calls = []int{callID}
+	newData.Counts = rc
 
-	newData := RawCountsCallsT{
-		calls:  []int{callID},
-		counts: rc,
-	}
-	rawCounts = append(rawCounts, newData)
-
-	return rawCounts, nil
+	return newData, nil
 }

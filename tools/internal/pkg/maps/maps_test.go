@@ -79,7 +79,7 @@ func TestCreateMapFromCounts(t *testing.T) {
 		data.RawCounts = tt.countsStr
 		data.Counts = make(map[int]map[int][]int)
 		data.Counts[0] = tt.countsInt
-		data.CountsMetadata.DatatypeSize = tt.datatypeSize
+		data.CountsMetadata.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize = tt.datatypeSize
 		data.CountsMetadata.CallIDs = []int{0}
 		data.CountsMetadata.NumRanks = tt.commSize
 		rankNumCallsMap := make(map[int]int)
