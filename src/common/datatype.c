@@ -198,6 +198,7 @@ int analyze_datatype(MPI_Datatype type, datatype_info_t **info)
     {
         i->is_contiguous = true;
         i->is_predefined = true;
+        get_predefined_type(i);
     }
 
     if (dt_combiner == MPI_COMBINER_CONTIGUOUS)
