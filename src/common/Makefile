@@ -8,6 +8,7 @@ FORMATVERSION := `cat ../../FORMAT_VERSION`
 all: \
 	format.o                      \
 	comm.o                        \
+	datatype.o                    \
 	location.o                    \
 	timings.o                     \
 	exec_timings.o                \
@@ -25,6 +26,9 @@ all: \
 	grouping_test                 \
 	compress_array_test           \
 	patterns_detection_test
+
+datatype.o: datatype.c datatype.h
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c datatype.c
 
 format.o: format.c format.h
 	$(CC) -I../ -fPIC -c format.c
