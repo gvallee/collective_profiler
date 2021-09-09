@@ -58,22 +58,23 @@ typedef struct datatype_info
     MPI_Datatype type;
 } datatype_info_t;
 
-static inline char*
+static inline char *
 type_id_to_str(int id)
 {
-    switch (id) {
-        case UNKNOWN_ID:
-            return "UKNOWN";
+    switch (id)
+    {
+    case UNKNOWN_ID:
+        return "UKNOWN";
     case MPI_CHAR_ID:
         return "MPI_CHAR";
     case MPI_UNSIGNED_CHAR_ID:
-    return "MPI_UNSIGNED_CHAR";
+        return "MPI_UNSIGNED_CHAR";
     case MPI_SIGNED_CHAR_ID:
         return "MPI_SIGNED_CHAR";
     case MPI_SHORT_ID:
         return "MPI_SHORT";
     case MPI_UNSIGNED_SHORT_ID:
-    return "MPI_UNSIGNED_SHORT";
+        return "MPI_UNSIGNED_SHORT";
     case MPI_INT_ID:
         return "MPI_INT";
     case MPI_UNSIGNED_ID:
@@ -126,20 +127,36 @@ type_id_to_str(int id)
 }
 
 static inline int
-open_datatype_info_file(char *collective_name, uint32_t comm_id, int world_rank, uint64_t call_id, char **file_name, FILE **file)
+open_datatype_info_file(char *collective_name, uint32_t comm_id, int world_rank, uint64_t call_id, char *ctxt, char **file_name, FILE **file)
 {
     char *filename = NULL;
     int rc;
-    // filename schema: bracktrace_rank<WORLDRANK>_trace<ID>.md
-    if (getenv(OUTPUT_DIR_ENVVAR))
+
+    if (ctxt == NULL)
     {
-        _asprintf(filename, rc, "%s/%s_datatype-info_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, call_id);
-        assert(rc > 0);
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(filename, rc, "%s/%s_datatype-info_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, call_id);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(filename, rc, "%s_datatype-info_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", collective_name, comm_id, world_rank, call_id);
+            assert(rc > 0);
+        }
     }
     else
     {
-        _asprintf(filename, rc, "%s_datatype-info_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", collective_name, comm_id, world_rank, call_id);
-        assert(rc > 0);
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(filename, rc, "%s/%s_datatype-info_%s_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", getenv(OUTPUT_DIR_ENVVAR), collective_name, ctxt, comm_id, world_rank, call_id);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(filename, rc, "%s_datatype-info_%s_comm%" PRIu32 "_rank%d_call%" PRIu64 ".md", collective_name, ctxt, comm_id, world_rank, call_id);
+            assert(rc > 0);
+        }
     }
 
     FILE *f = fopen(filename, "w");
@@ -335,14 +352,14 @@ analyze_datatype(MPI_Datatype type, datatype_info_t *i)
 }
 
 static inline int
-save_datatype_info(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t call_id, datatype_info_t *dt_info)
+save_datatype_info(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t call_id, char *ctxt, datatype_info_t *dt_info)
 {
     uint32_t comm_id;
     GET_COMM_LOGGER(comm, world_rank, comm_rank, comm_id);
 
     char *filename = NULL;
     FILE *file = NULL;
-    int rc = open_datatype_info_file(collective_name, comm_id, world_rank, call_id, &filename, &file);
+    int rc = open_datatype_info_file(collective_name, comm_id, world_rank, call_id, ctxt, &filename, &file);
     if (rc)
         return rc;
 
