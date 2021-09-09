@@ -1060,25 +1060,30 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			avCallStart = avCalls;
 		}
 
-		// Save datatypes information
-		datatype_info_t sendtype_info;
-		sendtype_info.analyzed = false;
-		analyze_datatype(sendtype, &sendtype_info);
-		int rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, &sendtype_info);
-		if (rc)
+		if (avCalls == 3834)
 		{
-			fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-			MPI_Abort(MPI_COMM_WORLD, 1);
-		}
+			// Save datatypes information
+			datatype_info_t sendtype_info;
+			sendtype_info.analyzed = false;
+			analyze_datatype(sendtype, &sendtype_info);
+			int rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "send", &sendtype_info);
+			if (rc)
+			{
+				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
 
-		datatype_info_t recvtype_info;
-		recvtype_info.analyzed = false;
-		analyze_datatype(recvtype, &recvtype_info);
-		rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, &sendtype_info);
-		if (rc)
-		{
-			fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-			MPI_Abort(MPI_COMM_WORLD, 1);
+			datatype_info_t recvtype_info;
+			recvtype_info.analyzed = false;
+			analyze_datatype(recvtype, &recvtype_info);
+			rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "recv", &recvtype_info);
+			if (rc)
+			{
+				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+				MPI_Abort(MPI_COMM_WORLD, 1);
+			}
+
+			save_buf_content((void*)sendbuf, sendcounts, sdispls, sendtype, comm, "send");
 		}
 
 #if ENABLE_LATE_ARRIVAL_TIMING
@@ -1092,6 +1097,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_EXEC_TIMING
 
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+
+		if (avCalls == 3834)
+		{
+			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, "recv");
+		}
 
 #if ENABLE_EXEC_TIMING
 		double t_end = MPI_Wtime();
