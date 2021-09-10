@@ -1111,7 +1111,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		{
 			store_call_data(collective_name, "recv", comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
 			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
-			fprintf(stderr, "All data acquired, aborting...\n");
+			if (my_comm_rank == 0)
+				fprintf(stderr, "All data acquired, aborting...\n");
 			PMPI_Barrier(comm);
 			MPI_Abort(MPI_COMM_WORLD, 22);
 		}
