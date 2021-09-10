@@ -32,6 +32,7 @@ static int world_rank = -1;
 static uint64_t avCalls = 0;	   // Total number of alltoallv calls that we went through (indexed on 0, not 1)
 static uint64_t avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
 static uint64_t avCallStart = -1;  // Number of alltoallv call during which we started to gather data
+static uint64_t dump_call_data = -1;
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
@@ -791,6 +792,10 @@ int _mpi_init(int *argc, char ***argv)
 		fprintf(stderr, "Max alltoallv call: %d\n", max_call);
 	}
 
+	char *dump_call_data_envvar = getenv("DUMP_CALL_DATA");
+	if (dump_call_data_envvar != NULL)
+		dump_call_data = atoi(dump_call_data_envvar);
+
 	// Make sure we do not create an articial imbalance between ranks.
 	PMPI_Barrier(MPI_COMM_WORLD);
 
@@ -1060,9 +1065,8 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			avCallStart = avCalls;
 		}
 
-		if (avCalls == 3834)
+		if (dump_call_data == avCalls)
 		{
-			#if 0
 			// Save datatypes information
 			datatype_info_t sendtype_info;
 			sendtype_info.analyzed = false;
@@ -1083,9 +1087,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
-			#endif
 
-			save_buf_content((void*)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
+			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			save_buf_content((void *)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
 		}
 
 #if ENABLE_LATE_ARRIVAL_TIMING
@@ -1100,8 +1104,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 
-		if (avCalls == 3834)
+		if (dump_call_data == avCalls)
 		{
+			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
 			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
 		}
 
