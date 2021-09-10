@@ -137,38 +137,38 @@ static inline void _display_config(int dt_num_intergers, int dt_num_addresses, i
         }                                                                                                           \
     } while (0)
 
-#define GET_BUFFCONTENT_LOGGER(_collective_name, _comm, _world_rank, _comm_rank, _buffcontent_logger)                 \
-    do                                                                                                                \
-    {                                                                                                                 \
-        int _rc;                                                                                                      \
-        uint32_t _comm_id;                                                                                            \
-        _rc = lookup_comm(_comm, &_comm_id);                                                                          \
-        if (_rc)                                                                                                      \
-        {                                                                                                             \
-            _rc = add_comm(_comm, _world_rank, _comm_rank, &_comm_id);                                                \
-            if (_rc)                                                                                                  \
-            {                                                                                                         \
-                fprintf(stderr, "add_comm() failed: %d\n", _rc);                                                      \
-                return 1;                                                                                             \
-            }                                                                                                         \
-        }                                                                                                             \
-        _rc = lookup_buffcontent_logger(_collective_name, _comm, &_buffcontent_logger);                               \
-        if (_rc)                                                                                                      \
-        {                                                                                                             \
-            fprintf(stderr, "lookup_buffcontent_logger() failed: %d\n", _rc);                                         \
-            return 1;                                                                                                 \
-        }                                                                                                             \
-        if (_buffcontent_logger == NULL)                                                                              \
-        {                                                                                                             \
-            _rc = init_buffcontent_logger(_collective_name, _world_rank, _comm, _comm_id, "w", &_buffcontent_logger); \
-            if (_rc)                                                                                                  \
-            {                                                                                                         \
-                fprintf(stderr, "init_buffcontent_logger() failed: %d\n", _rc);                                       \
-                return 1;                                                                                             \
-            }                                                                                                         \
-        }                                                                                                             \
-        assert(_buffcontent_logger);                                                                                  \
-        assert(_buffcontent_logger->fd);                                                                              \
+#define GET_BUFFCONTENT_LOGGER(_collective_name, _ctxt, _mode, _comm, _world_rank, _comm_rank, _buffcontent_logger)            \
+    do                                                                                                                         \
+    {                                                                                                                          \
+        int _rc;                                                                                                               \
+        uint32_t _comm_id;                                                                                                     \
+        _rc = lookup_comm(_comm, &_comm_id);                                                                                   \
+        if (_rc)                                                                                                               \
+        {                                                                                                                      \
+            _rc = add_comm(_comm, _world_rank, _comm_rank, &_comm_id);                                                         \
+            if (_rc)                                                                                                           \
+            {                                                                                                                  \
+                fprintf(stderr, "add_comm() failed: %d\n", _rc);                                                               \
+                return 1;                                                                                                      \
+            }                                                                                                                  \
+        }                                                                                                                      \
+        _rc = lookup_buffcontent_logger(_collective_name, _comm, &_buffcontent_logger);                                        \
+        if (_rc)                                                                                                               \
+        {                                                                                                                      \
+            fprintf(stderr, "lookup_buffcontent_logger() failed: %d\n", _rc);                                                  \
+            return 1;                                                                                                          \
+        }                                                                                                                      \
+        if (_buffcontent_logger == NULL)                                                                                       \
+        {                                                                                                                      \
+            _rc = init_buffcontent_logger(_collective_name, _world_rank, _comm, _comm_id, _mode, _ctxt, &_buffcontent_logger); \
+            if (_rc)                                                                                                           \
+            {                                                                                                                  \
+                fprintf(stderr, "init_buffcontent_logger() failed: %d\n", _rc);                                                \
+                return 1;                                                                                                      \
+            }                                                                                                                  \
+        }                                                                                                                      \
+        assert(_buffcontent_logger);                                                                                           \
+        assert(_buffcontent_logger->fd);                                                                                       \
     } while (0)
 
 static inline void
@@ -209,7 +209,7 @@ save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype t
         //size_t data_size = count *dtsz;
 
         // We assume the data is contiguous and that the type is of a type compatible with a C double
-        double *ptr = (double*)((ptrdiff_t)buf + offset);
+        double *ptr = (double *)((ptrdiff_t)buf + offset);
         int j;
         for (j = 0; j < count; j++)
         {
@@ -222,8 +222,8 @@ save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype t
     free(filename);
 }
 
-int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt);
-int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check);
+int store_call_data(char *collective_name, char *ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt);
+int read_and_compare_call_data(char *collective_name, char *ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check);
 int release_buffcontent_loggers();
 
 #endif // MPI_COLLECTIVE_PROFILER_BUFFCONTENT_H

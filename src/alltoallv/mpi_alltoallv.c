@@ -1075,7 +1075,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			if (rc)
 			{
 				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				MPI_Abort(MPI_COMM_WORLD, 12);
 			}
 
 			datatype_info_t recvtype_info;
@@ -1085,10 +1085,10 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			if (rc)
 			{
 				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				MPI_Abort(MPI_COMM_WORLD, 13);
 			}
 
-			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			store_call_data(collective_name, "send", comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
 			save_buf_content((void *)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
 		}
 
@@ -1106,8 +1106,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		if (dump_call_data == avCalls)
 		{
-			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+			store_call_data(collective_name, "recv", comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
 			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
+			fprintf(stderr, "All data acquired, aborting...\n");
+			PMPI_Barrier(comm);
+			MPI_Abort(MPI_COMM_WORLD, 22);
 		}
 
 #if ENABLE_EXEC_TIMING
@@ -1136,13 +1139,13 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		{
 			int dtsize;
 			PMPI_Type_size(sendtype, &dtsize);
-			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			store_call_data(collective_name, "send", comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
 		}
 		else
 		{
 			int dtsize;
 			PMPI_Type_size(recvtype, &dtsize);
-			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+			store_call_data(collective_name, "recv", comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
 		}
 
 		if (avCalls == max_call)
@@ -1166,11 +1169,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			}
 			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
 			{
-				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, true);
+				read_and_compare_call_data(collective_name, "send", comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, true);
 			}
 			else
 			{
-				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, false);
+				read_and_compare_call_data(collective_name, "send", comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, false);
 			}
 		}
 		else
@@ -1182,11 +1185,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			}
 			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
 			{
-				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, true);
+				read_and_compare_call_data(collective_name, "recv", comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, true);
 			}
 			else
 			{
-				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, false);
+				read_and_compare_call_data(collective_name, "recv", comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, false);
 			}
 		}
 #endif // ENABLE_COMPARE_DATA_VALIDATION
