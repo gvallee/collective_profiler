@@ -1068,24 +1068,27 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		if (dump_call_data == avCalls)
 		{
 			// Save datatypes information
-			datatype_info_t sendtype_info;
-			sendtype_info.analyzed = false;
-			analyze_datatype(sendtype, &sendtype_info);
-			int rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "send", &sendtype_info);
-			if (rc)
+			if (my_comm_rank == 0)
 			{
-				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 12);
-			}
+				datatype_info_t sendtype_info;
+				sendtype_info.analyzed = false;
+				analyze_datatype(sendtype, &sendtype_info);
+				int rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "send", &sendtype_info);
+				if (rc)
+				{
+					fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+					MPI_Abort(MPI_COMM_WORLD, 12);
+				}
 
-			datatype_info_t recvtype_info;
-			recvtype_info.analyzed = false;
-			analyze_datatype(recvtype, &recvtype_info);
-			rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "recv", &recvtype_info);
-			if (rc)
-			{
-				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 13);
+				datatype_info_t recvtype_info;
+				recvtype_info.analyzed = false;
+				analyze_datatype(recvtype, &recvtype_info);
+				rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "recv", &recvtype_info);
+				if (rc)
+				{
+					fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+					MPI_Abort(MPI_COMM_WORLD, 13);
+				}
 			}
 
 			store_call_data(collective_name, "send", comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
