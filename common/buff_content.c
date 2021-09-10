@@ -24,20 +24,36 @@ buffcontent_logger_t *buffcontent_loggers_head = NULL;
 buffcontent_logger_t *buffcontent_loggers_tail = NULL;
 uint64_t buffcontent_id = 0;
 
-static inline int _open_content_storage_file(char *collective_name, char **filename, FILE **file, uint64_t comm_id, int world_rank, char *mode)
+static inline int
+_open_content_storage_file(char *collective_name, char **filename, FILE **file, uint64_t comm_id, int world_rank, char *ctxt, char *mode)
 {
     char *_filename = NULL;
     int rc;
-    // filename schema: buffcontent_rank<WORLDRANK>.txt
-    if (getenv(OUTPUT_DIR_ENVVAR))
+    if (ctxt == NULL)
     {
-        _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank);
-        assert(rc > 0);
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d.txt", collective_name, comm_id, world_rank);
+            assert(rc > 0);
+        }
     }
     else
     {
-        _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d.txt", collective_name, comm_id, world_rank);
-        assert(rc > 0);
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, mode);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", collective_name, comm_id, world_rank, mode);
+            assert(rc > 0);
+        }
     }
 
     FILE *f = fopen(_filename, mode);
@@ -48,7 +64,8 @@ static inline int _open_content_storage_file(char *collective_name, char **filen
     return 0;
 }
 
-static inline int init_buffcontent_logger(char *collective_name, int world_rank, MPI_Comm comm, uint64_t comm_id, char *mode, buffcontent_logger_t **buffcontent_logger)
+static inline int
+init_buffcontent_logger(char *collective_name, int world_rank, MPI_Comm comm, uint64_t comm_id, char *mode, char *ctxt, buffcontent_logger_t **buffcontent_logger)
 {
     assert(collective_name);
     buffcontent_logger_t *new_logger = malloc(sizeof(buffcontent_logger_t));
@@ -62,7 +79,7 @@ static inline int init_buffcontent_logger(char *collective_name, int world_rank,
     new_logger->prev = NULL;
     new_logger->next = NULL;
 
-    int rc = _open_content_storage_file(new_logger->collective_name, &new_logger->filename, &new_logger->fd, comm_id, new_logger->world_rank, mode);
+    int rc = _open_content_storage_file(new_logger->collective_name, &new_logger->filename, &new_logger->fd, comm_id, new_logger->world_rank, ctxt, mode);
     if (rc)
     {
         fprintf(stderr, "_open_content_storage_files() failed: %d\n", rc);
@@ -186,13 +203,13 @@ int lookup_buffcontent_logger(char *collective_name, MPI_Comm comm, buffcontent_
     return 0;
 }
 
-int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt)
+int store_call_data(char *collective_name, char *ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt)
 {
     buffcontent_logger_t *buffcontent_logger = NULL;
-    GET_BUFFCONTENT_LOGGER(collective_name, comm, world_rank, comm_rank, buffcontent_logger);
+    GET_BUFFCONTENT_LOGGER(collective_name, ctxt, "w", comm, world_rank, comm_rank, buffcontent_logger);
     DT_CHECK(dt);
     int dtsize;
-	PMPI_Type_size(dt, &dtsize);
+    PMPI_Type_size(dt, &dtsize);
 
     int i;
     int comm_size;
@@ -222,14 +239,14 @@ int store_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int wor
     return 0;
 }
 
-int read_and_compare_call_data(char *collective_name, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check)
+int read_and_compare_call_data(char *collective_name, char* ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check)
 {
     buffcontent_logger_t *buffcontent_logger = NULL;
-    GET_BUFFCONTENT_LOGGER(collective_name, comm, world_rank, comm_rank, buffcontent_logger);
+    GET_BUFFCONTENT_LOGGER(collective_name, ctxt, "r", comm, world_rank, comm_rank, buffcontent_logger);
     DT_CHECK(dt);
     int dtsize;
-	PMPI_Type_size(dt, &dtsize);
-    
+    PMPI_Type_size(dt, &dtsize);
+
     int i;
     int comm_size;
     PMPI_Comm_size(comm, &comm_size);
