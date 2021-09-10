@@ -172,7 +172,7 @@ static inline void _display_config(int dt_num_intergers, int dt_num_addresses, i
     } while (0)
 
 static inline void
-save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype type, MPI_Comm comm, char *ctxt)
+save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype type, MPI_Comm comm, int rank, char *ctxt)
 {
     assert(buf);
     assert(counts);
@@ -188,12 +188,12 @@ save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype t
     int rc;
     if (getenv(OUTPUT_DIR_ENVVAR))
     {
-        _asprintf(filename, rc, "%s/data_%s.txt", getenv(OUTPUT_DIR_ENVVAR), ctxt);
+        _asprintf(filename, rc, "%s/data_%s_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), ctxt, rank);
         assert(rc > 0);
     }
     else
     {
-        _asprintf(filename, rc, "data_%s.txt", ctxt);
+        _asprintf(filename, rc, "data_%s_rank%d.txt", ctxt, rank);
         assert(rc > 0);
     }
 

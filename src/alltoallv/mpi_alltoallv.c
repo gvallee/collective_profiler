@@ -1062,6 +1062,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		if (avCalls == 3834)
 		{
+			#if 0
 			// Save datatypes information
 			datatype_info_t sendtype_info;
 			sendtype_info.analyzed = false;
@@ -1082,8 +1083,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 				fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
+			#endif
 
-			save_buf_content((void*)sendbuf, sendcounts, sdispls, sendtype, comm, "send");
+			save_buf_content((void*)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
 		}
 
 #if ENABLE_LATE_ARRIVAL_TIMING
@@ -1100,7 +1102,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		if (avCalls == 3834)
 		{
-			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, "recv");
+			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
 		}
 
 #if ENABLE_EXEC_TIMING
