@@ -1144,6 +1144,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			PMPI_Type_size(recvtype, &dtsize);
 			store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
 		}
+
+		if (avCalls == max_call)
+		{
+			fprintf(stderr, "Reaching the limit, check successful\n");
+			PMPI_Abort(MPI_COMM_WORLD, 32);
+		}
 #endif // ENABLE_SAVE_DATA_VALIDATION
 
 #if ENABLE_COMPARE_DATA_VALIDATION
@@ -1169,6 +1175,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		}
 		else
 		{
+			if (avCalls == max_call)
+			{
+				fprintf(stderr, "Reaching the analysis limit, check successful\n");
+				PMPI_Abort(MPI_COMM_WORLD, 1);
+			}
 			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
 			{
 				read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, true);
