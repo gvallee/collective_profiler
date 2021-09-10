@@ -46,12 +46,12 @@ _open_content_storage_file(char *collective_name, char **filename, FILE **file, 
     {
         if (getenv(OUTPUT_DIR_ENVVAR))
         {
-            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, mode);
+            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, ctxt);
             assert(rc > 0);
         }
         else
         {
-            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", collective_name, comm_id, world_rank, mode);
+            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", collective_name, comm_id, world_rank, ctxt);
             assert(rc > 0);
         }
     }
