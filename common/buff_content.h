@@ -15,9 +15,24 @@
 
 #include "collective_profiler_config.h"
 #include "common_utils.h"
+#include "format.h"
+#include "comm.h"
 
 #define COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR "COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT"
 #define COLLECTIVE_PROFILER_CHECK_SEND_BUFF_ENVVAR "COLLECTIVE_PROFILER_CHECK_SEND_BUFF"
+
+#define SEND_CONTEXT_ID "send"
+#define RECV_CONTEXT_ID "recv"
+#define SEND_CONTEXT_IDX (0)
+#define RECV_CONTEXT_IDX (1)
+#define MAX_LOGGER_CONTEXTS (2) // Recv and send contexts
+
+typedef struct logger_context
+{
+    char *name;
+    FILE *fd;
+    char *filename;
+} logger_context_t;
 
 // buffcontent_logger is the central structure to track and profile backtrace in
 // the context of MPI collective. We track in a unique manner each trace but for each
@@ -27,15 +42,18 @@ typedef struct buffcontent_logger
     char *collective_name;
     uint64_t id;
     int world_rank;
-    FILE *fd;
-    char *filename;
     uint64_t comm_id;
     MPI_Comm comm;
+    logger_context_t ctxt[MAX_LOGGER_CONTEXTS];
     struct buffcontent_logger *next;
     struct buffcontent_logger *prev;
 } buffcontent_logger_t;
 
-static inline void _display_config(int dt_num_intergers, int dt_num_addresses, int dt_num_datatypes, int dt_combiner)
+extern buffcontent_logger_t *buffcontent_loggers_head;
+extern buffcontent_logger_t *buffcontent_loggers_tail;
+
+static inline void 
+_display_config(int dt_num_intergers, int dt_num_addresses, int dt_num_datatypes, int dt_combiner)
 {
     fprintf(stderr, "-> Num datatypes: %d\n", dt_num_datatypes);
     switch (dt_combiner)
@@ -137,39 +155,170 @@ static inline void _display_config(int dt_num_intergers, int dt_num_addresses, i
         }                                                                                                           \
     } while (0)
 
-#define GET_BUFFCONTENT_LOGGER(_collective_name, _ctxt, _mode, _comm, _world_rank, _comm_rank, _buffcontent_logger)            \
-    do                                                                                                                         \
-    {                                                                                                                          \
-        int _rc;                                                                                                               \
-        uint32_t _comm_id;                                                                                                     \
-        _rc = lookup_comm(_comm, &_comm_id);                                                                                   \
-        if (_rc)                                                                                                               \
-        {                                                                                                                      \
-            _rc = add_comm(_comm, _world_rank, _comm_rank, &_comm_id);                                                         \
-            if (_rc)                                                                                                           \
-            {                                                                                                                  \
-                fprintf(stderr, "add_comm() failed: %d\n", _rc);                                                               \
-                return 1;                                                                                                      \
-            }                                                                                                                  \
-        }                                                                                                                      \
-        _rc = lookup_buffcontent_logger(_collective_name, _comm, &_buffcontent_logger);                                        \
-        if (_rc)                                                                                                               \
-        {                                                                                                                      \
-            fprintf(stderr, "lookup_buffcontent_logger() failed: %d\n", _rc);                                                  \
-            return 1;                                                                                                          \
-        }                                                                                                                      \
-        if (_buffcontent_logger == NULL)                                                                                       \
-        {                                                                                                                      \
-            _rc = init_buffcontent_logger(_collective_name, _world_rank, _comm, _comm_id, _mode, _ctxt, &_buffcontent_logger); \
-            if (_rc)                                                                                                           \
-            {                                                                                                                  \
-                fprintf(stderr, "init_buffcontent_logger() failed: %d\n", _rc);                                                \
-                return 1;                                                                                                      \
-            }                                                                                                                  \
-        }                                                                                                                      \
-        assert(_buffcontent_logger);                                                                                           \
-        assert(_buffcontent_logger->fd);                                                                                       \
-    } while (0)
+static inline int
+lookup_buffcontent_logger(char *collective_name, MPI_Comm comm, buffcontent_logger_t **logger)
+{
+    buffcontent_logger_t *ptr = buffcontent_loggers_head;
+    while (ptr != NULL)
+    {
+        if (strcmp(ptr->collective_name, collective_name) == 0 && ptr->comm == comm)
+        {
+
+            *logger = ptr;
+            return 0;
+        }
+        ptr = ptr->next;
+    }
+
+    *logger = NULL;
+    return 0;
+}
+
+static inline int 
+open_content_storage_file(char *collective_name, char **filename, FILE **file, uint64_t comm_id, int world_rank, int ctxt, char *mode)
+{
+    char *_filename = NULL;
+    int rc;
+    if (ctxt < 0 || ctxt > 1)
+    {
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d.txt", collective_name, comm_id, world_rank);
+            assert(rc > 0);
+        }
+    }
+    else
+    {
+        char *_ctxt = "send";
+        if (ctxt == RECV_CONTEXT_IDX)
+            _ctxt = "recv";
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(_filename, rc, "%s/%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", getenv(OUTPUT_DIR_ENVVAR), collective_name, comm_id, world_rank, _ctxt);
+            assert(rc > 0);
+        }
+        else
+        {
+            _asprintf(_filename, rc, "%s_buffcontent_comm%" PRIu64 "_rank%d_%s.txt", collective_name, comm_id, world_rank, _ctxt);
+            assert(rc > 0);
+        }
+    }
+
+    FILE *f = fopen(_filename, mode);
+    assert(f);
+
+    *file = f;
+    *filename = _filename;
+    return 0;
+}
+
+static inline int
+init_buffcontent_logger(char *collective_name, int world_rank, MPI_Comm comm, uint64_t comm_id, buffcontent_logger_t **buffcontent_logger)
+{
+    assert(collective_name);
+    buffcontent_logger_t *new_logger = malloc(sizeof(buffcontent_logger_t));
+    assert(new_logger);
+    new_logger->collective_name = strdup(collective_name);
+    new_logger->world_rank = world_rank;
+    new_logger->comm_id = comm_id;
+    new_logger->comm = comm;
+    //new_logger->fd = NULL;
+    //new_logger->filename = NULL;
+    new_logger->prev = NULL;
+    new_logger->next = NULL;
+    new_logger->ctxt[0].fd = NULL;
+    new_logger->ctxt[1].fd = NULL;
+    new_logger->ctxt[0].filename = NULL;
+    new_logger->ctxt[1].filename = NULL;
+
+    if (buffcontent_loggers_head == NULL)
+    {
+        buffcontent_loggers_head = new_logger;
+        buffcontent_loggers_tail = new_logger;
+        new_logger->id = 0;
+    }
+    else
+    {
+        buffcontent_loggers_tail->next = new_logger;
+        new_logger->prev = buffcontent_loggers_tail;
+        new_logger->id = buffcontent_loggers_tail->id + 1;
+        buffcontent_loggers_tail = new_logger;
+    }
+
+    *buffcontent_logger = new_logger;
+    return 0;
+}
+
+static inline int
+get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm comm, int world_rank, int comm_rank, buffcontent_logger_t *buffcontent_logger)
+{
+    int rc;
+    uint32_t comm_id;
+    rc = lookup_comm(comm, &comm_id);
+    if (rc)
+    {
+        rc = add_comm(comm, world_rank, comm_rank, &comm_id);
+        if (rc)
+        {
+            fprintf(stderr, "add_comm() failed: %d\n", rc);
+            return 1;
+        }
+    }
+    rc = lookup_buffcontent_logger(collective_name, comm, &buffcontent_logger);
+    if (rc)
+    {
+        fprintf(stderr, "lookup_buffcontent_logger() failed: %d\n", rc);
+        return 1;
+    }
+    if (buffcontent_logger == NULL)
+    {
+        rc = init_buffcontent_logger(collective_name, world_rank, comm, comm_id, &buffcontent_logger);
+        if (rc)
+        {
+            fprintf(stderr, "init_buffcontent_logger() failed: %d\n", rc);
+            return 1;
+        }
+    }
+    assert(buffcontent_logger);
+    if (buffcontent_logger->ctxt[ctxt].fd == NULL)
+    {
+        int rc = open_content_storage_file(buffcontent_logger->collective_name,
+                                           &(buffcontent_logger->ctxt[ctxt].filename),
+                                           &(buffcontent_logger->ctxt[ctxt].fd),
+                                           comm_id,
+                                           buffcontent_logger->world_rank,
+                                           ctxt,
+                                           mode);
+        if (rc)
+        {
+            fprintf(stderr, "_open_content_storage_files() failed: %d\n", rc);
+            return 1;
+        }
+        if (strcmp(mode, "w") == 0)
+        {
+            // Write the format version at the begining of the file
+            FORMAT_VERSION_WRITE(buffcontent_logger->ctxt[ctxt].fd);
+        }
+        else
+        {
+            // Read the format version so we can continue to read the file once we return from the function
+            int version;
+            fscanf(buffcontent_logger->ctxt[ctxt].fd, "FORMAT_VERSION: %d\n\n", &version);
+            if (version != FORMAT_VERSION)
+            {
+                fprintf(stderr, "incompatible version (%d vs. %d)\n", version, FORMAT_VERSION);
+                return -1;
+            }
+        }
+    }
+    assert(buffcontent_logger->ctxt[ctxt].filename);
+    assert(buffcontent_logger->ctxt[ctxt].fd);
+}
 
 static inline void
 save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype type, MPI_Comm comm, int rank, char *ctxt)
@@ -222,8 +371,8 @@ save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype t
     free(filename);
 }
 
-int store_call_data(char *collective_name, char *ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt);
-int read_and_compare_call_data(char *collective_name, char *ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check);
+int store_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt);
+int read_and_compare_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check);
 int release_buffcontent_loggers();
 
 #endif // MPI_COLLECTIVE_PROFILER_BUFFCONTENT_H
