@@ -52,7 +52,7 @@ typedef struct buffcontent_logger
 extern buffcontent_logger_t *buffcontent_loggers_head;
 extern buffcontent_logger_t *buffcontent_loggers_tail;
 
-static inline void 
+static inline void
 _display_config(int dt_num_intergers, int dt_num_addresses, int dt_num_datatypes, int dt_combiner)
 {
     fprintf(stderr, "-> Num datatypes: %d\n", dt_num_datatypes);
@@ -174,7 +174,7 @@ lookup_buffcontent_logger(char *collective_name, MPI_Comm comm, buffcontent_logg
     return 0;
 }
 
-static inline int 
+static inline int
 open_content_storage_file(char *collective_name, char **filename, FILE **file, uint64_t comm_id, int world_rank, int ctxt, char *mode)
 {
     char *_filename = NULL;
@@ -227,8 +227,6 @@ init_buffcontent_logger(char *collective_name, int world_rank, MPI_Comm comm, ui
     new_logger->world_rank = world_rank;
     new_logger->comm_id = comm_id;
     new_logger->comm = comm;
-    //new_logger->fd = NULL;
-    //new_logger->filename = NULL;
     new_logger->prev = NULL;
     new_logger->next = NULL;
     new_logger->ctxt[0].fd = NULL;
@@ -255,10 +253,11 @@ init_buffcontent_logger(char *collective_name, int world_rank, MPI_Comm comm, ui
 }
 
 static inline int
-get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm comm, int world_rank, int comm_rank, buffcontent_logger_t *buffcontent_logger)
+get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm comm, int world_rank, int comm_rank, buffcontent_logger_t **buffcontent_logger)
 {
     int rc;
     uint32_t comm_id;
+    buffcontent_logger_t *logger = NULL;
     rc = lookup_comm(comm, &comm_id);
     if (rc)
     {
@@ -269,29 +268,29 @@ get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm com
             return 1;
         }
     }
-    rc = lookup_buffcontent_logger(collective_name, comm, &buffcontent_logger);
+    rc = lookup_buffcontent_logger(collective_name, comm, &logger);
     if (rc)
     {
         fprintf(stderr, "lookup_buffcontent_logger() failed: %d\n", rc);
         return 1;
     }
-    if (buffcontent_logger == NULL)
+    if (logger == NULL)
     {
-        rc = init_buffcontent_logger(collective_name, world_rank, comm, comm_id, &buffcontent_logger);
+        rc = init_buffcontent_logger(collective_name, world_rank, comm, comm_id, &logger);
         if (rc)
         {
             fprintf(stderr, "init_buffcontent_logger() failed: %d\n", rc);
             return 1;
         }
     }
-    assert(buffcontent_logger);
-    if (buffcontent_logger->ctxt[ctxt].fd == NULL)
+    assert(logger);
+    if (logger->ctxt[ctxt].fd == NULL)
     {
-        int rc = open_content_storage_file(buffcontent_logger->collective_name,
-                                           &(buffcontent_logger->ctxt[ctxt].filename),
-                                           &(buffcontent_logger->ctxt[ctxt].fd),
+        int rc = open_content_storage_file(logger->collective_name,
+                                           &(logger->ctxt[ctxt].filename),
+                                           &(logger->ctxt[ctxt].fd),
                                            comm_id,
-                                           buffcontent_logger->world_rank,
+                                           logger->world_rank,
                                            ctxt,
                                            mode);
         if (rc)
@@ -302,13 +301,13 @@ get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm com
         if (strcmp(mode, "w") == 0)
         {
             // Write the format version at the begining of the file
-            FORMAT_VERSION_WRITE(buffcontent_logger->ctxt[ctxt].fd);
+            FORMAT_VERSION_WRITE(logger->ctxt[ctxt].fd);
         }
         else
         {
             // Read the format version so we can continue to read the file once we return from the function
             int version;
-            fscanf(buffcontent_logger->ctxt[ctxt].fd, "FORMAT_VERSION: %d\n\n", &version);
+            fscanf(logger->ctxt[ctxt].fd, "FORMAT_VERSION: %d\n\n", &version);
             if (version != FORMAT_VERSION)
             {
                 fprintf(stderr, "incompatible version (%d vs. %d)\n", version, FORMAT_VERSION);
@@ -316,8 +315,10 @@ get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm com
             }
         }
     }
-    assert(buffcontent_logger->ctxt[ctxt].filename);
-    assert(buffcontent_logger->ctxt[ctxt].fd);
+    assert(logger->ctxt[ctxt].filename);
+    assert(logger->ctxt[ctxt].fd);
+    *buffcontent_logger = logger;
+    return 0;
 }
 
 static inline void

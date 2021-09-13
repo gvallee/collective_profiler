@@ -118,9 +118,12 @@ int store_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_ran
                                     comm,
                                     world_rank,
                                     comm_rank,
-                                    buffcontent_logger);
-    if (rc)
+                                    &buffcontent_logger);
+    if (rc) {
+        fprintf(stderr, "Impossible to get logger\n");
         return rc;
+    }
+    assert(buffcontent_logger);
     DT_CHECK(dt);
     int dtsize;
     PMPI_Type_size(dt, &dtsize);
@@ -162,7 +165,7 @@ int read_and_compare_call_data(char *collective_name, int ctxt, MPI_Comm comm, i
                                     comm,
                                     world_rank,
                                     comm_rank,
-                                    buffcontent_logger);
+                                    &buffcontent_logger);
     if (rc)
         return rc;
     DT_CHECK(dt);

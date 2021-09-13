@@ -1091,7 +1091,12 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 				}
 			}
 
-			store_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			int rc = store_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			if (rc)
+			{
+				fprintf(stderr, "store_call_data() failed on l.%d: %d\n", __LINE__, rc);
+				MPI_Abort(MPI_COMM_WORLD, 11);
+			}
 			save_buf_content((void *)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
 		}
 
@@ -1109,11 +1114,17 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		if (dump_call_data == avCalls)
 		{
-			store_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+			int rc = store_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+			if (rc)
+			{
+				fprintf(stderr, "store_call_data() failed on l.%d: %d\n", __LINE__, rc);
+				MPI_Abort(MPI_COMM_WORLD, 11);
+			}
 			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
+			release_buffcontent_loggers();
+			PMPI_Barrier(comm);
 			if (my_comm_rank == 0)
 				fprintf(stderr, "All data acquired, aborting...\n");
-			PMPI_Barrier(comm);
 			MPI_Abort(MPI_COMM_WORLD, 22);
 		}
 
