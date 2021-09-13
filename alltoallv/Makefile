@@ -30,7 +30,7 @@ liballtoallv_comparebuffcontent.so: ${COMMON_OBJECTS} ../common/logger.o ../comm
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPARE_DATA_VALIDATION=1 ${COMMON_OBJECTS} ../common/logger.o ../common/timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_comparebuffcontent.so -lssl -lcrypto
 
 liballtoallv.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger.o ../common/buff_content.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -I../ -I../common/ -g -shared -fPIC  ${COMMON_OBJECTS} ../common/timings.o ../common/logger.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv.so
+	mpicc -I../ -I../common/ -g -shared -fPIC  ${COMMON_OBJECTS} ../common/timings.o ../common/logger.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv.so -lssl -lcrypto
 
 check: all
 
