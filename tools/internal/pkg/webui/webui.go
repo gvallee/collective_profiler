@@ -353,7 +353,8 @@ func (c *Config) loadData() error {
 			return err
 		}
 		if len(sendCountsFiles) == 0 {
-			return fmt.Errorf("unable to find send count file(s) in %s", c.DatasetDir)
+			log.Printf("[WARN] unable to find send count file(s) in %s", c.DatasetDir)
+			return nil
 		}
 
 		listBins := bins.GetFromInputDescr(binThresholds)
@@ -438,16 +439,57 @@ func parseImbalanceEntry(line string) (int, []string, error) {
 	return ratio, calls, nil
 }
 
+func getFileIDFromLateTimingFilename(filename string) string {
+	return strings.TrimPrefix(filename, "alltoallv_late_arrival_times.")
+}
+
 func (c *Config) serviceImbalanceRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	var imbData map[int]map[int][]string
 	enabled := false
 	if c.Plugins.ImbalanceDetect != nil {
+		log.Printf("[INFO] Invoking \"DetectImbalance\" plugin")
 		enabled = true
 		imbalanceFiles, err := findImbalanceFiles(c)
 		if err != nil {
+			log.Printf("[ERROR] no imbalance file could be found: %s", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+		// No file exists yet, we try to generate them
+		if len(imbalanceFiles) == 0 {
+			// Find all late timings files
+			var lateTimingFiles []string
+			listFiles, err := ioutil.ReadDir(c.DatasetDir)
+			if err != nil {
+				log.Printf("[ERROR] ioutil.ReadDir() failed: %s", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			for _, file := range listFiles {
+				if strings.HasPrefix(file.Name(), "alltoallv_late_arrival_times") {
+					lateTimingFiles = append(lateTimingFiles, file.Name())
+				}
+			}
+
+			// For each file, detect imbalances
+			for _, lateTimingFile := range lateTimingFiles {
+				fileID := getFileIDFromLateTimingFilename(lateTimingFile)
+				outputFile := filepath.Join(c.DatasetDir, "imbalance-"+fileID)
+				err := c.Plugins.ImbalanceDetect(filepath.Join(c.DatasetDir, lateTimingFile), outputFile)
+				if err != nil {
+					log.Printf("[ERROR] c.Plugins.ImbalanceDetect() failed: %s", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+			}
+
+			// Try to detect all the resulting files again
+			imbalanceFiles, err = findImbalanceFiles(c)
+			if err != nil {
+				log.Printf("[ERROR] no imbalance file could be found: %s", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
+		log.Printf("[INFO] Imbalance plugin - files: %s", imbalanceFiles)
 		imbData = make(map[int]map[int][]string)
 
 		for _, f := range imbalanceFiles {
@@ -470,6 +512,7 @@ func (c *Config) serviceImbalanceRequest(w http.ResponseWriter, r *http.Request)
 
 				ratio, calls, err := parseImbalanceEntry(line)
 				if err != nil {
+					log.Printf("[ERROR] unable to parse files to detect imbalance: %s", err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
 				if imbData[commID] == nil {
@@ -519,7 +562,10 @@ func (c *Config) servicePatternRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	if patternsFilePath == "" {
-		http.Error(w, "unable to load patterns", http.StatusInternalServerError)
+		c.psd = patternsSummaryData{
+			Content: "no pattern data",
+		}
+		return
 	}
 
 	mdContent, err := ioutil.ReadFile(patternsFilePath)

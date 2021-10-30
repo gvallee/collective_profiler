@@ -282,6 +282,10 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 	}
 	sort.Ints(ranks)
 
+	if allPatterns == nil {
+		return fmt.Errorf("no pattern data")
+	}
+
 	if len(allPatterns[ranks[0]].NToN) > 0 {
 		err := patterns.WriteSubcommNtoNPatterns(fd, ranks, stats, allPatterns)
 		if err != nil {
