@@ -282,6 +282,10 @@ func AnalyzeSubCommsResults(dir string, stats map[int]counts.SendRecvStats, allP
 	}
 	sort.Ints(ranks)
 
+	if allPatterns == nil {
+		return fmt.Errorf("no pattern data")
+	}
+
 	if len(allPatterns[ranks[0]].NToN) > 0 {
 		err := patterns.WriteSubcommNtoNPatterns(fd, ranks, stats, allPatterns)
 		if err != nil {
@@ -380,7 +384,7 @@ func GetCallData(codeBaseDir string, collectiveName string, dir string, commid i
 		return info, profilerErr.GetInternal()
 	}
 	info.CountsData.CommSize = countsHeader.NumRanks
-	info.CountsData.SendData.Statistics.DatatypeSize = countsHeader.DatatypeSize
+	info.CountsData.SendData.Statistics.DatatypeSize = countsHeader.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize
 	countsHeader, info.CountsData.RecvData.RawCounts, profilerErr = counts.LookupCallFromFile(recvCountsFileReader, callNum)
 	if !profilerErr.Is(errors.ErrNone) {
 		return info, profilerErr.GetInternal()
@@ -388,7 +392,7 @@ func GetCallData(codeBaseDir string, collectiveName string, dir string, commid i
 	if info.CountsData.CommSize != countsHeader.NumRanks {
 		return info, fmt.Errorf("communicator of different size: %d vs. %d", info.CountsData.CommSize, countsHeader.NumRanks)
 	}
-	info.CountsData.RecvData.Statistics.DatatypeSize = countsHeader.DatatypeSize
+	info.CountsData.RecvData.Statistics.DatatypeSize = countsHeader.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize
 
 	info.SendStats, _, err = counts.AnalyzeCounts(info.CountsData.SendData.RawCounts, msgSizeThreshold, info.CountsData.SendData.Statistics.DatatypeSize)
 	if err != nil {
@@ -669,7 +673,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	analysisResults.AllPatterns = make(map[int]patterns.Data)
 
 	for _, rank := range commLeadRanks {
-		commRawCounts, err := counts.LoadCommunicatorRawCounts(basedir, jobid, rank)
+		commCounts, err := counts.LoadCommunicatorRawCompactFormatCounts(basedir, jobid, rank)
 		if err != nil {
 			return nil, fmt.Errorf("counts.LoadCommunicatorRawCounts() failed: %w", err)
 		}
@@ -685,7 +689,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 		d := counts.CommDataT{
 			LeadRank:  rank,
 			CallData:  callsData,
-			RawCounts: commRawCounts,
+			RawCounts: commCounts,
 		}
 		analysisResults.AllCallsData = append(analysisResults.AllCallsData, d)
 	}

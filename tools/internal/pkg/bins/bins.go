@@ -160,7 +160,7 @@ func GetFromReader(reader *bufio.Reader, listBins []int) ([]Data, error) {
 	log.Printf("Successfully initialized %d bins\n", len(bins))
 
 	for {
-		countsHeader, readerr := counts.GetHeader(reader)
+		countsHeader, readerr := counts.GetCompactHeader(reader)
 		if readerr == io.EOF {
 			break
 		}
@@ -168,12 +168,12 @@ func GetFromReader(reader *bufio.Reader, listBins []int) ([]Data, error) {
 			return bins, readerr
 		}
 
-		counters, err := counts.GetCounters(reader)
+		counters, err := counts.GetCompactCounters(reader)
 		if err != nil {
 			return bins, err
 		}
 
-		bins, err := GetFromCounts(counters, bins, len(countsHeader.CallIDs), countsHeader.DatatypeSize)
+		bins, err := GetFromCounts(counters, bins, len(countsHeader.CallIDs), countsHeader.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize)
 		if err != nil {
 			return bins, err
 		}

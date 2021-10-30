@@ -5,6 +5,23 @@ complexity of the applications and compilers.
 Fortunately, in case an application is not running properly for our shared libraries,
 we provide a set of tests to help troubleshoot the problem.
 
+# FAQ
+
+## Q: I am trying to get the MPI counts but my application does not seem to be progressing after a while
+
+A: The default process to capture the counts is based on a compact format representation
+of the alltoallv calls in order to minimize the size of the final dataset. In a
+nutshell, the profiler captures a signature of the call, then check is that signature
+already exists in the dataset. If not, the new signature is added to the dataset, while
+the call reference is added to the signature, without saving any other additional data.
+As a result, if your application has a lot of calls with different signatures, the
+profiler spends a lot of time comparing signatures, which potentially lead to a
+prohibitive situation.
+When facing that problem, one alternate option is to switch to the mode where individual
+calls are saved into separate files. Of course this may lead to a bigger dataset. It is
+all about the balance between execution time and the size of the dataset. To use that
+option, simply switch to the `liballtoallv_counts_notcompact.so` library.
+
 # Compiler checks
 
 The first check is to ensure that unit tests are passing with the compiler that needs

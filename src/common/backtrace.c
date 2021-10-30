@@ -57,11 +57,6 @@ static inline int _open_backtrace_file(char *collective_name, char **backtrace_f
     *backtrace_file = f;
     *backtrace_filename = filename;
     return 0;
-
-exit_on_error:
-    *backtrace_file = NULL;
-    *backtrace_filename = NULL;
-    return -1;
 }
 
 int write_backtrace_to_file(backtrace_logger_t *logger)
@@ -84,7 +79,7 @@ int write_backtrace_to_file(backtrace_logger_t *logger)
         fprintf(logger->fd, "# Context %" PRIu64 "\n\n", i);
         char *str = compress_uint64_array(logger->contexts[i].calls, logger->contexts[i].calls_count, 1);
         assert(str);
-        fprintf(logger->fd, "Communicator: %d\n", logger->contexts[i].comm_id);
+        fprintf(logger->fd, "Communicator: %"PRIu32"\n", logger->contexts[i].comm_id);
         fprintf(logger->fd, "Communicator rank: %d\n", logger->contexts[i].comm_rank);
         fprintf(logger->fd, "COMM_WORLD rank: %d\n", logger->contexts[i].world_rank);
         fprintf(logger->fd, "Calls: %s\n", str);
@@ -291,12 +286,11 @@ int fini_backtrace_logger(backtrace_logger_t **logger)
 
 int release_backtrace_loggers()
 {
-    int rc;
     backtrace_logger_t *ptr = trace_loggers_head;
     while (ptr)
     {
         backtrace_logger_t *next = ptr->next;
-        rc = fini_backtrace_logger(&ptr);
+        int rc = fini_backtrace_logger(&ptr);
         if (rc)
         {
             fprintf(stderr, "release_backtrace_loggers() failed: %d\n", rc);
@@ -312,7 +306,6 @@ int release_backtrace_loggers()
 
 int insert_caller_data(char *collective_name, char **trace, size_t trace_size, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call)
 {
-    int i;
     int rc;
     backtrace_logger_t *trace_logger = NULL;
 
@@ -393,4 +386,5 @@ int insert_caller_data(char *collective_name, char **trace, size_t trace_size, M
             trace_logger->num_contexts++;
         }
     }
+    return 0;
 }

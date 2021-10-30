@@ -16,6 +16,7 @@
 #include "backtrace.h"
 #include "location.h"
 #include "buff_content.h"
+#include "datatype.h"
 
 static avSRCountNode_t *head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
@@ -31,11 +32,15 @@ static int world_rank = -1;
 static uint64_t avCalls = 0;	   // Total number of alltoallv calls that we went through (indexed on 0, not 1)
 static uint64_t avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
 static uint64_t avCallStart = -1;  // Number of alltoallv call during which we started to gather data
+static uint64_t dump_call_data = -1;
 //char myhostname[HOSTNAME_LEN];
 //char *hostnames = NULL; // Only used by rank0
 
 static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
 static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
+
+static int do_send_buffs = 0; // Specify that the focus is on send buffers rather than recv buffers
+static int max_call = -1;	  // Specify when to stop when checking content of buffers
 
 // Buffers used to store data through all alltoallv calls
 int *sbuf = NULL;
@@ -225,7 +230,7 @@ char *alltoallv_get_full_filename(int ctxt, char *id, int jobid, int world_rank)
 	char *filename = NULL;
 	int size;
 	char *dir = get_output_dir();
-	
+
 	if (ctxt == MAIN_CTX)
 	{
 		if (id == NULL)
@@ -734,8 +739,8 @@ int _mpi_init(int *argc, char ***argv)
 
 	ret = PMPI_Init(argc, argv);
 
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	PMPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	PMPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
 	// We do not know what rank will gather alltoallv data since alltoallv can
 	// be called on any communicator
@@ -769,8 +774,30 @@ int _mpi_init(int *argc, char ***argv)
 	srand((unsigned)getpid());
 #endif
 
+	char *buff_type = getenv(COLLECTIVE_PROFILER_CHECK_SEND_BUFF_ENVVAR);
+	if (buff_type != NULL)
+	{
+		do_send_buffs = atoi(buff_type);
+	}
+
+	char *max_call_num_envvar = getenv(COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR);
+	if (max_call_num_envvar != NULL)
+	{
+		max_call = atoi(max_call_num_envvar);
+	}
+
+	if (world_rank == 0)
+	{
+		fprintf(stderr, "Handling send buffer?: %d\n", do_send_buffs);
+		fprintf(stderr, "Max alltoallv call: %d\n", max_call);
+	}
+
+	char *dump_call_data_envvar = getenv("DUMP_CALL_DATA");
+	if (dump_call_data_envvar != NULL)
+		dump_call_data = atoi(dump_call_data_envvar);
+
 	// Make sure we do not create an articial imbalance between ranks.
-	MPI_Barrier(MPI_COMM_WORLD);
+	PMPI_Barrier(MPI_COMM_WORLD);
 
 	return ret;
 }
@@ -1000,9 +1027,9 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	int my_comm_rank;
 	char *collective_name = "alltoallv";
 
-	MPI_Comm_size(comm, &comm_size);
-	MPI_Comm_rank(comm, &my_comm_rank);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	PMPI_Comm_size(comm, &comm_size);
+	PMPI_Comm_rank(comm, &my_comm_rank);
+	PMPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 #if ENABLE_BACKTRACE
 	if (my_comm_rank == 0)
@@ -1038,6 +1065,41 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			avCallStart = avCalls;
 		}
 
+		if (dump_call_data == avCalls)
+		{
+			// Save datatypes information
+			if (my_comm_rank == 0)
+			{
+				datatype_info_t sendtype_info;
+				sendtype_info.analyzed = false;
+				analyze_datatype(sendtype, &sendtype_info);
+				int rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "send", &sendtype_info);
+				if (rc)
+				{
+					fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+					MPI_Abort(MPI_COMM_WORLD, 12);
+				}
+
+				datatype_info_t recvtype_info;
+				recvtype_info.analyzed = false;
+				analyze_datatype(recvtype, &recvtype_info);
+				rc = save_datatype_info(collective_name, comm, my_comm_rank, world_rank, avCalls, "recv", &recvtype_info);
+				if (rc)
+				{
+					fprintf(stderr, "save_datatype_info() failed (rc: %d)\n", rc);
+					MPI_Abort(MPI_COMM_WORLD, 13);
+				}
+			}
+
+			int rc = store_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+			if (rc)
+			{
+				fprintf(stderr, "store_call_data() failed on l.%d: %d\n", __LINE__, rc);
+				MPI_Abort(MPI_COMM_WORLD, 11);
+			}
+			save_buf_content((void *)sendbuf, sendcounts, sdispls, sendtype, comm, world_rank, "send");
+		}
+
 #if ENABLE_LATE_ARRIVAL_TIMING
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
@@ -1050,6 +1112,22 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 
 		ret = PMPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 
+		if (dump_call_data == avCalls)
+		{
+			int rc = store_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+			if (rc)
+			{
+				fprintf(stderr, "store_call_data() failed on l.%d: %d\n", __LINE__, rc);
+				MPI_Abort(MPI_COMM_WORLD, 11);
+			}
+			save_buf_content(recvbuf, recvcounts, rdispls, recvtype, comm, world_rank, "recv");
+			release_buffcontent_loggers();
+			PMPI_Barrier(comm);
+			if (my_comm_rank == 0)
+				fprintf(stderr, "All data acquired, aborting...\n");
+			MPI_Abort(MPI_COMM_WORLD, 22);
+		}
+
 #if ENABLE_EXEC_TIMING
 		double t_end = MPI_Wtime();
 		double t_op = t_end - t_start;
@@ -1060,27 +1138,75 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
 		// Gather a bunch of counters
-		MPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
-		MPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+		PMPI_Gather(sendcounts, comm_size, MPI_INT, sbuf, comm_size, MPI_INT, 0, comm);
+		PMPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
 
 #if ENABLE_EXEC_TIMING
-		MPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
+		PMPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
 #endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_LATE_ARRIVAL_TIMING
-		MPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
+		PMPI_Gather(&t_arrival, 1, MPI_DOUBLE, late_arrival_timings, 1, MPI_DOUBLE, 0, comm);
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
 #if ENABLE_SAVE_DATA_VALIDATION
-		int dtsize;
-		MPI_Type_size(sendtype, &dtsize);
-		store_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+		if (do_send_buffs > 0)
+		{
+			int dtsize;
+			PMPI_Type_size(sendtype, &dtsize);
+			store_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype);
+		}
+		else
+		{
+			int dtsize;
+			PMPI_Type_size(recvtype, &dtsize);
+			store_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype);
+		}
+
+		if (avCalls == max_call)
+		{
+			fprintf(stderr, "Reaching the limit, check successful\n");
+			PMPI_Abort(MPI_COMM_WORLD, 32);
+		}
 #endif // ENABLE_SAVE_DATA_VALIDATION
 
 #if ENABLE_COMPARE_DATA_VALIDATION
-		int dtsize;
-		MPI_Type_size(sendtype, &dtsize);
-		read_and_compare_call_data(collective_name, comm, my_comm_rank, world_rank, avCalls, (void*)recvbuf, (int*)recvcounts, (int*)rdispls, dtsize);
+		if (do_send_buffs > 0)
+		{
+			if (avCalls == max_call)
+			{
+				fprintf(stderr, "Reaching the analysis limit, check successful\n");
+				PMPI_Abort(MPI_COMM_WORLD, 1);
+			}
+			if (my_comm_rank == 0)
+			{
+				fprintf(stderr, "Checking call %" PRIu64 "\n", avCalls);
+			}
+			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
+			{
+				read_and_compare_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, true);
+			}
+			else
+			{
+				read_and_compare_call_data(collective_name, SEND_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)sendbuf, (int *)sendcounts, (int *)sdispls, sendtype, false);
+			}
+		}
+		else
+		{
+			if (avCalls == max_call)
+			{
+				fprintf(stderr, "Reaching the analysis limit, check successful\n");
+				PMPI_Abort(MPI_COMM_WORLD, 1);
+			}
+			if (max_call == -1 || (max_call > -1 && avCalls < max_call))
+			{
+				read_and_compare_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, true);
+			}
+			else
+			{
+				read_and_compare_call_data(collective_name, RECV_CONTEXT_IDX, comm, my_comm_rank, world_rank, avCalls, (void *)recvbuf, (int *)recvcounts, (int *)rdispls, recvtype, false);
+			}
+		}
 #endif // ENABLE_COMPARE_DATA_VALIDATION
 
 #if ENABLE_LOCATION_TRACKING
@@ -1096,16 +1222,16 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		char *hostnames = (char *)malloc(256 * comm_size * sizeof(char));
 		assert(hostnames);
 
-		MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
-		MPI_Gather(&world_rank, 1, MPI_INT, world_comm_ranks, 1, MPI_INT, 0, comm);
-		MPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
+		PMPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
+		PMPI_Gather(&world_rank, 1, MPI_INT, world_comm_ranks, 1, MPI_INT, 0, comm);
+		PMPI_Gather(&hostname, 256, MPI_CHAR, hostnames, 256, MPI_CHAR, 0, comm);
 		if (my_comm_rank == 0)
 		{
 			int rc = commit_rank_locations(collective_name, comm, comm_size, world_rank, my_comm_rank, pids, world_comm_ranks, hostnames, avCalls);
 			if (rc)
 			{
 				fprintf(stderr, "save_rank_locations() failed: %d", rc);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				PMPI_Abort(MPI_COMM_WORLD, 1);
 			}
 		}
 #endif // ENABLE_LOCATION_TRACKING
@@ -1117,20 +1243,22 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
+			fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", avCalls);
 			int s_dt_size, r_dt_size;
-			MPI_Type_size(sendtype, &s_dt_size);
-			MPI_Type_size(recvtype, &r_dt_size);
+			PMPI_Type_size(sendtype, &s_dt_size);
+			PMPI_Type_size(recvtype, &r_dt_size);
 			if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				PMPI_Abort(MPI_COMM_WORLD, 1);
 			}
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
+			fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", avCalls);
 			int s_dt_size, r_dt_size;
-			MPI_Type_size(sendtype, &s_dt_size);
-			MPI_Type_size(recvtype, &r_dt_size);
+			PMPI_Type_size(sendtype, &s_dt_size);
+			PMPI_Type_size(recvtype, &r_dt_size);
 			save_counts(sbuf, rbuf, s_dt_size, r_dt_size, comm_size, avCalls);
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
 
@@ -1144,7 +1272,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			if (rc)
 			{
 				fprintf(stderr, "commit_timings() failed: %d\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				PMPI_Abort(MPI_COMM_WORLD, 1);
 			}
 #endif // ENABLE_EXEC_TIMING
 
@@ -1154,7 +1282,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			if (rc)
 			{
 				fprintf(stderr, "commit_timings() failed: %d\n", rc);
-				MPI_Abort(MPI_COMM_WORLD, 1);
+				PMPI_Abort(MPI_COMM_WORLD, 1);
 			}
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 			avCallsLogged++;
@@ -1169,7 +1297,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #if SYNC
 	// We sync all the ranks again to make sure that rank 0, who does some calculations,
 	// does not artificially fall behind.
-	MPI_Barrier(comm);
+	PMPI_Barrier(comm);
 #endif
 
 	char *need_data_commit_str = getenv(A2A_COMMIT_PROFILER_DATA_AT_ENVVAR);

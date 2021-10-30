@@ -127,8 +127,6 @@ static group_t *lookup_group(grouping_engine_t *e, int val)
 
 static int add_and_shift(group_t *gp, int rank, int index)
 {
-    int temp_rank;
-
     int i = gp->size;
     while (i > index)
     {
@@ -668,8 +666,6 @@ int grouping_fini(grouping_engine_t **e)
 
 int get_groups(grouping_engine_t *e, group_t **gps, int *num_groups)
 {
-    group_t *ptr;
-
     if (e->head_gp == NULL)
     {
         *gps = NULL;

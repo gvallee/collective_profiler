@@ -214,7 +214,7 @@ func (a *analyzer) Parse() error {
 	for {
 		var readerErr error
 		log.Println("Getting header...")
-		countsHeader, readerErr = counts.GetHeader(reader)
+		countsHeader, readerErr = counts.GetCompactHeader(reader)
 		if readerErr != nil && readerErr != io.EOF {
 			log.Printf("[ERROR] unable to read header: %s", readerErr)
 			return readerErr

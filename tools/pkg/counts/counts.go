@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,17 +22,27 @@ import (
 )
 
 const (
-	// Header is the string used as a prefix to indicate raw counters in the count files
-	Header = "# Raw counters"
+	/* All the constants related to the compact format */
 
-	CompactCountsFileHeader    = "# Raw counters\n"
-	CountMarker                = "Count: "
-	NumberOfRanksMarker        = "Number of ranks: "
-	DatatypeSizeMarker         = "Datatype size: "
-	AlltoallvCallNumbersMarker = "Alltoallv calls "
-	BeginningDataMarker        = "BEGINNING DATA"
-	EndDataMarker              = "END DATA"
-	RankListPrefix             = "Rank(s) "
+	// CompactHeader is the string used as a prefix to indicate raw counters in the count files
+	CompactHeader               = "# Raw counters"
+	CompactCountsFileHeader     = "# Raw counters\n"
+	CompactCountMarker          = "Count: "
+	NumberOfRanksMarker         = "Number of ranks: "
+	DatatypeSizeMarker          = "Datatype size: "
+	AlltoallvCallNumbersMarker  = "Alltoallv calls "
+	BeginningCompactDataMarker  = "BEGINNING DATA"
+	EndCompactDataMarker        = "END DATA"
+	RankListPrefix              = "Rank(s) "
+	CompactFormatLeadRankMarker = ".rank"
+	CompactFormatJobIDMarker    = "job"
+
+	/* All the constants related to the standard format */
+	StandardFormatSendDatatypeMarker = "Send datatype size: "
+	StandardFormatRecvDatatypeMarker = "Recv datatype size: "
+	StandardFormatCommSizeMarker     = "Comm size: "
+	StandardFormatSendCountsMarker   = "Send counts"
+	StandardFormatRecvCountsMarker   = "Recv counts"
 
 	// SendCountersFilePrefix is the prefix used for all send counts files
 	SendCountersFilePrefix = "send-counters."
@@ -40,6 +51,22 @@ const (
 	// RawCountersFilePrefix is the prefix used for all raw counts files (one file per call; no compact format)
 	RawCountersFilePrefix = "counts.rank"
 )
+
+const (
+	FormatUnknown = iota
+	FormatCompact = iota
+	FormatPerCall = iota
+)
+
+type CompactFormatHeader struct {
+	// DatatypeSize is the size of the datatype associated to the counts
+	DatatypeSize int
+}
+
+type StandardFormatHeader struct {
+	SendDatatypeSize int
+	RecvDatatypeSize int
+}
 
 // HeaderT is the data extracted from the counts headr from a count profile file in the compact format
 type HeaderT struct {
@@ -55,21 +82,24 @@ type HeaderT struct {
 	// NumRanks is the number of ranks involved in the alltoallv call (i.e., the communicator size)
 	NumRanks int
 
-	// DatatypeSize is the size of the datatype associated to the counts
-	DatatypeSize int
+	DatatypeInfo struct {
+		CompactFormatDatatypeInfo  CompactFormatHeader
+		StandardFormatDatatypeInfo StandardFormatHeader
+	}
 }
 
 type rawCountsT struct {
-	sendDatatypeSize int
-	recvDatatypeSize int
-	commSize         int
-	sendCounts       []string
-	recvCounts       []string
+	SendDatatypeSize int
+	RecvDatatypeSize int
+	CommSize         int
+	SendCounts       []string // One line per rank in order, based on the rank number of the communicator used
+	RecvCounts       []string // One line per rank in order, based on the rank number of the communicator used
 }
 
 type RawCountsCallsT struct {
-	calls  []int
-	counts *rawCountsT
+	LeadRank int
+	Calls    []int
+	Counts   *rawCountsT
 }
 
 // CallData gathers all the data related to one and only one alltoallv call
@@ -262,7 +292,7 @@ type CommDataT struct {
 	// rhw key is the call number and the value a pointer to the call's data (several calls can share the same data)
 	CallData map[int]*CallData
 
-	RawCounts []RawCountsCallsT
+	RawCounts []*RawCountsCallsT
 }
 
 func getInfoFromFilename(path string) (int, int, int, error) {
@@ -467,7 +497,7 @@ func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, *
 	if !profilerErr.Is(errors.ErrNone) {
 		return data, profilerErr
 	}
-	data.SendData.Statistics.DatatypeSize = sendCountsHeader.DatatypeSize
+	data.SendData.Statistics.DatatypeSize = sendCountsHeader.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize
 
 	// find the call's data from the recv counts file then
 	var recvCountsHeader HeaderT
@@ -475,7 +505,7 @@ func LookupCall(sendCountsFile, recvCountsFile string, numCall int) (CallData, *
 	if err != nil {
 		return data, profilerErr
 	}
-	data.RecvData.Statistics.DatatypeSize = recvCountsHeader.DatatypeSize
+	data.RecvData.Statistics.DatatypeSize = recvCountsHeader.DatatypeInfo.CompactFormatDatatypeInfo.DatatypeSize
 
 	if sendCountsHeader.NumRanks != recvCountsHeader.NumRanks {
 		return data, errors.New(errors.ErrFatal, fmt.Errorf("differ number of ranks from send and recv counts files"))
@@ -565,4 +595,66 @@ func GatherStatsFromCallData(cd map[int]*CallData, sizeThreshold int) (SendRecvS
 	}
 
 	return cs, nil
+}
+
+func DetectFileFormat(path string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+	line, err := reader.ReadString('\n')
+	if err == io.EOF {
+		return FormatUnknown, err
+	}
+	if err != nil {
+		return FormatUnknown, err
+	}
+
+	fmt.Printf("DBG - %s\n", line)
+	if strings.HasPrefix(line, "Send datatype size: ") {
+		fmt.Println("DBG - FormatPerCall")
+		return FormatPerCall, nil
+	}
+
+	if strings.HasPrefix(line, "# Raw counters") {
+		return FormatCompact, nil
+	}
+
+	return FormatUnknown, nil
+}
+
+func ParseCountFile(filePath string) (*RawCountsCallsT, error) {
+	format, err := DetectFileFormat(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if format == FormatUnknown {
+		return nil, fmt.Errorf("unknown count file format (%s)", filePath)
+	}
+
+	var countData *RawCountsCallsT
+	if format == FormatCompact {
+		filename := path.Base(filePath)
+		ctxt, _, leadRank, err := GetMetadataFromCompactFormatCountFileName(filename)
+		if err != nil {
+			return nil, err
+		}
+		countData, err = LoadCountsFromCompactFormatFile(filePath, ctxt)
+		if err != nil {
+			return nil, err
+		}
+		countData.LeadRank = leadRank
+	} else {
+		fmt.Printf("DBG - calling ParsePerCallFileCount()\n")
+		countData, err = ParsePerCallFileCount(filePath)
+		if err != nil {
+			return nil, err
+		}
+		countData.LeadRank = -1
+	}
+
+	return countData, nil
 }

@@ -9,6 +9,7 @@ package plugins
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"plugin"
@@ -43,6 +44,7 @@ func Load(basedir string, plugins *Plugins) error {
 				// Check function signature
 				targetFunc, ok := symb.(func(string, string) error)
 				if ok {
+					log.Printf("[INFO] plugin \"DetectImbalance\" ready")
 					plugins.ImbalanceDetect = targetFunc
 				}
 			}

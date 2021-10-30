@@ -26,7 +26,6 @@ int release_comm_data();
 #define GET_COMM_LOGGER(_comm, _world_rank, _comm_rank, _comm_id)                  \
     do                                                                             \
     {                                                                              \
-        int i;                                                                     \
         int rc;                                                                    \
         rc = lookup_comm(_comm, &_comm_id);                                        \
         if (rc)                                                                    \

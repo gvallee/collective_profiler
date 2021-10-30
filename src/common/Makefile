@@ -8,6 +8,7 @@ FORMATVERSION := `cat ../../FORMAT_VERSION`
 all: \
 	format.o                      \
 	comm.o                        \
+	datatype.o                    \
 	location.o                    \
 	timings.o                     \
 	exec_timings.o                \
@@ -26,6 +27,9 @@ all: \
 	compress_array_test           \
 	patterns_detection_test
 
+datatype.o: datatype.c datatype.h
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c datatype.c
+
 format.o: format.c format.h
 	$(CC) -I../ -fPIC -c format.c
 
@@ -36,7 +40,7 @@ backtrace.o: backtrace.c backtrace.h format.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c backtrace.c
 
 buff_content.o: buff_content.c buff_content.h format.h
-	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c buff_content.c
+	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c buff_content.c -lssl -lcrypto
 
 comm.o: comm.c comm.h
 	mpicc -I../ -fPIC -DFORMAT_VERSION=${FORMATVERSION} -c comm.c

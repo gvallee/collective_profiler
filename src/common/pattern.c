@@ -205,8 +205,6 @@ void free_patterns(avPattern_t *p)
 avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_counts, int size)
 {
     int i, j, num;
-    int src_ranks = 0;
-    int dst_ranks = 0;
     int send_patterns[size + 1];
     int recv_patterns[size + 1];
 
@@ -228,8 +226,8 @@ avCallPattern_t *extract_call_patterns(int callID, int *send_counts, int *recv_c
     num = 0;
     for (i = 0; i < size; i++)
     {
-        dst_ranks = 0;
-        src_ranks = 0;
+        int dst_ranks = 0;
+        int src_ranks = 0;
         for (j = 0; j < size; j++)
         {
             if (send_counts[num] != 0)

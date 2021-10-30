@@ -54,10 +54,10 @@ void log_groups(logger_t *logger, group_t *gps, int num_gps)
         fprintf(logger->f, "Smaller data size: %d\n", ptr->min);
         fprintf(logger->f, "Bigger data size: %d\n", ptr->max);
         fprintf(logger->f, "Ranks: ");
-        int i;
-        for (i = 0; i < ptr->size; i++)
+        int j;
+        for (j = 0; j < ptr->size; j++)
         {
-            fprintf(logger->f, "%d ", ptr->elts[i]);
+            fprintf(logger->f, "%d ", ptr->elts[j]);
         }
         fprintf(logger->f, "\n");
         i++;
@@ -119,7 +119,6 @@ static void _log_data(logger_t *logger,
                       int rank_vec_len,
                       int type_size)
 {
-    int i, j, num = 0;
     FILE *fh = NULL;
 
     if (counters == NULL)
@@ -195,18 +194,16 @@ static void _log_data(logger_t *logger,
     fprintf(fh, "\n\nBEGINNING DATA\n");
     DEBUG_LOGGER_NOARGS("Saving counts...\n");
     // Save the compressed version of the data
-    int count_data_number, _num_ranks, n;
+    int count_data_number, n;
     for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
     {
         DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
 
         char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks, 1);
+        assert(str);
         fprintf(fh, "Rank(s) %s: ", str);
-        if (str != NULL)
-        {
-            free(str);
-            str = NULL;
-        }
+        free(str);
+        str = NULL;
 
         for (n = 0; n < rank_vec_len; n++)
         {
@@ -226,8 +223,8 @@ static void _log_data(logger_t *logger,
         int *_counters = lookupRankCounters(int data_size, count_data_t *data, rank);
         assert(_counters);
 #if ENABLE_MSG_SIZE_ANALYSIS
-        mins[i] = _counters[0];
-        maxs[i] = _counters[0];
+        mins[rank] = _counters[0];
+        maxs[rank] = _counters[0];
 #endif
         int num_counter;
         for (num_counter = 0; num_counter < size; num_counter++)
@@ -458,7 +455,6 @@ logger_t *logger_init(int jobid, int world_rank, int world_size, logger_config_t
         return NULL;
     }
 
-    char filename[128];
     logger_t *l = calloc(1, sizeof(logger_t));
     if (l == NULL)
     {
@@ -522,36 +518,30 @@ void logger_fini(logger_t **l)
         fprintf(stderr, "release_comm_data() failed: %d\n", rc);
     }
 
-    if (l != NULL)
-    {
-        if (*l != NULL)
-        {
-            if ((*l)->f)
-                fclose((*l)->f);
-            if ((*l)->main_filename)
-                free((*l)->main_filename);
-            if ((*l)->sendcounters_fh)
-                fclose((*l)->sendcounters_fh);
-            if ((*l)->sendcounts_filename)
-                free((*l)->sendcounts_filename);
-            if ((*l)->recvcounters_fh)
-                fclose((*l)->recvcounters_fh);
-            if ((*l)->recvcounts_filename)
-                free((*l)->recvcounts_filename);
-            if ((*l)->timing_fh)
-                fclose((*l)->timing_fh);
-            if ((*l)->timing_filename)
-                free((*l)->timing_filename);
-            if ((*l)->sums_fh)
-                fclose((*l)->sums_fh);
-            if ((*l)->sums_filename)
-                free((*l)->sums_filename);
-            if ((*l)->collective_name)
-                free((*l)->collective_name);
-            free(*l);
-            *l = NULL;
-        }
-    }
+    if ((*l)->f)
+        fclose((*l)->f);
+    if ((*l)->main_filename)
+        free((*l)->main_filename);
+    if ((*l)->sendcounters_fh)
+        fclose((*l)->sendcounters_fh);
+    if ((*l)->sendcounts_filename)
+        free((*l)->sendcounts_filename);
+    if ((*l)->recvcounters_fh)
+        fclose((*l)->recvcounters_fh);
+    if ((*l)->recvcounts_filename)
+        free((*l)->recvcounts_filename);
+    if ((*l)->timing_fh)
+        fclose((*l)->timing_fh);
+    if ((*l)->timing_filename)
+        free((*l)->timing_filename);
+    if ((*l)->sums_fh)
+        fclose((*l)->sums_fh);
+    if ((*l)->sums_filename)
+        free((*l)->sums_filename);
+    if ((*l)->collective_name)
+        free((*l)->collective_name);
+    free(*l);
+    *l = NULL;
 }
 
 void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
