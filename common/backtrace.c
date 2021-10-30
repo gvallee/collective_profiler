@@ -386,4 +386,5 @@ int insert_caller_data(char *collective_name, char **trace, size_t trace_size, M
             trace_logger->num_contexts++;
         }
     }
+    return 0;
 }
