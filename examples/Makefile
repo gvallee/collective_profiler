@@ -4,7 +4,17 @@
 # See LICENSE.txt for license information
 #
 
-all: alltoallv_c alltoallv_dt_c alltoallv_multicomms_c alltoallv_f alltoallv_bigcounts_c alltoall_demo alltoall_simple_c alltoall_bigcounts_c alltoall_multicomms_c alltoall_dt_c
+all: alltoallv_c                 \
+	alltoallv_dt_c               \
+	alltoallv_multicomms_c       \
+	alltoallv_f                  \
+	alltoallv_bigcounts_c        \
+	alltoallv_multi_backtraces_c \
+	alltoall_demo                \
+	alltoall_simple_c            \
+	alltoall_bigcounts_c         \
+	alltoall_multicomms_c        \
+	alltoall_dt_c
 
 alltoall_demo: alltoall_demo.c
 	mpicc -g alltoall_demo.c -o alltoall_demo
@@ -36,5 +46,18 @@ alltoallv_f: alltoallv.f90
 alltoallv_bigcounts_c: alltoallv_bigcounts.c
 	mpicc -g alltoallv_bigcounts.c -o alltoallv_bigcounts_c
 
+alltoallv_multi_backtraces_c: alltoallv_multi_backtraces.c collective_profiler_example_utils.h
+	mpicc -g alltoallv_multi_backtraces.c -o alltoallv_multi_backtraces_c
+
 clean:
-	@rm -f alltoallv_c alltoallv_dt_c alltoallv_f alltoallv_multicomms_c alltoallv_bigcounts_c alltoall_demo alltoall_simple_c
+	@rm -f alltoall_demo
+	@rm -f alltoall_simple_c
+	@rm -f alltoall_bigcounts_c
+	@rm -f alltoall_multicomms_c
+	@rm -f alltoall_dt_c
+	@rm -f alltoallv_c
+	@rm -f alltoallv_dt_c
+	@rm -f alltoallv_multicomms_c
+	@rm -f alltoallv_f
+	@rm -f alltoallv_bigcounts_c
+	@rm -f alltoallv_multi_backtraces_c
