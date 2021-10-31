@@ -286,13 +286,13 @@ get_buffcontent_logger(char *collective_name, int ctxt, char *mode, MPI_Comm com
     assert(logger);
     if (logger->ctxt[ctxt].fd == NULL)
     {
-        int rc = open_content_storage_file(logger->collective_name,
-                                           &(logger->ctxt[ctxt].filename),
-                                           &(logger->ctxt[ctxt].fd),
-                                           comm_id,
-                                           logger->world_rank,
-                                           ctxt,
-                                           mode);
+        rc = open_content_storage_file(logger->collective_name,
+                                       &(logger->ctxt[ctxt].filename),
+                                       &(logger->ctxt[ctxt].fd),
+                                       comm_id,
+                                       logger->world_rank,
+                                       ctxt,
+                                       mode);
         if (rc)
         {
             fprintf(stderr, "_open_content_storage_files() failed: %d\n", rc);

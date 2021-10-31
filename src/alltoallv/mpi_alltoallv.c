@@ -80,7 +80,6 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 {
 	int num = 0;
 	int rank, count_num;
-	int *_counts;
 
 	DEBUG_ALLTOALLV_PROFILING("Comparing data with existing data...\n");
 	DEBUG_ALLTOALLV_PROFILING("-> Comparing send counts...\n");
@@ -786,12 +785,6 @@ int _mpi_init(int *argc, char ***argv)
 		max_call = atoi(max_call_num_envvar);
 	}
 
-	if (world_rank == 0)
-	{
-		fprintf(stderr, "Handling send buffer?: %d\n", do_send_buffs);
-		fprintf(stderr, "Max alltoallv call: %d\n", max_call);
-	}
-
 	char *dump_call_data_envvar = getenv("DUMP_CALL_DATA");
 	if (dump_call_data_envvar != NULL)
 		dump_call_data = atoi(dump_call_data_envvar);
@@ -1298,7 +1291,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 	// We sync all the ranks again to make sure that rank 0, who does some calculations,
 	// does not artificially fall behind.
 	PMPI_Barrier(comm);
-#endif
+#endif // SYNC
 
 	char *need_data_commit_str = getenv(A2A_COMMIT_PROFILER_DATA_AT_ENVVAR);
 	char *need_to_free_data = getenv(A2A_RELEASE_RESOURCES_AFTER_DATA_COMMIT_ENVVAR);
@@ -1312,7 +1305,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		}
 	}
 
-	if (need_to_free_data != NULL && need_to_free_data != "0")
+	if (need_to_free_data != NULL && strncmp(need_to_free_data, "0", 1) != 0)
 	{
 		_release_profiling_resources();
 	}
@@ -1360,8 +1353,7 @@ void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_F
 
 // This is a duplicate of MPI_Finalize() just in case we face a failure or
 // if the app never calls MPI_Finalize().
-void __attribute__((destructor)) calledLast();
-void calledLast()
+__attribute__((destructor)) void calledLast()
 {
 	_commit_data();
 	_finalize_profiling();

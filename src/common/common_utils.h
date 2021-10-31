@@ -17,27 +17,28 @@ get_remainder(int n, int d)
     return (n - d * (n / d));
 }
 
-#define _asprintf(str, ret, fmt, ...)                               \
-    do                                                              \
-    {                                                               \
-        assert(str == NULL);                                        \
-        int __asprintf_size = MAX_STRING_LEN;                       \
-        ret = __asprintf_size;                                      \
-        while (ret >= __asprintf_size)                              \
-        {                                                           \
-            if (str == NULL)                                        \
-            {                                                       \
-                str = (char *)malloc(__asprintf_size);              \
-                assert(str);                                        \
-            }                                                       \
-            else                                                    \
-            {                                                       \
-                __asprintf_size += MAX_STRING_LEN;                  \
-                str = (char *)realloc(str, __asprintf_size);        \
-                assert(str);                                        \
-            }                                                       \
-            ret = snprintf(str, __asprintf_size, fmt, __VA_ARGS__); \
-        }                                                           \
+#define _asprintf(str, ret, fmt, ...)                                \
+    do                                                               \
+    {                                                                \
+        assert(str == NULL);                                         \
+        int __asprintf_size = MAX_STRING_LEN;                        \
+        ret = __asprintf_size;                                       \
+        while (ret >= __asprintf_size)                               \
+        {                                                            \
+            if (str == NULL)                                         \
+            {                                                        \
+                str = (char *)malloc(__asprintf_size);               \
+                assert(str);                                         \
+            }                                                        \
+            else                                                     \
+            {                                                        \
+                __asprintf_size += MAX_STRING_LEN;                   \
+                char *__tmp = (char *)realloc(str, __asprintf_size); \
+                assert(__tmp);                                       \
+                str = __tmp;                                         \
+            }                                                        \
+            ret = snprintf(str, __asprintf_size, fmt, __VA_ARGS__);  \
+        }                                                            \
     } while (0)
 
 static char *ctx_to_string(int ctx)

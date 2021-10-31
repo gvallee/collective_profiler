@@ -61,8 +61,9 @@ static char *add_range_uint64(char *str, uint64_t start, uint64_t end)
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                s = (char *)realloc(s, size);
-                assert(s);
+                char *tmp = (char *)realloc(s, size);
+                assert(tmp);
+                s = tmp;
             }
             ret = snprintf(s, size, "%s, %" PRIu64 "-%" PRIu64, str, start, end);
             if (ret < 0)
@@ -132,8 +133,9 @@ static char *add_range(char *str, int start, int end)
             {
                 // truncated result, increasing the size of the buffer and trying again
                 size = size * 2;
-                s = (char *)realloc(s, size);
-                assert(s);
+                char *tmp = (char *)realloc(s, size);
+                assert(tmp);
+                s = tmp;
             }
             ret = snprintf(s, size, "%s, %d-%d", str, start, end);
             if (ret < 0)
@@ -188,8 +190,9 @@ static char *add_singleton_uint64(char *str, uint64_t n)
         {
             // truncated result, increasing the size of the buffer and trying again
             size = size * 2;
-            s = (char *)realloc(s, size);
-            assert(s);
+            char *tmp = (char *)realloc(s, size);
+            assert(tmp);
+            s = tmp;
         }
         ret = snprintf(s, size, "%s, %" PRIu64, str, n);
         if (ret < 0)
@@ -246,8 +249,9 @@ static char *add_singleton(char *str, int n)
         {
             // truncated result, increasing the size of the buffer and trying again
             size = size * 2;
-            s = (char *)realloc(s, size);
-            assert(s);
+            char *tmp = (char *)realloc(s, size);
+            assert(tmp);
+            s = tmp;
         }
         ret = snprintf(s, size, "%s, %d", str, n);
         if (ret < 0)
@@ -269,7 +273,6 @@ static char *add_singleton(char *str, int n)
     return str;
 }
 
-
 static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size)
 {
     size_t i, start;
@@ -282,7 +285,7 @@ static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size
     fprintf(stderr, "Compressing:");
     for (i = 0; i < size; i++)
     {
-        fprintf(stderr, " %"PRIu64, array[i]);
+        fprintf(stderr, " %" PRIu64, array[i]);
     }
     fprintf(stderr, "\n");
 #endif // DEBUG
@@ -314,19 +317,22 @@ static char *_compress_uint64_vec(uint64_t *array, size_t start_idx, size_t size
 
 // compress_uint64_array compresses a matrix or a vector of uint64_t
 // The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
-char *compress_uint64_array(uint64_t *array, size_t xsize,  size_t ysize)
+char *compress_uint64_array(uint64_t *array, size_t xsize, size_t ysize)
 {
     size_t idx;
     char *compressedRep = NULL;
-    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    for (idx = 0; idx < xsize * ysize; idx += xsize)
     {
         char *compressed_line = _compress_uint64_vec(array, idx, xsize);
-        if (compressedRep == NULL) {
+        if (compressedRep == NULL)
+        {
             compressedRep = strdup(compressed_line);
         }
         else
         {
-            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            char *tmp = realloc(compressedRep, strlen(compressedRep) + strlen(compressed_line) + 2);
+            assert(tmp);
+            compressedRep = tmp;
             size_t n;
             size_t copy_idx = strlen(compressedRep);
             compressedRep[copy_idx] = '\n';
@@ -348,7 +354,8 @@ static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
     int i, start;
     char *compressedRep = NULL;
 
-    if (size == 0) {
+    if (size == 0)
+    {
         return NULL;
     }
 
@@ -388,19 +395,22 @@ static char *_compress_int_vec(int *array, size_t start_idx, size_t size)
 
 // compress_int_array compresses a matrix or a vector of int.
 // The distinction between a matrix and a vector must be specified through the xsize and ysize parameters
-char *compress_int_array(int *array, int xsize,  int ysize)
+char *compress_int_array(int *array, int xsize, int ysize)
 {
     size_t idx;
     char *compressedRep = NULL;
-    for (idx = 0; idx < xsize * ysize; idx += xsize) 
+    for (idx = 0; idx < xsize * ysize; idx += xsize)
     {
         char *compressed_line = _compress_int_vec(array, idx, xsize);
-        if (compressedRep == NULL) {
+        if (compressedRep == NULL)
+        {
             compressedRep = strdup(compressed_line);
         }
         else
         {
-            compressedRep = realloc (compressedRep, strlen (compressedRep) + strlen (compressed_line) + 2);
+            char *tmp = realloc(compressedRep, strlen(compressedRep) + strlen(compressed_line) + 2);
+            assert(tmp);
+            compressedRep = tmp;
             size_t n;
             size_t copy_idx = strlen(compressedRep);
             compressedRep[copy_idx] = '\n';
