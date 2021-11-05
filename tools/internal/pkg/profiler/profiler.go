@@ -675,7 +675,7 @@ func analyzeCountFiles(basedir string, sendCountFiles []string, recvCountFiles [
 	for _, rank := range commLeadRanks {
 		commCounts, err := counts.LoadCommunicatorRawCompactFormatCounts(basedir, jobid, rank)
 		if err != nil {
-			return nil, fmt.Errorf("counts.LoadCommunicatorRawCounts() failed: %w", err)
+			return nil, fmt.Errorf("counts.LoadCommunicatorRawCompactFormatCounts() failed: %w", err)
 		}
 
 		callsData, sendRecvStats, p, err := analyzeJobRankCounts(basedir, jobid, rank, sizeThreshold)

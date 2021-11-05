@@ -691,18 +691,27 @@ func rawRecvCountsAlreadyExists(rc rawCountsT, list []RawCountsCallsT) int {
 
 func compactCountFormatToList(rawCounters []string) ([]string, error) {
 	mapCounts := make(map[int]string)
-	for _, recvCounts := range rawCounters {
-		tokens := strings.Split(recvCounts, ": ")
-		if len(tokens) != 2 {
-			return nil, fmt.Errorf("%s is not a valid format for compact counts", recvCounts)
-		}
-		callIDsStr := strings.TrimPrefix(tokens[0], RankListPrefix)
-		callIDs, err := notation.ConvertCompressedCallListToIntSlice(callIDsStr)
-		if err != nil {
-			return nil, err
-		}
-		for _, callID := range callIDs {
-			mapCounts[callID] = tokens[1]
+	for _, counts := range rawCounters {
+		// The raw counts may not be yet split into lines, which we
+		// need to analyze one line at a time.
+		lineOfCounts := strings.Split(counts, "\n")
+		for line_idx, c := range lineOfCounts {
+			if c == "" {
+				continue
+			}
+
+			tokens := strings.Split(c, ": ")
+			if len(tokens) != 2 {
+				return nil, fmt.Errorf("line %d is not a valid format for compact counts (%d): %s", line_idx, len(tokens), c)
+			}
+			callIDsStr := strings.TrimPrefix(tokens[0], RankListPrefix)
+			callIDs, err := notation.ConvertCompressedCallListToIntSlice(callIDsStr)
+			if err != nil {
+				return nil, err
+			}
+			for _, callID := range callIDs {
+				mapCounts[callID] = tokens[1]
+			}
 		}
 	}
 
@@ -721,42 +730,45 @@ func LoadCountsFromCompactFormatFile(file string, ctxt int) (*RawCountsCallsT, e
 	var callIDs []int
 	var err error
 
+	data := new(RawCountsCallsT)
+	data.Counts = new(rawCountsT)
+
 	switch ctxt {
 	case CompactFormatRecvContext:
 		recvRawCounters, callIDs, recvDatatypeSize, err = ParseRawCompactFormatFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 		}
+		// Convert compact counts so we are independent from the compact format.
+		data.Counts.RecvCounts, err = compactCountFormatToList(recvRawCounters)
+		if err != nil {
+			return nil, err
+		}
+		data.Counts.RecvDatatypeSize = recvDatatypeSize
 	case CompactFormatSendContext:
 		sendRawCounters, callIDs, sendDatatypeSize, err = ParseRawCompactFormatFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("parseRawFile() failed (%s): %w", file, err)
 		}
+		// Convert compact counts so we are independent from the compact format.
+		data.Counts.SendCounts, err = compactCountFormatToList(sendRawCounters)
+		if err != nil {
+			return nil, err
+		}
+		data.Counts.SendDatatypeSize = sendDatatypeSize
 	default:
 		return nil, fmt.Errorf("unsupported mode: %d (should be %d or %d)", ctxt, CompactFormatSendContext, CompactFormatRecvContext)
 	}
 
-	// From here, we know we have the content of the file but still in the compact format.
-
-	data := new(RawCountsCallsT)
 	data.Calls = callIDs
-	data.Counts = new(rawCountsT)
-	// Convert compact counts so we are independent from the compact format.
-	data.Counts.SendCounts, err = compactCountFormatToList(sendRawCounters)
-	if err != nil {
-		return nil, err
-	}
-	data.Counts.SendDatatypeSize = sendDatatypeSize
-	// Convert compact counts so we are independent from the compact format.
-	data.Counts.RecvCounts, err = compactCountFormatToList(recvRawCounters)
-	data.Counts.RecvDatatypeSize = recvDatatypeSize
+
 	return data, err
 }
 
 func LoadCommunicatorRawCompactFormatCounts(outputDir string, jobId int, commLeadRank int) ([]*RawCountsCallsT, error) {
 	var rawCounts []*RawCountsCallsT
 	recvCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
-	sendCountFile := fmt.Sprintf("recv-counters.job%d.rank%d.txt", jobId, commLeadRank)
+	sendCountFile := fmt.Sprintf("send-counters.job%d.rank%d.txt", jobId, commLeadRank)
 
 	b := progress.NewBar(2, fmt.Sprintf("Load count files for communicator %d", commLeadRank))
 	defer progress.EndBar(b)
@@ -765,14 +777,14 @@ func LoadCommunicatorRawCompactFormatCounts(outputDir string, jobId int, commLea
 	file := filepath.Join(outputDir, sendCountFile)
 	rc, err := LoadCountsFromCompactFormatFile(file, CompactFormatSendContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to parse send counts (%s): %w", sendCountFile, err)
 	}
 
 	b.Increment(1)
 	file = filepath.Join(outputDir, recvCountFile)
 	rc2, err := LoadCountsFromCompactFormatFile(file, CompactFormatRecvContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to parse recv counts (%s): %w", recvCountFile, err)
 	}
 
 	rc.Counts.RecvCounts = rc2.Counts.RecvCounts
