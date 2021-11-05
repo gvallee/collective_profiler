@@ -168,6 +168,8 @@ Then the file has a series of timing data per call. Each call data starts with `
 
 All timings are in seconds.
 
+The late arrival timings are gathered by artificially adding a `MPI_Barrier` operation on the communicator right before starting the `MPI_Alltoallv` operations, using PMPI. The late arrival time is the time spent in the barrier. The longer the time, the earlier the rank arrived; the shorter the time, the later the rank arrived. The reported times cannot therefore be extrapolated to any real application execution time since this is done for every single alltoallv operation. However, it gives a general idea of the imbalance between ranks when initiating a new alltoallv operation,, especially since most systems do not have a fine-grain clock synchronization capability. As a result, this method is a compromise between accuracy and complexity of the implementation. We performed a study about the accuracy of the measurements between consecutive application profiles and we discovered some degree of variability, which are difficult to address without introducing complex mechanisms. So raw timings should not be used to draw any conclusions, only trends should be used. Hardware support would be a useful feature to improve measurement accuracy and report data that could be useful to analyse in the context of the application's execution without profiling.
+
 #### Location files
 
 The first line is the version of the data format. This is used for internal purposes to ensure that the post-mortem analysis tool supports that format. 
