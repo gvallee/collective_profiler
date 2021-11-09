@@ -1280,6 +1280,11 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 			avCallsLogged++;
 		}
+
+#if ENABLE_LATE_ARRIVAL_TIMING
+		// All ranks sync so that if we have I/O happening for some ranks during the data commit, it would not skew the next timings
+		PMPI_Barrier(comm);
+#endif // ENABLE_LATE_ARRIVAL_TIMING
 	}
 	else
 	{

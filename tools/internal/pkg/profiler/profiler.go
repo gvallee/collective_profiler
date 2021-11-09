@@ -1134,8 +1134,13 @@ func (cfg *PostmortemConfig) Analyze() error {
 		if resultsStep4.totalA2AExecutionTimes == nil || len(resultsStep4.totalA2AExecutionTimes) == 0 {
 			return fmt.Errorf("step %d: total execution time from step 4 is empty", currentStep)
 		}
+		/* DEACTIVATED FOR NOW
 		if resultsStep4.totalLateArrivalTimes == nil || len(resultsStep4.totalLateArrivalTimes) == 0 {
 			return fmt.Errorf("step %d: total late time from step 4 is empty", currentStep)
+		}
+		*/
+		if resultsStep4.totalLateArrivalTimes == nil || len(resultsStep4.totalLateArrivalTimes) == 0 {
+			log.Printf("step %d: late arrival timings not available, skipping...", currentStep)
 		}
 
 		fmt.Println("Calculating averages on some specific metrics")
@@ -1150,10 +1155,12 @@ func (cfg *PostmortemConfig) Analyze() error {
 		if len(resultsStep4.avgExecutionTimes) == 0 {
 			os.Exit(69)
 		}
-		resultsStep4.avgLateArrivalTimes = make(map[int]float64)
-		for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
-			rankNumCalls := resultsStep3.rankNumCallsMap[rank]
-			resultsStep4.avgLateArrivalTimes[rank] = lateTime / float64(rankNumCalls)
+		if resultsStep4.totalLateArrivalTimes != nil && len(resultsStep4.totalLateArrivalTimes) != 0 {
+			resultsStep4.avgLateArrivalTimes = make(map[int]float64)
+			for rank, lateTime := range resultsStep4.totalLateArrivalTimes {
+				rankNumCalls := resultsStep3.rankNumCallsMap[rank]
+				resultsStep4.avgLateArrivalTimes[rank] = lateTime / float64(rankNumCalls)
+			}
 		}
 		duration := t.Stop()
 		fmt.Printf("Step completed in %s\n", duration)

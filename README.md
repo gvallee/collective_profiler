@@ -51,7 +51,7 @@ Using these two identifiers makes it easier to handle multiple traces from multi
 applications and/or platforms.
 - Gather timings: use the `liballtoallv_exec_timings.so` and `liballtoallv_late_arrival.so` shared libraries. These generate
 by default multiple files based on the following naming scheme:
- `<COLLECTIVE>_late_arrivals_timings.rank<RANK>_comm<COMMID>_job<JOBID>.md` and `<COLLECTIVE>_execution_times.rank<RANK>_comm<COMMID>_job<JOBID>.md`. 
+ `<COLLECTIVE>_late_arrivals_timings.rank<RANK>_comm<COMMID>_job<JOBID>.md` (**not currently available**) and `<COLLECTIVE>_execution_times.rank<RANK>_comm<COMMID>_job<JOBID>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
 files `backtrace_rank<RANK>_call<ID>.md`, *one per alltoallv call*, all of them stored in a `backtraces`
 directory. In other words, this generates one file per alltoallv call, where `<ID>` is the
@@ -69,7 +69,7 @@ This requires to have MPI available on the system.
 This creates the following shared libraries:
 - `liballtoallv_counts.so`,
 - `liballtoallv_exec_timings.so`,
-- `liballtoallv_late_arrival.so`,
+- `liballtoallv_late_arrival.so` (**not currently available**),
 - `liballtoallv_backtrace.so`,
 - `liballtoallv_location.so`,
 - and `alltoallv/liballtoallv.so`.
@@ -124,7 +124,7 @@ COUNTSFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_co
 MAPFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_location.so"
 BACKTRACEFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_exec_timings.so"
-LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
+#LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
 
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
@@ -134,7 +134,7 @@ mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$COUN
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$MAPFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$BACKTRACEFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$A2ATIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
-mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATETIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+#mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATETIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 ``` 
 
 ### Generated data
@@ -142,7 +142,7 @@ mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATE
 When using the default shared libraries, the following files are generated which are details further below:
 - files with a name starting with `send-counters` and `recv-counters`; files providing the alltoallv counts as defined by the MPI standard,
 - files prefixed with `alltoallv_locations`, which stores data about the location of the ranks involved in alltoallv operations,
-- files prefixed with `alltoallv_late_arrival`, which stores time data about ranks arrival into the alltoallv operations,
+- files prefixed with `alltoallv_late_arrival`, which stores time data about ranks arrival into the alltoallv operations (**not available at the moment**),
 - files prefixed with `alltoallv_execution_times`, which stores the time each rank spent in the alltoallv operations,
 - files prefixed with `alltoallv_backtrace`, which stores information about the context in which the application is invoking alltoallv.
 
@@ -161,6 +161,8 @@ The content of the count files is predictable and organized as follow:
 - And finally the raw counts which are delimited by `BEGINNING DATA` and `END DATA`. Each line of the raw counts represents the count for ranks. Please refer to the MPI standard to fully understand the semantic of counts. `Rank(s) 0, 2: 1 2 3 4` means that ranks 0 and 2 have the following counts: 1 for rank 0, 2 for rank 1, 3 for rank 2 and 4 for rank 3.
 
 #### Time file: alltoallv_late_arrival* and alltoallv_execution_times* files
+
+** WARNING!! The gathering of late arrival data has been disabled but of disagreements over the methodology to gather the data. **
 
 The first line is the version of the data format. This is used for internal purposes to ensure that the post-mortem analysis tool supports that format. 
 
