@@ -162,6 +162,8 @@ The content of the count files is predictable and organized as follow:
 
 #### Time file: alltoallv_late_arrival* and alltoallv_execution_times* files
 
+** WARNING!! The gathering of late arrival data has been disabled but of disagreements over the methodology to gather the data. **
+
 The first line is the version of the data format. This is used for internal purposes to ensure that the post-mortem analysis tool supports that format. 
 
 Then the file has a series of timing data per call. Each call data starts with `# Call` with the number of the call following by the ordered list of timing data per rank.
