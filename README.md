@@ -9,7 +9,7 @@ compiles both the shared libraries for the creation of traces and the tools for 
 analysis. Note that the shared library is implemented in C, while the tools are
 implemented in Go. It is therefore not unusual to only compile the shared library on
 the execution platform and compile the analysis tool on the system where post-mortem
-analysis is performed. To only compile the shared libraries only, execute `make alltoallv`;
+analysis is performed. To only compile the shared libraries only, execute `make libraries`;
 to compile the post-mortem analysis tools, execute `make tool`.
 
 # Creation of the profiling trace
