@@ -38,6 +38,7 @@ static uint64_t dump_call_data = -1;
 
 static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
 static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
+static int _inject_delay = 0;
 
 static int do_send_buffs = 0; // Specify that the focus is on send buffers rather than recv buffers
 static int max_call = -1;	  // Specify when to stop when checking content of buffers
@@ -767,6 +768,11 @@ int _mpi_init(int *argc, char ***argv)
 #if ENABLE_LATE_ARRIVAL_TIMING
 	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
 	assert(late_arrival_timings);
+	char *inject_delay = getenv("COLLECTIVE_PROFILER_INJECT_DELAY");
+	if (inject_delay != NULL)
+	{
+		_inject_delay = atoi(inject_delay);
+	}
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
 #if ENABLE_VALIDATION
@@ -1094,6 +1100,10 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 		}
 
 #if ENABLE_LATE_ARRIVAL_TIMING
+		if (_inject_delay == 1 && my_comm_rank == 0)
+		{
+			sleep(1);
+		}
 		double t_barrier_start = MPI_Wtime();
 		PMPI_Barrier(comm);
 		double t_barrier_end = MPI_Wtime();
