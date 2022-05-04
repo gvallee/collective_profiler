@@ -4,7 +4,7 @@
 # See LICENSE.txt for license information
 #
 
-all: libraries examples tools tests doc
+all: libraries examples tools tests doc validation_libs
 
 .PHONY: libraries alltoallv alltoall examples tools check tests check_gnuplot
 
@@ -58,6 +58,11 @@ clean:
 	cd tools && make clean
 	cd tests && make clean
 	cd doc && make clean
+	cd validation/late_arrival && make clean
+
+validation_libs:
+	# Build the lib for late arrival validation
+	cd validation/late_arrival; make
 
 validate: clean check_gnuplot all check
 	# webui validates the profiler's capabilities, postmortem analysis as well as the webui
