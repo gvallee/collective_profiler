@@ -162,8 +162,6 @@ The content of the count files is predictable and organized as follow:
 
 #### Time file: alltoallv_late_arrival* and alltoallv_execution_times* files
 
-** WARNING!! The gathering of late arrival data has been disabled but of disagreements over the methodology to gather the data. **
-
 The first line is the version of the data format. This is used for internal purposes to ensure that the post-mortem analysis tool supports that format. 
 
 Then the file has a series of timing data per call. Each call data starts with `# Call` with the number of the call following by the ordered list of timing data per rank.
@@ -171,6 +169,27 @@ Then the file has a series of timing data per call. Each call data starts with `
 All timings are in seconds.
 
 The late arrival timings are gathered by artificially adding a `MPI_Barrier` operation on the communicator right before starting the `MPI_Alltoallv` operations, using PMPI. The late arrival time is the time spent in the barrier. The longer the time, the earlier the rank arrived; the shorter the time, the later the rank arrived. The reported times cannot therefore be extrapolated to any real application execution time since this is done for every single alltoallv operation. However, it gives a general idea of the imbalance between ranks when initiating a new alltoallv operation,, especially since most systems do not have a fine-grain clock synchronization capability. As a result, this method is a compromise between accuracy and complexity of the implementation. We performed a study about the accuracy of the measurements between consecutive application profiles and we discovered some degree of variability, which are difficult to address without introducing complex mechanisms. So raw timings should not be used to draw any conclusions, only trends should be used. Hardware support would be a useful feature to improve measurement accuracy and report data that could be useful to analyse in the context of the application's execution without profiling.
+
+It is possible to have a rough validation of the late arrival timing mechanism by using the `COLLECTIVE_PROFILER_INJECT_DELAY` environment variable, which triggers the injection of 1 second delay on rank 0.
+The assumptions are:
+- the profiler is fully functional,
+- you understand the behavior of the alltoallv application you will be using with this feature, otherwise, it is not possible
+to analyse the results since it would not be possible to know what to expect.
+For example, by using a tightly coupled alltoallv code, using 8 ranks and setting the environment variables, the following late arrival result is generated:
+```
+FORMAT_VERSION: 9
+
+# Call 0
+0.000011
+1.000095
+1.000084
+1.000102
+1.000086
+1.000097
+1.000083
+1.000105
+```
+This result is expected: all ranks except rank 0 are spending roughly 1 second in the barrier that is included to calculate late arrivals. In other words, rank 0 arrives roughly 1 second after all other ranks.
 
 #### Location files
 

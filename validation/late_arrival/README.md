@@ -12,5 +12,9 @@ We do not care about Fortran, it is only supporting C.
 
 Like for any PMPI code, use `LD_PRELOAD`. For example:
 ```
-LD_PRELOAD=/home/gvallee/Projects/collective_profiler/validation/late_arrival/lib_pmpi_late_arrival.so mpirun -np 2 examples/alltoallv_c
+LD_PRELOAD=/home/user1/collective_profiler/validation/late_arrival/lib_pmpi_late_arrival.so mpirun -np 2 examples/alltoallv_c
 ```
+
+# Additional note
+
+The library to get late arrival data now also includes a mechanism to inject a delay on rank 0. Please refer to the top README.md file for more details.
