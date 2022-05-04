@@ -124,7 +124,7 @@ COUNTSFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_co
 MAPFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_location.so"
 BACKTRACEFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_backtrace.so"
 A2ATIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_exec_timings.so"
-#LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
+LATETIMINGFLAGS="/path/to/profiler/code/alltoall_profiling/alltoallv/liballtoallv_late_arrival.so"
 
 MPIFLAGS="--mca pml ucx -x UCX_NET_DEVICES=mlx5_0:1 "
 MPIFLAGS+="-x A2A_PROFILING_OUTPUT_DIR "
@@ -134,7 +134,7 @@ mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$COUN
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$MAPFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$BACKTRACEFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$A2ATIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
-#mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATETIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
+mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$LATETIMINGFLAGS" /path/to/osu/install/osu-5.6.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoallv -f
 ``` 
 
 ### Generated data
@@ -142,7 +142,7 @@ mpirun -np 1024 -map-by ppr:32:node -bind-to core $MPIFLAGS -x LD_PRELOAD="$A2AT
 When using the default shared libraries, the following files are generated which are details further below:
 - files with a name starting with `send-counters` and `recv-counters`; files providing the alltoallv counts as defined by the MPI standard,
 - files prefixed with `alltoallv_locations`, which stores data about the location of the ranks involved in alltoallv operations,
-- files prefixed with `alltoallv_late_arrival`, which stores time data about ranks arrival into the alltoallv operations (**not available at the moment**),
+- files prefixed with `alltoallv_late_arrival`, which stores time data about ranks arrival into the alltoallv operations,
 - files prefixed with `alltoallv_execution_times`, which stores the time each rank spent in the alltoallv operations,
 - files prefixed with `alltoallv_backtrace`, which stores information about the context in which the application is invoking alltoallv.
 
