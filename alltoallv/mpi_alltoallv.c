@@ -33,8 +33,8 @@ static uint64_t avCalls = 0;	   // Total number of alltoallv calls that we went 
 static uint64_t avCallsLogged = 0; // Total number of alltoallv calls for which we gathered data
 static uint64_t avCallStart = -1;  // Number of alltoallv call during which we started to gather data
 static uint64_t dump_call_data = -1;
-//char myhostname[HOSTNAME_LEN];
-//char *hostnames = NULL; // Only used by rank0
+// char myhostname[HOSTNAME_LEN];
+// char *hostnames = NULL; // Only used by rank0
 
 static uint64_t _num_call_start_profiling = NUM_CALL_START_PROFILING;
 static uint64_t _limit_av_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
@@ -801,6 +801,87 @@ int _mpi_init(int *argc, char ***argv)
 	return ret;
 }
 
+int _mpi_init_thread(int *argc, char ***argv, int required, int *provided)
+{
+	int ret;
+	char buf[200];
+
+	char *num_call_envvar = getenv(NUM_CALL_START_PROFILING_ENVVAR);
+	if (num_call_envvar != NULL)
+	{
+		_num_call_start_profiling = atoi(num_call_envvar);
+	}
+
+	char *limit_a2a_calls = getenv(LIMIT_ALLTOALLV_CALLS_ENVVAR);
+	if (limit_a2a_calls != NULL)
+	{
+		_limit_av_calls = atoi(limit_a2a_calls);
+	}
+
+	ret = PMPI_Init_thread(argc, argv, required, provided);
+
+	PMPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	PMPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+	// We do not know what rank will gather alltoallv data since alltoallv can
+	// be called on any communicator
+	int jobid = get_job_id();
+	logger_config_t alltoallv_logger_cfg;
+	alltoallv_logger_cfg.get_full_filename = &alltoallv_get_full_filename;
+	alltoallv_logger_cfg.collective_name = "Alltoallv";
+	alltoallv_logger_cfg.limit_number_calls = DEFAULT_LIMIT_ALLTOALLV_CALLS;
+	logger = logger_init(jobid, world_rank, world_size, &alltoallv_logger_cfg);
+	assert(logger);
+
+	// Allocate buffers reused between alltoallv calls
+	// Note the buffer may be used on a communicator that is not comm_world
+	// but in any case, it will be smaller or of the same size than comm_world.
+	// So we allocate the biggest buffers possible but reuse them during the
+	// entire execution of the application.
+	sbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
+	assert(sbuf);
+	rbuf = (int *)malloc(world_size * world_size * (sizeof(int)));
+	assert(rbuf);
+#if ENABLE_EXEC_TIMING
+	op_exec_times = (double *)malloc(world_size * sizeof(double));
+	assert(op_exec_times);
+#endif // ENABLE_EXEC_TIMING
+#if ENABLE_LATE_ARRIVAL_TIMING
+	late_arrival_timings = (double *)malloc(world_size * sizeof(double));
+	assert(late_arrival_timings);
+	char *inject_delay = getenv("COLLECTIVE_PROFILER_INJECT_DELAY");
+	if (inject_delay != NULL)
+	{
+		_inject_delay = atoi(inject_delay);
+	}
+#endif // ENABLE_LATE_ARRIVAL_TIMING
+
+#if ENABLE_VALIDATION
+	srand((unsigned)getpid());
+#endif
+
+	char *buff_type = getenv(COLLECTIVE_PROFILER_CHECK_SEND_BUFF_ENVVAR);
+	if (buff_type != NULL)
+	{
+		do_send_buffs = atoi(buff_type);
+	}
+
+	char *max_call_num_envvar = getenv(COLLECTIVE_PROFILER_MAX_CALL_CHECK_BUFF_CONTENT_ENVVAR);
+	if (max_call_num_envvar != NULL)
+	{
+		max_call = atoi(max_call_num_envvar);
+	}
+
+	char *dump_call_data_envvar = getenv("DUMP_CALL_DATA");
+	if (dump_call_data_envvar != NULL)
+		dump_call_data = atoi(dump_call_data_envvar);
+
+	// Make sure we do not create an articial imbalance between ranks.
+	PMPI_Barrier(MPI_COMM_WORLD);
+
+	return ret;
+}
+
 int MPI_Finalize()
 {
 	_commit_data();
@@ -808,9 +889,29 @@ int MPI_Finalize()
 	return PMPI_Finalize();
 }
 
+int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
+{
+	return _mpi_init_thread(argc, argv, required, provided);
+}
+
 int MPI_Init(int *argc, char ***argv)
 {
 	return _mpi_init(argc, argv);
+}
+
+int mpi_init_thread_(MPI_Fint *required, MPI_Fint *provided, MPI_Fint *ierr)
+{
+	int c_ierr;
+    int argc = 0;
+    char** argv = NULL;
+	int c_provided;
+
+	c_ierr = _mpi_init_thread(&argc, &argv, OMPI_FINT_2_INT(*required), &c_provided);
+	if (NULL != ierr)
+		*ierr = OMPI_INT_2_FINT(c_ierr);
+	if (MPI_SUCCESS == c_ierr) {
+        *provided = OMPI_INT_2_FINT(c_provided);
+    }
 }
 
 int mpi_init_(MPI_Fint *ierr)
