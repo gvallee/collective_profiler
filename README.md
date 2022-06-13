@@ -51,7 +51,7 @@ Using these two identifiers makes it easier to handle multiple traces from multi
 applications and/or platforms.
 - Gather timings: use the `liballtoallv_exec_timings.so` and `liballtoallv_late_arrival.so` shared libraries. These generate
 by default multiple files based on the following naming scheme:
- `<COLLECTIVE>_late_arrivals_timings.rank<RANK>_comm<COMMID>_job<JOBID>.md` (**not currently available**) and `<COLLECTIVE>_execution_times.rank<RANK>_comm<COMMID>_job<JOBID>.md`. 
+ `<COLLECTIVE>_late_arrivals_timings.rank<RANK>_comm<COMMID>_job<JOBID>.md` and `<COLLECTIVE>_execution_times.rank<RANK>_comm<COMMID>_job<JOBID>.md`. 
 - Gather backtraces: use the `liballtoallv_backtrace.so` shared library. This generates
 files `backtrace_rank<RANK>_call<ID>.md`, *one per alltoallv call*, all of them stored in a `backtraces`
 directory. In other words, this generates one file per alltoallv call, where `<ID>` is the
