@@ -373,6 +373,7 @@ save_buf_content(void *buf, const int *counts, const int *displs, MPI_Datatype t
 }
 
 int store_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt);
+int store_call_data_single_count(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int count, MPI_Datatype dt);
 int read_and_compare_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int counts[], int displs[], MPI_Datatype dt, bool check);
 int release_buffcontent_loggers();
 

@@ -14,7 +14,8 @@ all: alltoallv_c                 \
 	alltoall_simple_c            \
 	alltoall_bigcounts_c         \
 	alltoall_multicomms_c        \
-	alltoall_dt_c
+	alltoall_dt_c				 \
+	allgatherv_c
 
 alltoall_demo: alltoall_demo.c
 	mpicc -g alltoall_demo.c -o alltoall_demo
@@ -49,6 +50,9 @@ alltoallv_bigcounts_c: alltoallv_bigcounts.c
 alltoallv_multi_backtraces_c: alltoallv_multi_backtraces.c collective_profiler_example_utils.h
 	mpicc -g alltoallv_multi_backtraces.c -o alltoallv_multi_backtraces_c
 
+allgatherv_c: allgatherv.c
+	mpicc -g allgatherv.c -o allgatherv_c
+
 clean:
 	@rm -f alltoall_demo
 	@rm -f alltoall_simple_c
@@ -61,3 +65,4 @@ clean:
 	@rm -f alltoallv_f
 	@rm -f alltoallv_bigcounts_c
 	@rm -f alltoallv_multi_backtraces_c
+	@rm -f allgatherv_c

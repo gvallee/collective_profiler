@@ -119,7 +119,8 @@ int store_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_ran
                                     world_rank,
                                     comm_rank,
                                     &buffcontent_logger);
-    if (rc) {
+    if (rc)
+    {
         fprintf(stderr, "Impossible to get logger\n");
         return rc;
     }
@@ -151,8 +152,48 @@ int store_call_data(char *collective_name, int ctxt, MPI_Comm comm, int comm_ran
         fprintf(buffcontent_logger->ctxt[ctxt].fd, "\n");
     }
     fprintf(buffcontent_logger->ctxt[ctxt].fd, "\n");
-    //fflush(buffcontent_logger->ctxt[ctxt].fd);
+    // fflush(buffcontent_logger->ctxt[ctxt].fd);
 
+    return 0;
+}
+
+int store_call_data_single_count(char *collective_name, int ctxt, MPI_Comm comm, int comm_rank, int world_rank, uint64_t n_call, void *buf, int count, MPI_Datatype dt)
+{
+    buffcontent_logger_t *buffcontent_logger = NULL;
+    int rc = get_buffcontent_logger(collective_name,
+                                    ctxt,
+                                    "w",
+                                    comm,
+                                    world_rank,
+                                    comm_rank,
+                                    &buffcontent_logger);
+    if (rc)
+    {
+        fprintf(stderr, "Impossible to get logger\n");
+        return rc;
+    }
+    assert(buffcontent_logger);
+    DT_CHECK(dt);
+    int dtsize;
+    PMPI_Type_size(dt, &dtsize);
+
+    int i;
+    int comm_size;
+    PMPI_Comm_size(comm, &comm_size);
+    fprintf(buffcontent_logger->ctxt[ctxt].fd, "Call %" PRIu64 "\n", n_call);
+    if (count != 0)
+    {
+        size_t data_size = count * dtsize;
+        size_t j;
+        unsigned char sha256_buff[32];
+        SHA256(buf, data_size, sha256_buff);
+        for (j = 0; j < 32; j++)
+        {
+            fprintf(buffcontent_logger->ctxt[ctxt].fd, "%02x", sha256_buff[j]);
+        }
+        fprintf(buffcontent_logger->ctxt[ctxt].fd, "\n");
+    }
+    fprintf(buffcontent_logger->ctxt[ctxt].fd, "\n");
     return 0;
 }
 
