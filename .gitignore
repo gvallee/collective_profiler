@@ -69,6 +69,7 @@ src/common/compress_array_test
 src/common/grouping_test
 src/common/patterns_detection_test
 src/common/compress_array_test
+examples/allgatherv_c
 examples/alltoallv_c
 examples/alltoallv_f
 examples/alltoallv_multicomms_c
