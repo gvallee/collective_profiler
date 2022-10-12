@@ -409,14 +409,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
 
             _log_data(logger, startcall, endcall,
                       SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->sendtype_size);
+                      srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_send_vec_len, srCountPtr->sendtype_size);
 
             DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
                       RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
-                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_vec_len, srCountPtr->recvtype_size);
+                      srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_recv_vec_len, srCountPtr->recvtype_size);
 
             DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
             srCountPtr = srCountPtr->next;
