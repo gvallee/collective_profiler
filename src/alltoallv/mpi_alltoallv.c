@@ -1348,7 +1348,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
-			fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", avCalls);
+			DEBUG_ALLTOALLV_PROFILING("Saving data of call #%" PRIu64 ".\n", avCalls);
 			int s_dt_size, r_dt_size;
 			PMPI_Type_size(sendtype, &s_dt_size);
 			PMPI_Type_size(recvtype, &r_dt_size);
@@ -1360,7 +1360,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
-			fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", avCalls);
+			DEBUG_ALLTOALLV_PROFILING("Saving data of call #%" PRIu64 ".\n", avCalls);
 			int s_dt_size, r_dt_size;
 			PMPI_Type_size(sendtype, &s_dt_size);
 			PMPI_Type_size(recvtype, &r_dt_size);
