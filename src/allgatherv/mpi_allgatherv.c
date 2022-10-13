@@ -760,7 +760,7 @@ int _mpi_init(int *argc, char ***argv)
     int jobid = get_job_id();
     logger_config_t allgatherv_logger_cfg;
     allgatherv_logger_cfg.get_full_filename = &allgatherv_get_full_filename;
-    allgatherv_logger_cfg.collective_name = "Alltoallv";
+    allgatherv_logger_cfg.collective_name = "Allgatherv";
     allgatherv_logger_cfg.limit_number_calls = DEFAULT_LIMIT_ALLGATHERV_CALLS;
     logger = logger_init(jobid, world_rank, world_size, &allgatherv_logger_cfg);
     assert(logger);
@@ -1398,7 +1398,7 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 #endif
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
-            fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", allgathervCalls);
+            DEBUG_ALLGATHERV_PROFILING("Saving data of call #%" PRIu64 ".\n", allgathervCalls);
             int s_dt_size, r_dt_size;
             PMPI_Type_size(sendtype, &s_dt_size);
             PMPI_Type_size(recvtype, &r_dt_size);
@@ -1410,7 +1410,7 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 #endif // ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && !ENABLE_COMPACT_FORMAT)
-            fprintf(stderr, "Saving data of call #%" PRIu64 ".\n", allgathervCalls);
+            DEBUG_ALLGATHERV_PROFILING("Saving data of call #%" PRIu64 ".\n", allgathervCalls);
             int s_dt_size, r_dt_size;
             PMPI_Type_size(sendtype, &s_dt_size);
             PMPI_Type_size(recvtype, &r_dt_size);
