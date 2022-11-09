@@ -1490,7 +1490,7 @@ int MPI_Allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendty
     return _mpi_allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 }
 
-void mpi_allgatherv_(void *sendbuf, MPI_Fint sendcount, MPI_Fint *sendtype,
+void mpi_allgatherv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sendtype,
                      void *recvbuf, MPI_Fint *recvcount, MPI_Fint *rdispls, MPI_Fint *recvtype,
                      MPI_Fint *comm, MPI_Fint *ierr)
 {
@@ -1507,7 +1507,7 @@ void mpi_allgatherv_(void *sendbuf, MPI_Fint sendcount, MPI_Fint *sendtype,
     recvbuf = (char *)OMPI_F2C_BOTTOM(recvbuf);
 
     c_ierr = MPI_Allgatherv(sendbuf,
-                            OMPI_FINT_2_INT(sendcount),
+                            OMPI_FINT_2_INT(*sendcount),
                             c_sendtype,
                             recvbuf,
                             (int *)OMPI_FINT_2_INT(recvcount),
