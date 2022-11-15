@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -10,7 +10,7 @@
 #ifndef _COLLECTIVE_PROFILER_COMMON_TYPES_H
 #define _COLLECTIVE_PROFILER_COMMON_TYPES_H
 
-// Compact way to save send/recv counts of ranks within a single alltoallv call
+// Compact way to save send/recv counts of ranks within a single MPI collective
 typedef struct counts_data
 {
     int *counters; // the actual counters (i.e., send/recv counts)
@@ -41,6 +41,15 @@ typedef struct avSRCountNode
 } avSRCountNode_t;
 
 typedef avSRCountNode_t SRCountNode_t; 
+
+// Compact way to save send/recv displs of ranks within a single MPI collective
+typedef struct displs_data
+{
+    int *displs; // the actual counters (i.e., send/recv counts)
+    int num_ranks; // The number of ranks having that series of displacements
+    int max_ranks; // The current size of the ranks array
+    int *ranks;    // The list of ranks having that series of displacements
+} displs_data_t;
 
 typedef struct avTimingsNode
 {
