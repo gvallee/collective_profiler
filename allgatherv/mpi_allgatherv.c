@@ -833,22 +833,6 @@ static int _release_profiling_resources()
     }
     op_timing_exec_tail = NULL;
 
-#if 0
-		fprintf(f, "# Hostnames\n");
-                int i;
-		for (i = 0; i < world_size; i++)
-		{
-			char h[HOSTNAME_LEN];
-			int offset = HOSTNAME_LEN * i;
-                        int j;
-			for (j = 0; j < HOSTNAME_LEN; j++)
-			{
-				h[j] = hostnames[offset + j];
-			}
-			fprintf(f, "Rank %d: %s\n", i, h);
-		}
-#endif
-
     _release_pattern_resources();
 
     // Free all the memory allocated during MPI_Init() for profiling purposes

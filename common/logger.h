@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -51,6 +51,10 @@ typedef struct logger
     FILE *sendcounters_fh;     // File handle used to save send counters.
     char *recvcounts_filename; // Path of the receive counts profile.
     FILE *recvcounters_fh;     // File handle used to save recv counters.
+    char *senddispls_filename; // Path of the send displacements profile.
+    FILE *senddispls_fh;       // File handle used to save send displacements.
+    char *recvdispls_filename; // Path of the receive displacements profile.
+    FILE *recvdispls_fh;       // File handle used to save recv displacements.
     char *sums_filename;       // Path of the sums profiles.
     FILE *sums_fh;             // File handle used to save data related to amount of data exchanged.
     char *timing_filename;     // Path of the timing profile.

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
 # See LICENSE.txt for license information
 #
 # ******************************************************************************************************
@@ -11,11 +11,11 @@ include ../makefile_common.mk
 
 all: liballtoall.so liballtoall_location.so liballtoall_counts.so liballtoall_late_arrival.so liballtoall_exec_timings.so liballtoall_backtrace.so
 
-liballtoall_counts.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c alltoall_profiler.h
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts.so
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 -DASSUME_COUNTS_EQUAL_ALL_RANKS=0 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_unequal.so
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=1 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_compact.so
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=1 -DENABLE_RAW_DATA=1 -DASSUME_COUNTS_EQUAL_ALL_RANKS=0 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_unequal_compact.so
+liballtoall_counts.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c alltoall_profiler.h
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o  ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 -DASSUME_COUNTS_EQUAL_ALL_RANKS=0 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o  ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_unequal.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=1 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o  ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_compact.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=1 -DENABLE_RAW_DATA=1 -DASSUME_COUNTS_EQUAL_ALL_RANKS=0 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o  ../common/logger_counts.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_counts_unequal_compact.so
 
 liballtoall_exec_timings.so: ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_alltoall.c alltoall_profiler.h
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_EXEC_TIMING=1 ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_alltoall.c -o liballtoall_exec_timings.so

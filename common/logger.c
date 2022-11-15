@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -18,23 +18,36 @@
 #include "location.h"
 #include "buff_content.h"
 
+extern int log_counts(logger_t *logger,
+                      FILE *fh,
+                      uint64_t startcall,
+                      uint64_t endcall,
+                      int ctx,
+                      uint64_t count,
+                      uint64_t *calls,
+                      uint64_t num_counts_data,
+                      counts_data_t **counters,
+                      int size,
+                      int rank_vec_len,
+                      int type_size);
+
 char *get_output_dir()
 {
     char *dirpath = NULL;
     if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		dirpath = getenv(OUTPUT_DIR_ENVVAR);
-		// if the output directory does not exist, we create it
-		DIR *dir = opendir(dirpath);
-		if (dir == NULL && errno == ENOENT)
-		{
-			// The directory does not exist, we try to create it.
+    {
+        dirpath = getenv(OUTPUT_DIR_ENVVAR);
+        // if the output directory does not exist, we create it
+        DIR *dir = opendir(dirpath);
+        if (dir == NULL && errno == ENOENT)
+        {
+            // The directory does not exist, we try to create it.
             // We do not check the return code because this is best
             // effort the value of the environment variable is set
             // by the user.
-			mkdir(dirpath, 0744);
-		}
-	}
+            mkdir(dirpath, 0744);
+        }
+    }
     return dirpath;
 }
 
@@ -82,29 +95,6 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
     {
         fprintf(logger->sums_fh, "%d\t%d\n", i, sums[i]);
     }
-}
-
-int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
-{
-    assert(data);
-    DEBUG_LOGGER("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
-    int i, j;
-    for (i = 0; i < data_size; i++)
-    {
-        assert(data[i]);
-        DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
-        for (j = 0; j < data[i]->num_ranks; j++)
-        {
-            assert(data[i]->ranks);
-            DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
-            if (rank == data[i]->ranks[j])
-            {
-                return data[i]->counters;
-            }
-        }
-    }
-    DEBUG_LOGGER("Could not find data for rank %d\n", rank);
-    return NULL;
 }
 
 static void _log_data(logger_t *logger,
@@ -159,62 +149,9 @@ static void _log_data(logger_t *logger,
     assert(logger->f);
 
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
-    switch (ctx)
-    {
-    case RECV_CTX:
-        if (logger->recvcounters_fh == NULL)
-        {
-            logger->recvcounts_filename = logger->get_full_filename(RECV_CTX, "counters", logger->jobid, logger->rank);
-            logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
-        }
-        fh = logger->recvcounters_fh;
-        break;
-
-    case SEND_CTX:
-        if (logger->sendcounters_fh == NULL)
-        {
-            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->jobid, logger->rank);
-            logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
-        }
-        fh = logger->sendcounters_fh;
-        break;
-
-    default:
-        fh = logger->f;
-        break;
-    }
-
-    assert(fh);
-    fprintf(fh, "# Raw counters\n\n");
-    fprintf(fh, "Number of ranks: %d\n", size);
-    fprintf(fh, "Datatype size: %d\n", type_size);
-    fprintf(fh, "%s calls %"PRIu64"-%"PRIu64"\n", logger->collective_name, startcall, endcall - 1); // endcall is one ahead so we substract 1
-    char *calls_str = compress_uint64_array(calls, count, 1);
-    fprintf(fh, "Count: %"PRIu64" calls - %s\n", count, calls_str);
-    fprintf(fh, "\n\nBEGINNING DATA\n");
-    DEBUG_LOGGER_NOARGS("Saving counts...\n");
-    // Save the compressed version of the data
-    int count_data_number, n;
-    for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
-    {
-        DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
-
-        char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks, 1);
-        assert(str);
-        fprintf(fh, "Rank(s) %s: ", str);
-        free(str);
-        str = NULL;
-
-        for (n = 0; n < rank_vec_len; n++)
-        {
-            fprintf(fh, "%d ", (counters[count_data_number])->counters[n]);
-        }
-        fprintf(fh, "\n");
-    }
-    DEBUG_LOGGER_NOARGS("Counts saved\n");
-    fprintf(fh, "END DATA\n");
+    log_counts(logger, fh, startcall, endcall, ctx, count, calls, num_counts_data, counters, size, rank_vec_len, type_size);
 #endif
-//TO DO check the rest of this function for alltoallv to alltoall conversion
+// TO DO check the rest of this function for alltoallv to alltoall conversion
 #if ENABLE_PER_RANK_STATS || ENABLE_MSG_SIZE_ANALYSIS
     // Go through the data to gather some stats
     int rank;
@@ -376,6 +313,7 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     }
     fprintf(logger->timing_fh, "\n");
 }
+
 // called with log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
 static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
 {
@@ -582,7 +520,7 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
                 logger->collective_name,
                 avCalls,
                 logger->limit_number_calls);
-        //fprintf(logger->f, "%s call range: [%d-%d]\n\n", logger->collective_name, avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
+        // fprintf(logger->f, "%s call range: [%d-%d]\n\n", logger->collective_name, avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
         log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
     }
 }
