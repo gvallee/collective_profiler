@@ -4,6 +4,12 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
+// This file gathers all the code required to actually handle profile data for collective displacements.
+// Note that a logger is compiled specifically for the context. Practically, it means that logger.c
+// is compiled with specific arguments to generate an object file specific for the logging of displacements.
+// That specific object must be used in conjunction with the object file generated from this file,
+// creating a fully functional logger for collective displacements.
+
 #include <sys/stat.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -14,7 +20,7 @@
 #include "grouping.h"
 #include "format.h"
 
-int log_counts(logger_t *logger,
+int log_displs(logger_t *logger,
                FILE *fh,
                uint64_t startcall,
                uint64_t endcall,
@@ -79,7 +85,7 @@ int log_counts(logger_t *logger,
         }
         fprintf(fh, "\n");
     }
-    DEBUG_LOGGER_NOARGS("Counts saved\n");
+    DEBUG_LOGGER_NOARGS("Displacements saved\n");
     fprintf(fh, "END DATA\n");
     return 0;
 }
