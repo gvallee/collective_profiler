@@ -68,6 +68,11 @@ extern int mpi_fortran_bottom_;
 static int _finalize_profiling();
 static int _commit_data();
 
+static int *lookupRankRecvDispls(SRDisplNode_t *call_data, int rank)
+{
+    return lookup_rank_displs(call_data->send_data_size, call_data->send_data, rank);
+}
+
 static int *lookupRankSendCounters(SRCountNode_t *call_data, int rank)
 {
     return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
@@ -121,6 +126,35 @@ static bool same_call_counters(SRCountNode_t *call_data, int *send_counts, int *
     return true;
 }
 
+// Compare if two arrays are identical.
+static bool same_call_displs(SRDisplNode_t *call_data, int *displs, int size)
+{
+    int num = 0;
+    int rank, displ_num;
+
+    DEBUG_ALLGATHERV_PROFILING("Comparing data with existing data...\n");
+
+    // Then the receive counts
+    DEBUG_ALLGATHERV_PROFILING("-> Comparing recv displacements...\n");
+    num = 0;
+    for (rank = 0; rank < size; rank++)
+    {
+        int *_displs = lookupRankRecvDispls(call_data, rank);
+        for (displ_num = 0; displ_num < size; displ_num++)
+        {
+            if (_displs[displ_num] != displs[num])
+            {
+                DEBUG_ALLGATHERV_PROFILING("Data differs\n");
+                return false;
+            }
+            num++;
+        }
+    }
+
+    DEBUG_ALLGATHERV_PROFILING("Data is the same\n");
+    return true;
+}
+
 static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, int *count)
 {
     int i, j;
@@ -129,6 +163,28 @@ static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, in
         for (j = 0; j < size; j++)
         {
             if (count[j] != list[i]->counters[j])
+            {
+                break;
+            }
+        }
+
+        if (j == size)
+        {
+            return list[i];
+        }
+    }
+
+    return NULL;
+}
+
+static displs_data_t *lookupDispls(int size, int num, displs_data_t **list, int *displs)
+{
+    int i, j;
+    for (i = 0; i < num; i++)
+    {
+        for (j = 0; j < size; j++)
+        {
+            if (displs[j] != list[i]->displs[j])
             {
                 break;
             }
@@ -316,6 +372,12 @@ static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_co
 #endif
 }
 
+static displs_data_t *lookupRecvDispls(int *counts, SRDisplNode_t *call_data)
+{
+    int num = 1;
+    return lookupDispls(num, call_data->recv_data_size, call_data->recv_data, counts);
+}
+
 static counts_data_t *lookupSendCounters(int *counts, SRCountNode_t *call_data)
 {
     int num_counts = 1;
@@ -448,9 +510,184 @@ static int compareAndSaveRecvCounters(int rank, int *counts, SRCountNode_t *call
     return 0;
 }
 
+static int add_rank_to_displs_data(int rank, displs_data_t *displs_data)
+{
+    if (displs_data->num_ranks >= displs_data->max_ranks)
+    {
+        displs_data->max_ranks = displs_data->num_ranks + MAX_TRACKED_RANKS;
+        displs_data->ranks = (int *)realloc(displs_data->ranks, displs_data->max_ranks * sizeof(int));
+        assert(displs_data->ranks);
+    }
+
+    displs_data->ranks[displs_data->num_ranks] = rank;
+    displs_data->num_ranks++;
+    return 0;
+}
+
+static displs_data_t *new_displ_data(int size, int rank, int *displs)
+{
+    int i;
+    displs_data_t *new_data = (displs_data_t *)malloc(sizeof(displs_data_t));
+    assert(new_data);
+    new_data->displs = (int *)malloc(size * sizeof(int));
+    assert(new_data->displs);
+    new_data->num_ranks = 0;
+    new_data->max_ranks = MAX_TRACKED_RANKS;
+    new_data->ranks = (int *)malloc(new_data->max_ranks * sizeof(int));
+    assert(new_data->ranks);
+
+    for (i = 0; i < size; i++)
+    {
+        new_data->displs[i] = displs[i];
+    }
+    new_data->ranks[new_data->num_ranks] = rank;
+    new_data->num_ranks++;
+
+    return new_data;
+}
+
+static int add_new_recv_displs_to_displs_data(SRDisplNode_t *call_data, int rank, int *displs)
+{
+    displs_data_t *new_data = new_displ_data(call_data->size, rank, displs);
+    call_data->recv_data[call_data->recv_data_size] = new_data;
+    call_data->recv_data_size++;
+
+    return 0;
+}
+
+static int compareAndSaveRecvDispls(int rank, int *displs, SRDisplNode_t *call_data)
+{
+    displs_data_t *ptr = lookupRecvDispls(displs, call_data);
+    if (ptr)
+    {
+        DEBUG_ALLGATHERV_PROFILING("Add recv rank %d to existing displacements data\n", rank);
+        if (add_rank_to_displs_data(rank, ptr))
+        {
+            fprintf(stderr, "[ERROR] unable to add rank displacements\n");
+            return -1;
+        }
+    }
+    else
+    {
+        DEBUG_ALLGATHERV_PROFILING("Add recv new count data for rank %d\n", rank);
+        if (add_new_recv_displs_to_displs_data(call_data, rank, displs))
+        {
+            fprintf(stderr, "[ERROR] unable to add new recv displacements\n");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+// Compare new recv displacement data with existing data.
+// If there is a match, increase the counter. Add new data, otherwise.
+static int insert_displ_data(int *rbuf, int size, int sendtype_size, int recvtype_size)
+{
+    int num = 0;
+    struct SRDisplNode *newNode = NULL;
+    struct SRDisplNode *temp;
+
+    DEBUG_ALLGATHERV_PROFILING("Insert displacement data for a new allgatherv call...\n");
+
+    assert(rbuf);
+    assert(logger);
+
+    temp = displs_head;
+    while (temp != NULL)
+    {
+        if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_displs(temp, rbuf, size))
+        {
+            // New data
+#if DEBUG
+            fprintf(logger->f, "new data: %d\n", size);
+#endif
+            if (temp->next != NULL)
+                temp = temp->next;
+            else
+                break;
+        }
+        else
+        {
+            // Data exist, adding call info to it
+            DEBUG_ALLGATHERV_PROFILING("Displacement data already exists, updating metadata...\n");
+            assert(temp->list_calls);
+            if (temp->count >= temp->max_calls)
+            {
+                temp->max_calls = temp->max_calls * 2;
+                temp->list_calls = (uint64_t *)realloc(temp->list_calls, temp->max_calls * sizeof(uint64_t));
+                assert(temp->list_calls);
+            }
+            temp->list_calls[temp->count] = allgathervCalls; // Note: count starts at 1, not 0
+            temp->count++;
+#if DEBUG
+            fprintf(logger->f, "old data: %d --> %d --- %d\n", size, temp->size, temp->count);
+#endif
+            DEBUG_ALLGATHERV_PROFILING("Metadata successfully updated\n");
+            return 0;
+        }
+    }
+
+#if DEBUG
+    fprintf(logger->f, "no data: %d \n", size);
+#endif
+    newNode = (struct SRDisplNode *)malloc(sizeof(SRDisplNode_t));
+    assert(newNode);
+
+    newNode->size = size;
+    newNode->rank_send_vec_len = 1; // 1 send count per rank
+    newNode->rank_recv_vec_len = size; // communicator size counts per rank
+    newNode->count = 1;
+    newNode->list_calls = (uint64_t *)malloc(DEFAULT_TRACKED_CALLS * sizeof(uint64_t));
+    assert(newNode->list_calls);
+    newNode->max_calls = DEFAULT_TRACKED_CALLS;
+    // We have at most <size> different counts (one per rank) and we just allocate pointers of pointers here, not much space used
+    newNode->send_data = (displs_data_t **)malloc(size * sizeof(displs_data_t));
+    assert(newNode->send_data);
+    newNode->send_data_size = 0;
+    newNode->recv_data = (displs_data_t **)malloc(size * sizeof(displs_data_t));
+    assert(newNode->recv_data);
+    newNode->recv_data_size = 0;
+
+    // We add rank's data one by one so we can compress the data when possible
+    num = 0;
+    int _rank = 0;
+
+    for (_rank = 0; _rank < size; _rank++)
+    {
+        if (compareAndSaveRecvDispls(_rank, &(rbuf[_rank]), newNode))
+        {
+            fprintf(stderr, "[%s:%d][ERROR] unable to add recv displacements\n", __FILE__, __LINE__);
+            return -1;
+        }
+        num++;
+    }
+
+    newNode->sendtype_size = sendtype_size;
+    newNode->recvtype_size = recvtype_size;
+    newNode->list_calls[0] = allgathervCalls;
+    newNode->next = NULL;
+#if DEBUG
+    fprintf(logger->f, "new entry: %d --> %d --- %d\n", size, newNode->size, newNode->count);
+#endif
+
+    DEBUG_ALLGATHERV_PROFILING("Data for the new allgatherv call has %d unique series for recv displs\n", newNode->recv_data_size, newNode->send_data_size);
+
+    if (displs_head == NULL)
+    {
+        displs_head = newNode;
+    }
+    else
+    {
+        temp->next = newNode;
+    }
+
+    return 0;
+}
+
+
 // Compare new send count data with existing data.
-// If there is a match, increas the counter. Add new data, otherwise.
-// recv count was not compared.
+// If there is a match, increase the counter. Add new data, otherwise.
 static int insert_sendrecv_count_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
 {
     int num = 0;
@@ -1141,9 +1378,15 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
         double t_arrival = t_barrier_end - t_barrier_start;
 #endif // ENABLE_LATE_ARRIVAL_TIMING
 
+#if ENABLE_DISPLS
+        // Gather receive displacements
+        sbuf = NULL;
+        PMPI_Gather(rdispls, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+#else
         // Gather a bunch of counters
         PMPI_Gather(&sendcount, 1, MPI_INT, sbuf, 1, MPI_INT, 0, comm);
         PMPI_Gather(recvcounts, comm_size, MPI_INT, rbuf, comm_size, MPI_INT, 0, comm);
+#endif // ENABLE_DISPLS
 
 #if ENABLE_EXEC_TIMING
         PMPI_Gather(&t_op, 1, MPI_DOUBLE, op_exec_times, 1, MPI_DOUBLE, 0, comm);
@@ -1245,6 +1488,18 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 #if DEBUG
             fprintf(logger->f, "Root: global %d - %d   local %d - %d\n", world_size, myrank, size, localrank);
 #endif
+
+#if ENABLE_DISPLS
+            DEBUG_ALLGATHERV_PROFILING("Saving displacement data of call #%" PRIu64 ".\n", allgathervCalls);
+            int s_dt_size, r_dt_size;
+            PMPI_Type_size(sendtype, &s_dt_size);
+            PMPI_Type_size(recvtype, &r_dt_size);
+            if (insert_displ_data(rbuf, comm_size, s_dt_size, r_dt_size))
+            {
+                fprintf(stderr, "[%s:%d][ERROR] unable to insert displacement data\n", __FILE__, __LINE__);
+                PMPI_Abort(MPI_COMM_WORLD, 1);
+            }
+#endif // ENABLE_DISPLS
 
 #if ((ENABLE_RAW_DATA || ENABLE_PER_RANK_STATS || ENABLE_VALIDATION) && ENABLE_COMPACT_FORMAT)
             DEBUG_ALLGATHERV_PROFILING("Saving data of call #%" PRIu64 ".\n", allgathervCalls);

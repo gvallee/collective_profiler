@@ -80,6 +80,7 @@ extern void logger_fini(logger_t **l);
 extern void log_profiling_data(logger_t *logger, uint64_t coll_calls, uint64_t callStart, uint64_t callsLogged, SRCountNode_t *counters_list, SRDisplNode_t *displs_list, avTimingsNode_t *times_list);
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
+extern int *lookup_rank_displs(int data_size, displs_data_t **data, int rank);
 
 /**
  * get_output_dir checks the environment variable used to specify a output directory.

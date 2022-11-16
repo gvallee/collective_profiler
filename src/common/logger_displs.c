@@ -20,6 +20,29 @@
 #include "grouping.h"
 #include "format.h"
 
+int *lookup_rank_displs(int data_size, displs_data_t **data, int rank)
+{
+    assert(data);
+    DEBUG_LOGGER("Looking up displacements for rank %d (%d data elements to scan)\n", rank, data_size);
+    int i, j;
+    for (i = 0; i < data_size; i++)
+    {
+        assert(data[i]);
+        DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
+        for (j = 0; j < data[i]->num_ranks; j++)
+        {
+            assert(data[i]->ranks);
+            DEBUG_LOGGER("Scan previous displacements for rank %d\n", data[i]->ranks[j]);
+            if (rank == data[i]->ranks[j])
+            {
+                return data[i]->displs;
+            }
+        }
+    }
+    DEBUG_LOGGER("Could not find data for rank %d\n", rank);
+    return NULL;
+}
+
 int log_displs(logger_t *logger,
                uint64_t startcall,
                uint64_t endcall,
