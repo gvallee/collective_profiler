@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -18,23 +18,51 @@
 #include "location.h"
 #include "buff_content.h"
 
+#if ENABLE_COUNTS
+extern int log_counts(logger_t *logger,
+                      uint64_t startcall,
+                      uint64_t endcall,
+                      int ctx,
+                      uint64_t count,
+                      uint64_t *calls,
+                      uint64_t num_counts_data,
+                      counts_data_t **counters,
+                      int size,
+                      int rank_vec_len,
+                      int type_size);
+#endif // ENABLE_COUNTS
+
+#if ENABLE_DISPLS
+extern int log_displs(logger_t *logger,
+                      uint64_t startcall,
+                      uint64_t endcall,
+                      int ctx,
+                      uint64_t count,
+                      uint64_t *calls,
+                      uint64_t num_displs_data,
+                      displs_data_t **displs,
+                      int size,
+                      int rank_vec_len,
+                      int type_size);
+#endif // ENABLE_DISPLS
+
 char *get_output_dir()
 {
     char *dirpath = NULL;
     if (getenv(OUTPUT_DIR_ENVVAR))
-	{
-		dirpath = getenv(OUTPUT_DIR_ENVVAR);
-		// if the output directory does not exist, we create it
-		DIR *dir = opendir(dirpath);
-		if (dir == NULL && errno == ENOENT)
-		{
-			// The directory does not exist, we try to create it.
+    {
+        dirpath = getenv(OUTPUT_DIR_ENVVAR);
+        // if the output directory does not exist, we create it
+        DIR *dir = opendir(dirpath);
+        if (dir == NULL && errno == ENOENT)
+        {
+            // The directory does not exist, we try to create it.
             // We do not check the return code because this is best
             // effort the value of the environment variable is set
             // by the user.
-			mkdir(dirpath, 0744);
-		}
-	}
+            mkdir(dirpath, 0744);
+        }
+    }
     return dirpath;
 }
 
@@ -84,44 +112,32 @@ static void log_sums(logger_t *logger, int ctx, int *sums, int size)
     }
 }
 
-int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
-{
-    assert(data);
-    DEBUG_LOGGER("Looking up counts for rank %d (%d data elements to scan)\n", rank, data_size);
-    int i, j;
-    for (i = 0; i < data_size; i++)
-    {
-        assert(data[i]);
-        DEBUG_LOGGER("Pattern %d has %d ranks associated to it\n", i, data[i]->num_ranks);
-        for (j = 0; j < data[i]->num_ranks; j++)
-        {
-            assert(data[i]->ranks);
-            DEBUG_LOGGER("Scan previous counts for rank %d\n", data[i]->ranks[j]);
-            if (rank == data[i]->ranks[j])
-            {
-                return data[i]->counters;
-            }
-        }
-    }
-    DEBUG_LOGGER("Could not find data for rank %d\n", rank);
-    return NULL;
-}
-
+// _log_data is the low-level function to write the data to file.
+// Note that the list can either be a list of counts or displacements based on the
+// context (only one at a time, i.e., it can only be counts or displacements during a given execution)
 static void _log_data(logger_t *logger,
                       uint64_t startcall,
                       uint64_t endcall,
                       int ctx,
                       uint64_t count,
                       uint64_t *calls,
-                      uint64_t num_counts_data,
-                      counts_data_t **counters,
+                      uint64_t num_data,
+                      void **list,
                       int size,
                       int rank_vec_len,
                       int type_size)
 {
     FILE *fh = NULL;
+    counts_data_t **counters = NULL;
+    displs_data_t **displs = NULL;
 
-    if (counters == NULL)
+#if ENABLE_DISPLS
+    displs = (displs_data_t **)list;
+#else
+    counters = (counts_data_t **)list;
+#endif
+
+    if (counters == NULL && displs == NULL)
     {
         // Nothing to log, we exit
         return;
@@ -158,63 +174,15 @@ static void _log_data(logger_t *logger,
     }
     assert(logger->f);
 
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
-    switch (ctx)
-    {
-    case RECV_CTX:
-        if (logger->recvcounters_fh == NULL)
-        {
-            logger->recvcounts_filename = logger->get_full_filename(RECV_CTX, "counters", logger->jobid, logger->rank);
-            logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
-        }
-        fh = logger->recvcounters_fh;
-        break;
+#if ENABLE_COUNTS
+    log_counts(logger, startcall, endcall, ctx, count, calls, num_data, counters, size, rank_vec_len, type_size);
+#endif // ENABLE_COUNTS
 
-    case SEND_CTX:
-        if (logger->sendcounters_fh == NULL)
-        {
-            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->jobid, logger->rank);
-            logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
-        }
-        fh = logger->sendcounters_fh;
-        break;
+#if ENABLE_DISPLS
+    log_displs(logger, startcall, endcall, ctx, count, calls, num_data, displs, size, rank_vec_len, type_size);
+#endif // ENABLE_DISPLS
 
-    default:
-        fh = logger->f;
-        break;
-    }
-
-    assert(fh);
-    fprintf(fh, "# Raw counters\n\n");
-    fprintf(fh, "Number of ranks: %d\n", size);
-    fprintf(fh, "Datatype size: %d\n", type_size);
-    fprintf(fh, "%s calls %"PRIu64"-%"PRIu64"\n", logger->collective_name, startcall, endcall - 1); // endcall is one ahead so we substract 1
-    char *calls_str = compress_uint64_array(calls, count, 1);
-    fprintf(fh, "Count: %"PRIu64" calls - %s\n", count, calls_str);
-    fprintf(fh, "\n\nBEGINNING DATA\n");
-    DEBUG_LOGGER_NOARGS("Saving counts...\n");
-    // Save the compressed version of the data
-    int count_data_number, n;
-    for (count_data_number = 0; count_data_number < num_counts_data; count_data_number++)
-    {
-        DEBUG_LOGGER("Number of ranks: %d\n", (counters[count_data_number])->num_ranks);
-
-        char *str = compress_int_array((counters[count_data_number])->ranks, (counters[count_data_number])->num_ranks, 1);
-        assert(str);
-        fprintf(fh, "Rank(s) %s: ", str);
-        free(str);
-        str = NULL;
-
-        for (n = 0; n < rank_vec_len; n++)
-        {
-            fprintf(fh, "%d ", (counters[count_data_number])->counters[n]);
-        }
-        fprintf(fh, "\n");
-    }
-    DEBUG_LOGGER_NOARGS("Counts saved\n");
-    fprintf(fh, "END DATA\n");
-#endif
-//TO DO check the rest of this function for alltoallv to alltoall conversion
+// TO DO check the rest of this function for alltoallv to alltoall conversion
 #if ENABLE_PER_RANK_STATS || ENABLE_MSG_SIZE_ANALYSIS
     // Go through the data to gather some stats
     int rank;
@@ -376,16 +344,64 @@ static void log_timings(logger_t *logger, int num_call, double *timings, int siz
     }
     fprintf(logger->timing_fh, "\n");
 }
+
 // called with log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
-static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
+static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, SRCountNode_t *counters_list, SRDisplNode_t *displs_list, avTimingsNode_t *times_list)
 {
     assert(logger);
+
+#if ENABLE_DISPLS
+    /* LOG DISPLACEMENTS */
+    if (displs_list != NULL)
+    {
+        SRDisplNode_t *srDisplPtr = displs_list;
+        if (logger->f == NULL)
+        {
+            logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->jobid, logger->rank);
+            logger->f = fopen(logger->main_filename, "w");
+        }
+        assert(logger->f);
+        fprintf(logger->f, "# Send/recv displacements for %s operations:\n", logger->collective_name);
+        uint64_t num = 0;
+        while (srDisplPtr != NULL)
+        {
+            fprintf(logger->f, "\n## Data set #%" PRIu64 "\n\n", num);
+            fprintf(logger->f,
+                    "comm size = %d; %s calls = %" PRIu64 "\n\n",
+                    srDisplPtr->size,
+                    logger->collective_name,
+                    srDisplPtr->count);
+
+            DEBUG_LOGGER("Logging %s call %" PRIu64 "\n", logger->collective_name, srDisplPtr->count);
+            DEBUG_LOGGER_NOARGS("Logging send displacements\n");
+            fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srDisplPtr->sendtype_size);
+
+            _log_data(logger, startcall, endcall,
+                      SEND_CTX, srDisplPtr->count, srDisplPtr->list_calls,
+                      srDisplPtr->send_data_size, srDisplPtr->send_data, srDisplPtr->size, srDisplPtr->rank_send_vec_len, srDisplPtr->sendtype_size);
+
+            DEBUG_LOGGER("Logging recv displacements (number of displacement series: %d)\n", srDisplPtr->recv_data_size);
+            fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srDisplPtr->recvtype_size);
+
+            _log_data(logger, startcall, endcall,
+                      RECV_CTX, srDisplPtr->count, srDisplPtr->list_calls,
+                      srDisplPtr->recv_data_size, srDisplPtr->recv_data, srDisplPtr->size, srDisplPtr->rank_recv_vec_len, srDisplPtr->recvtype_size);
+
+            DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srDisplPtr->count);
+            srDisplPtr = srDisplPtr->next;
+            num++;
+        }
+    }
+
+#endif // ENABLE_DISPLS
+
 #if ENABLE_RAW_DATA
+    /* LOG COUNTERS */
 
     // Display the send/receive counts data
     if (counters_list != NULL)
     {
-        avSRCountNode_t *srCountPtr = counters_list;
+        SRCountNode_t *srCountPtr = counters_list;
         if (logger->f == NULL)
         {
             logger->main_filename = logger->get_full_filename(MAIN_CTX, NULL, logger->jobid, logger->rank);
@@ -408,14 +424,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, avS
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
-                      SEND_CTX, srCountPtr->count, srCountPtr->list_calls,
+                      SEND_CTX, srCountPtr->count, (void *)srCountPtr->list_calls,
                       srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_send_vec_len, srCountPtr->sendtype_size);
 
             DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
-                      RECV_CTX, srCountPtr->count, srCountPtr->list_calls,
+                      RECV_CTX, srCountPtr->count, (void *)srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_recv_vec_len, srCountPtr->recvtype_size);
 
             DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
@@ -560,7 +576,7 @@ void log_timing_data(logger_t *logger, avTimingsNode_t *times_list)
     }
 }
 // called with log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head); so counters_list = head, which is global var in mpi_alltoall.c
-void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list)
+void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, SRCountNode_t *counters_list, SRDisplNode_t *displs_list, avTimingsNode_t *times_list)
 {
     // We log the data most of the time right before unloading our shared
     // library, and it includes the mpirun process. So the logger may be NULL.
@@ -568,7 +584,7 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
         return;
 
     // We check if we actually have data to save or not
-    if (avCallsLogged > 0 && (counters_list != NULL || times_list != NULL))
+    if (avCallsLogged > 0 && (counters_list != NULL || times_list != NULL || displs_list != NULL))
     {
         if (logger->f == NULL)
         {
@@ -582,7 +598,7 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
                 logger->collective_name,
                 avCalls,
                 logger->limit_number_calls);
-        //fprintf(logger->f, "%s call range: [%d-%d]\n\n", logger->collective_name, avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
-        log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, times_list);
+        // fprintf(logger->f, "%s call range: [%d-%d]\n\n", logger->collective_name, avCallStart, avCallStart + avCallsLogged - 1); // Note that we substract 1 because we are 0 indexed
+        log_data(logger, avCallStart, avCallStart + avCallsLogged, counters_list, displs_list, times_list);
     }
 }

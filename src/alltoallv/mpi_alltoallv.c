@@ -1,6 +1,6 @@
 /*************************************************************************
  * Copyright (c) 2019-2010, Mellanox Technologies, Inc. All rights reserved.
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -18,7 +18,8 @@
 #include "buff_content.h"
 #include "datatype.h"
 
-static avSRCountNode_t *head = NULL;
+static SRCountNode_t *counts_head = NULL;
+static SRDisplNode_t *displs_head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
 static avPattern_t *spatterns = NULL;
@@ -66,18 +67,18 @@ extern int mpi_fortran_bottom_;
 static int _finalize_profiling();
 static int _commit_data();
 
-static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankSendCounters(SRCountNode_t *call_data, int rank)
 {
 	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);
 }
 
-static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankRecvCounters(SRCountNode_t *call_data, int rank)
 {
 	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank);
 }
 
 // Compare if two arrays are identical.
-static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)
+static bool same_call_counters(SRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)
 {
 	int num = 0;
 	int rank, count_num;
@@ -304,12 +305,12 @@ static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_co
 #endif
 }
 
-static counts_data_t *lookupSendCounters(int *counts, avSRCountNode_t *call_data)
+static counts_data_t *lookupSendCounters(int *counts, SRCountNode_t *call_data)
 {
 	return lookupCounters(call_data->size, call_data->send_data_size, call_data->send_data, counts);
 }
 
-static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data)
+static counts_data_t *lookupRecvCounters(int *counts, SRCountNode_t *call_data)
 {
 	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
 }
@@ -367,7 +368,7 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 	return new_data;
 }
 
-static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+static int add_new_send_counters_to_counters_data(SRCountNode_t *call_data, int rank, int *counts)
 {
 	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
 	call_data->send_data[call_data->send_data_size] = new_data;
@@ -376,7 +377,7 @@ static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, in
 	return 0;
 }
 
-static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+static int add_new_recv_counters_to_counters_data(SRCountNode_t *call_data, int rank, int *counts)
 {
 	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
 	call_data->recv_data[call_data->recv_data_size] = new_data;
@@ -385,7 +386,7 @@ static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, in
 	return 0;
 }
 
-static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *call_data)
+static int compareAndSaveSendCounters(int rank, int *counts, SRCountNode_t *call_data)
 {
 	counts_data_t *ptr = lookupSendCounters(counts, call_data);
 	if (ptr)
@@ -410,7 +411,7 @@ static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *ca
 	return 0;
 }
 
-static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *call_data)
+static int compareAndSaveRecvCounters(int rank, int *counts, SRCountNode_t *call_data)
 {
 	counts_data_t *ptr = lookupRecvCounters(counts, call_data);
 	if (ptr)
@@ -438,11 +439,11 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
-static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
+static int insert_sendrecv_count_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
 {
 	int i, j, num = 0;
-	struct avSRCountNode *newNode = NULL;
-	struct avSRCountNode *temp;
+	struct SRCountNode *newNode = NULL;
+	struct SRCountNode *temp;
 
 	DEBUG_ALLTOALLV_PROFILING("Insert data for a new alltoallv call...\n");
 
@@ -450,7 +451,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(rbuf);
 	assert(logger);
 
-	temp = head;
+	temp = counts_head;
 	while (temp != NULL)
 	{
 		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
@@ -488,7 +489,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 #if DEBUG
 	fprintf(logger->f, "no data: %d \n", size);
 #endif
-	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));
+	newNode = (struct SRCountNode *)malloc(sizeof(SRCountNode_t));
 	assert(newNode);
 
 	newNode->size = size;
@@ -543,9 +544,9 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	DEBUG_ALLTOALLV_PROFILING("Data for the new alltoallv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
-	if (head == NULL)
+	if (counts_head == NULL)
 	{
-		head = newNode;
+		counts_head = newNode;
 	}
 	else
 	{
@@ -930,26 +931,26 @@ static int _release_counts_resources()
 {
 	// All data has been handled, now we can clean up
 	int i;
-	while (head != NULL)
+	while (counts_head != NULL)
 	{
-		avSRCountNode_t *c_ptr = head->next;
+		SRCountNode_t *c_ptr = counts_head->next;
 
-		for (i = 0; i < head->send_data_size; i++)
+		for (i = 0; i < counts_head->send_data_size; i++)
 		{
-			delete_counter_data(&(head->send_data[i]));
+			delete_counter_data(&(counts_head->send_data[i]));
 		}
 
-		for (i = 0; i < head->recv_data_size; i++)
+		for (i = 0; i < counts_head->recv_data_size; i++)
 		{
-			delete_counter_data(&(head->recv_data[i]));
+			delete_counter_data(&(counts_head->recv_data[i]));
 		}
 
-		free(head->recv_data);
-		free(head->send_data);
-		free(head->list_calls);
+		free(counts_head->recv_data);
+		free(counts_head->send_data);
+		free(counts_head->list_calls);
 
-		free(head);
-		head = c_ptr;
+		free(counts_head);
+		counts_head = c_ptr;
 	}
 	return 0;
 }
@@ -1044,7 +1045,7 @@ static int _finalize_profiling()
 
 static int _commit_data()
 {
-	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, counts_head, displs_head, op_timing_exec_head);
 
 	/*
 #if ENABLE_TIMING
@@ -1352,7 +1353,7 @@ int _mpi_alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispl
 			int s_dt_size, r_dt_size;
 			PMPI_Type_size(sendtype, &s_dt_size);
 			PMPI_Type_size(recvtype, &r_dt_size);
-			if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
+			if (insert_sendrecv_count_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				PMPI_Abort(MPI_COMM_WORLD, 1);

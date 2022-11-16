@@ -8,15 +8,19 @@ include ../makefile_common.mk
 all: liballgatherv.so                   \
 	liballgatherv_location.so           \
 	liballgatherv_counts.so             \
+	liballgatherv_displs.so				\
 	liballgatherv_exec_timings.so       \
 	liballgatherv_backtrace.so          \
 	liballgatherv_savebuffcontent.so    \
 	liballgatherv_comparebuffcontent.so \
 	liballgatherv_late_arrival.so 
 
-liballgatherv_counts.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o mpi_allgatherv.c allgatherv_profiler.h
-	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_counts.so
-	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_counts_notcompact.so
+liballgatherv_displs.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_displs.o ../common/logger_displs.o mpi_allgatherv.c allgatherv_profiler.h
+	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_DISPLS=1 ../common/logger_for_displs.o ${COMMON_OBJECTS} ../common/timings.o ../common/logger_displs.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_displs.so
+
+liballgatherv_counts.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/logger_for_counts.o  mpi_allgatherv.c allgatherv_profiler.h
+	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_RAW_DATA=1 -DENABLE_COUNTS=1 ../common/logger_for_counts.o ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_counts.so
+	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_COUNTS=1 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o  ../common/logger_counts.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_counts_notcompact.so
 
 liballgatherv_exec_timings.so: ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_allgatherv.c allgatherv_profiler.h
 	mpicc -I../ -I../common/ -g -shared -Wall -fPIC -DENABLE_EXEC_TIMING=1 ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_allgatherv.c -o liballgatherv_exec_timings.so

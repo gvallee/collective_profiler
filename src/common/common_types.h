@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -10,7 +10,7 @@
 #ifndef _COLLECTIVE_PROFILER_COMMON_TYPES_H
 #define _COLLECTIVE_PROFILER_COMMON_TYPES_H
 
-// Compact way to save send/recv counts of ranks within a single alltoallv call
+// Compact way to save send/recv counts of ranks within a single MPI collective
 typedef struct counts_data
 {
     int *counters; // the actual counters (i.e., send/recv counts)
@@ -20,7 +20,7 @@ typedef struct counts_data
 } counts_data_t;
 
 // Data type for storing comm size, alltoallv counts, send/recv count, etc
-typedef struct avSRCountNode
+typedef struct SRCountNode
 {
     int size;
     int rank_send_vec_len; // =1 for alltoall and allgatherv, = comm_size for alltoallv
@@ -37,10 +37,40 @@ typedef struct avSRCountNode
     counts_data_t **recv_data; // Array of unique series of recv counters
     double *op_exec_times;
     double *late_arrival_timings;
-    struct avSRCountNode *next;
-} avSRCountNode_t;
+    struct SRCountNode *next;
+} SRCountNode_t;
 
-typedef avSRCountNode_t SRCountNode_t; 
+typedef SRCountNode_t SRCountNode_t; 
+
+// Compact way to save send/recv displs of ranks within a single MPI collective
+typedef struct displs_data
+{
+    int *displs; // the actual counters (i.e., send/recv counts)
+    int num_ranks; // The number of ranks having that series of displacements
+    int max_ranks; // The current size of the ranks array
+    int *ranks;    // The list of ranks having that series of displacements
+} displs_data_t;
+
+// Data type for storing comm size, alltoallv counts, send/recv count, etc
+typedef struct SRDisplNode
+{
+    int size;
+    int rank_send_vec_len; // =1 for alltoall and allgatherv, = comm_size for alltoallv
+    int rank_recv_vec_len; // =1 for alltoall, = comm_size for alltoallv and allgatherv
+    uint64_t count; // How many time we detected the pattern; also size of list_calls
+    uint64_t max_calls;
+    uint64_t *list_calls; // Which calls produced the pattern
+    int comm;
+    int sendtype_size;
+    int recvtype_size;
+    int send_data_size;        // Size of the array of unique series of send counters
+    int recv_data_size;        // Size of the array of unique series of recv counters
+    displs_data_t **send_data; // Array of unique series of send counters
+    displs_data_t **recv_data; // Array of unique series of recv counters
+    struct SRCountNode *next;
+} SRDisplNode_t;
+
+typedef SRCountNode_t SRCountNode_t; 
 
 typedef struct avTimingsNode
 {
