@@ -15,8 +15,8 @@ all: liballtoallv.so                   \
 	liballtoallv_late_arrival.so 
 
 liballtoallv_counts.so: ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/logger_for_counts.o mpi_alltoallv.c alltoallv_profiler.h
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_counts.so
-	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_counts_notcompact.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_RAW_DATA=1 -DENABLE_COUNTS=1 ../common/logger_for_counts.o ${COMMON_OBJECTS} ../common/timings.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_counts.so
+	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_COMPACT_FORMAT=0 -DENABLE_RAW_DATA=1 -DENABLE_COUNTS=1 ${COMMON_OBJECTS} ../common/timings.o ../common/logger_for_counts.o ../common/logger_counts.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_counts_notcompact.so
 
 liballtoallv_exec_timings.so: ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_alltoallv.c alltoallv_profiler.h
 	mpicc -I../ -I../common/ -g -shared -fPIC -DENABLE_EXEC_TIMING=1 ${COMMON_OBJECTS} ../common/exec_timings.o ../common/logger_exec_timings.o ../common/buff_content.o mpi_alltoallv.c -o liballtoallv_exec_timings.so
