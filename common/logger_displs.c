@@ -56,24 +56,25 @@ int log_displs(logger_t *logger,
                int type_size)
 {
     FILE *fh = NULL;
+
     switch (ctx)
     {
     case RECV_CTX:
         if (logger->recvdispls_fh == NULL)
         {
-            logger->recvdispls_filename = logger->get_full_filename(RECV_CTX, "counters", logger->jobid, logger->rank);
-            logger->recvcounters_fh = fopen(logger->recvcounts_filename, "w");
+            logger->recvdispls_filename = logger->get_full_filename(RECV_CTX, "displs", logger->jobid, logger->rank);
+            logger->recvdispls_fh = fopen(logger->recvdispls_filename, "w");
         }
-        fh = logger->recvcounters_fh;
+        fh = logger->recvdispls_fh;
         break;
 
     case SEND_CTX:
-        if (logger->sendcounters_fh == NULL)
+        if (logger->senddispls_fh == NULL)
         {
-            logger->sendcounts_filename = logger->get_full_filename(SEND_CTX, "counters", logger->jobid, logger->rank);
-            logger->sendcounters_fh = fopen(logger->sendcounts_filename, "w");
+            logger->senddispls_filename = logger->get_full_filename(SEND_CTX, "displs", logger->jobid, logger->rank);
+            logger->senddispls_fh = fopen(logger->senddispls_filename, "w");
         }
-        fh = logger->sendcounters_fh;
+        fh = logger->senddispls_fh;
         break;
 
     default:

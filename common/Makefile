@@ -15,7 +15,7 @@ all: \
 	late_arrival_timings.o        \
 	backtrace.o                   \
 	buff_content.o                \
-	logger.o                      \
+	logger.o					  \
 	logger_counts.o               \
 	logger_displs.o 			  \
 	logger_exec_timings.o         \
@@ -59,11 +59,11 @@ logger.o: logger.c logger.h
 	mpicc -I../ -fPIC -c logger.c -o logger.o
 
 # logger object with only counts profiling enabled. This avoids having tons of condition statements in the data path when profiling
-logger_counts.o: logger_counts.c logger.h 
+logger_counts.o: logger.c logger_counts.c logger.h 
 	mpicc -I../ -fPIC -DENABLE_RAW_DATA=1 -c logger_counts.c -o logger_counts.o
-	mpicc -I../ -fPIC -DENABLE_RAW_DATA=1 -c logger.c -o logger_for_counts.o
+	mpicc -I../ -fPIC -DENABLE_RAW_DATA=1 -DENABLE_COUNTS=1 -c logger.c -o logger_for_counts.o
 
-logger_displs.o: logger_displs.c logger.h 
+logger_displs.o: logger.c logger_displs.c logger.h 
 	mpicc -I../ -fPIC -DENABLE_RAW_DATA=1 -c logger_displs.c -o logger_displs.o
 	mpicc -I../ -fPIC -DENABLE_RAW_DATA=1 -DENABLE_DISPLS=1 -c logger.c -o logger_for_displs.o
 

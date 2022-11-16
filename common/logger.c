@@ -18,6 +18,7 @@
 #include "location.h"
 #include "buff_content.h"
 
+#if ENABLE_COUNTS
 extern int log_counts(logger_t *logger,
                       uint64_t startcall,
                       uint64_t endcall,
@@ -29,18 +30,21 @@ extern int log_counts(logger_t *logger,
                       int size,
                       int rank_vec_len,
                       int type_size);
+#endif // ENABLE_COUNTS
 
-int log_displs(logger_t *logger,
-               uint64_t startcall,
-               uint64_t endcall,
-               int ctx,
-               uint64_t count,
-               uint64_t *calls,
-               uint64_t num_displs_data,
-               displs_data_t **displs,
-               int size,
-               int rank_vec_len,
-               int type_size);
+#if ENABLE_DISPLS
+extern int log_displs(logger_t *logger,
+                      uint64_t startcall,
+                      uint64_t endcall,
+                      int ctx,
+                      uint64_t count,
+                      uint64_t *calls,
+                      uint64_t num_displs_data,
+                      displs_data_t **displs,
+                      int size,
+                      int rank_vec_len,
+                      int type_size);
+#endif // ENABLE_DISPLS
 
 char *get_output_dir()
 {
@@ -128,9 +132,9 @@ static void _log_data(logger_t *logger,
     displs_data_t **displs = NULL;
 
 #if ENABLE_DISPLS
-    displs = (displs_data_t**)list;
+    displs = (displs_data_t **)list;
 #else
-    counters = (counts_data_t**)list;    
+    counters = (counts_data_t **)list;
 #endif
 
     if (counters == NULL && displs == NULL)
@@ -170,9 +174,9 @@ static void _log_data(logger_t *logger,
     }
     assert(logger->f);
 
-#if ENABLE_RAW_DATA || ENABLE_VALIDATION
+#if ENABLE_COUNTS
     log_counts(logger, startcall, endcall, ctx, count, calls, num_data, counters, size, rank_vec_len, type_size);
-#endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
+#endif // ENABLE_COUNTS
 
 #if ENABLE_DISPLS
     log_displs(logger, startcall, endcall, ctx, count, calls, num_data, displs, size, rank_vec_len, type_size);
@@ -420,14 +424,14 @@ static void log_data(logger_t *logger, uint64_t startcall, uint64_t endcall, SRC
             fprintf(logger->f, "### Data sent per rank - Type size: %d\n\n", srCountPtr->sendtype_size);
 
             _log_data(logger, startcall, endcall,
-                      SEND_CTX, srCountPtr->count, (void*)srCountPtr->list_calls,
+                      SEND_CTX, srCountPtr->count, (void *)srCountPtr->list_calls,
                       srCountPtr->send_data_size, srCountPtr->send_data, srCountPtr->size, srCountPtr->rank_send_vec_len, srCountPtr->sendtype_size);
 
             DEBUG_LOGGER("Logging recv counts (number of count series: %d)\n", srCountPtr->recv_data_size);
             fprintf(logger->f, "### Data received per rank - Type size: %d\n\n", srCountPtr->recvtype_size);
 
             _log_data(logger, startcall, endcall,
-                      RECV_CTX, srCountPtr->count, (void*)srCountPtr->list_calls,
+                      RECV_CTX, srCountPtr->count, (void *)srCountPtr->list_calls,
                       srCountPtr->recv_data_size, srCountPtr->recv_data, srCountPtr->size, srCountPtr->rank_recv_vec_len, srCountPtr->recvtype_size);
 
             DEBUG_LOGGER("%s call %" PRIu64 " logged\n", logger->collective_name, srCountPtr->count);
@@ -580,7 +584,7 @@ void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart
         return;
 
     // We check if we actually have data to save or not
-    if (avCallsLogged > 0 && (counters_list != NULL || times_list != NULL))
+    if (avCallsLogged > 0 && (counters_list != NULL || times_list != NULL || displs_list != NULL))
     {
         if (logger->f == NULL)
         {

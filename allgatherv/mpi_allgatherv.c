@@ -70,7 +70,7 @@ static int _commit_data();
 
 static int *lookupRankRecvDispls(SRDisplNode_t *call_data, int rank)
 {
-    return lookup_rank_displs(call_data->send_data_size, call_data->send_data, rank);
+    return lookup_rank_displs(call_data->recv_data_size, call_data->recv_data, rank);
 }
 
 static int *lookupRankSendCounters(SRCountNode_t *call_data, int rank)
@@ -140,6 +140,7 @@ static bool same_call_displs(SRDisplNode_t *call_data, int *displs, int size)
     for (rank = 0; rank < size; rank++)
     {
         int *_displs = lookupRankRecvDispls(call_data, rank);
+        assert(_displs);
         for (displ_num = 0; displ_num < size; displ_num++)
         {
             if (_displs[displ_num] != displs[num])
@@ -527,7 +528,10 @@ static int add_rank_to_displs_data(int rank, displs_data_t *displs_data)
 static displs_data_t *new_displ_data(int size, int rank, int *displs)
 {
     int i;
-    displs_data_t *new_data = (displs_data_t *)malloc(sizeof(displs_data_t));
+    displs_data_t *new_data = NULL;
+    
+    assert(displs);
+    new_data = (displs_data_t *)malloc(sizeof(displs_data_t));
     assert(new_data);
     new_data->displs = (int *)malloc(size * sizeof(int));
     assert(new_data->displs);
@@ -651,11 +655,10 @@ static int insert_displ_data(int *rbuf, int size, int sendtype_size, int recvtyp
 
     // We add rank's data one by one so we can compress the data when possible
     num = 0;
-    int _rank = 0;
-
+    int _rank;
     for (_rank = 0; _rank < size; _rank++)
     {
-        if (compareAndSaveRecvDispls(_rank, &(rbuf[_rank]), newNode))
+        if (compareAndSaveRecvDispls(_rank, &(rbuf[num * size]), newNode))
         {
             fprintf(stderr, "[%s:%d][ERROR] unable to add recv displacements\n", __FILE__, __LINE__);
             return -1;
@@ -1010,7 +1013,7 @@ int mpi_init_(MPI_Fint *ierr)
 }
 
 #if ENABLE_DISPLS
-static int _release_diplss_resources()
+static int _release_displs_resources()
 {
     // All data has been handled, now we can clean up
     int i;
@@ -1093,6 +1096,10 @@ static int _release_profiling_resources()
 #if ENABLE_RAW_DATA || ENABLE_VALIDATION
     _release_counts_resources();
 #endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
+
+#if ENABLE_DISPLS
+    _release_displs_resources();
+#endif // ENABLE_DISPLS
 
     while (op_timing_exec_head != NULL)
     {
