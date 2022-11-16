@@ -21,7 +21,6 @@
 #include "format.h"
 
 int log_displs(logger_t *logger,
-               FILE *fh,
                uint64_t startcall,
                uint64_t endcall,
                int ctx,
@@ -33,6 +32,7 @@ int log_displs(logger_t *logger,
                int rank_vec_len,
                int type_size)
 {
+    FILE *fh = NULL;
     switch (ctx)
     {
     case RECV_CTX:
