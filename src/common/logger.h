@@ -65,7 +65,19 @@ typedef struct logger
 
 extern logger_t *logger_init();
 extern void logger_fini(logger_t **l);
-extern void log_profiling_data(logger_t *logger, uint64_t avCalls, uint64_t avCallStart, uint64_t avCallsLogged, avSRCountNode_t *counters_list, avTimingsNode_t *times_list);
+
+/**
+ * @brief log_profiling_data goes through all the data gathered during profiling to save it to files.
+ * 
+ * @param logger Pointer to the logger object that gathers all the data to write to files
+ * @param coll_calls Number of collective calls gathered by the logger
+ * @param callStart Identifier of the first call being logged
+ * @param callsLogged Number of calls being logged
+ * @param counters_list List of the collective counters
+ * @param displs_list List of the collective displacements
+ * @param times_list List of timings associated to the collective executions
+ */
+extern void log_profiling_data(logger_t *logger, uint64_t coll_calls, uint64_t callStart, uint64_t callsLogged, SRCountNode_t *counters_list, SRDisplNode_t *displs_list, avTimingsNode_t *times_list);
 extern void log_timing_data(logger_t *logger, avTimingsNode_t *times_list);
 extern int *lookup_rank_counters(int data_size, counts_data_t **data, int rank);
 

@@ -18,7 +18,8 @@
 #include "buff_content.h"
 #include "datatype.h"
 
-static SRCountNode_t *head = NULL;
+static SRCountNode_t *counts_head = NULL;
+static SRDisplNode_t *displs_head = NULL;
 static TimingsNode_t *op_timing_exec_head = NULL;
 static TimingsNode_t *op_timing_exec_tail = NULL;
 static Pattern_t *spatterns = NULL;
@@ -450,11 +451,11 @@ static int compareAndSaveRecvCounters(int rank, int *counts, SRCountNode_t *call
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
-static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
+static int insert_sendrecv_count_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)
 {
     int num = 0;
-    struct avSRCountNode *newNode = NULL;
-    struct avSRCountNode *temp;
+    struct SRCountNode *newNode = NULL;
+    struct SRCountNode *temp;
 
     DEBUG_ALLGATHERV_PROFILING("Insert data for a new allgatherv call...\n");
 
@@ -462,7 +463,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
     assert(rbuf);
     assert(logger);
 
-    temp = head;
+    temp = counts_head;
     while (temp != NULL)
     {
         if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
@@ -500,7 +501,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 #if DEBUG
     fprintf(logger->f, "no data: %d \n", size);
 #endif
-    newNode = (struct avSRCountNode *)malloc(sizeof(SRCountNode_t));
+    newNode = (struct SRCountNode *)malloc(sizeof(SRCountNode_t));
     assert(newNode);
 
     newNode->size = size;
@@ -555,9 +556,9 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
     DEBUG_ALLGATHERV_PROFILING("Data for the new allgatherv call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
-    if (head == NULL)
+    if (counts_head == NULL)
     {
-        head = newNode;
+        counts_head = newNode;
     }
     else
     {
@@ -771,33 +772,65 @@ int mpi_init_(MPI_Fint *ierr)
     return 0;
 }
 
+#if ENABLE_DISPLS
+static int _release_diplss_resources()
+{
+    // All data has been handled, now we can clean up
+    int i;
+    while (displs_head != NULL)
+    {
+        SRDisplNode_t *c_ptr = displs_head->next;
+
+        for (i = 0; i < displs_head->send_data_size; i++)
+        {
+            delete_counter_data(&(displs_head->send_data[i]));
+        }
+
+        for (i = 0; i < displs_head->recv_data_size; i++)
+        {
+            delete_counter_data(&(displs_head->recv_data[i]));
+        }
+
+        free(displs_head->recv_data);
+        free(displs_head->send_data);
+        free(displs_head->list_calls);
+
+        free(displs_head);
+        displs_head = c_ptr;
+    }
+    return 0;
+}
+#endif // ENABLE_DISPLS
+
+#if ENABLE_RAW_DATA || ENABLE_VALIDATION
 static int _release_counts_resources()
 {
     // All data has been handled, now we can clean up
     int i;
-    while (head != NULL)
+    while (counts_head != NULL)
     {
-        SRCountNode_t *c_ptr = head->next;
+        SRCountNode_t *c_ptr = counts_head->next;
 
-        for (i = 0; i < head->send_data_size; i++)
+        for (i = 0; i < counts_head->send_data_size; i++)
         {
-            delete_counter_data(&(head->send_data[i]));
+            delete_counter_data(&(counts_head->send_data[i]));
         }
 
-        for (i = 0; i < head->recv_data_size; i++)
+        for (i = 0; i < counts_head->recv_data_size; i++)
         {
-            delete_counter_data(&(head->recv_data[i]));
+            delete_counter_data(&(counts_head->recv_data[i]));
         }
 
-        free(head->recv_data);
-        free(head->send_data);
-        free(head->list_calls);
+        free(counts_head->recv_data);
+        free(counts_head->send_data);
+        free(counts_head->list_calls);
 
-        free(head);
-        head = c_ptr;
+        free(counts_head);
+        counts_head = c_ptr;
     }
     return 0;
 }
+#endif // ENABLE_RAW_DATA || ENABLE_VALIDATION
 
 static int _release_pattern_resources()
 {
@@ -874,7 +907,7 @@ static int _finalize_profiling()
 
 static int _commit_data()
 {
-    log_profiling_data(logger, allgathervCalls, allgathervCallStart, allgathervCallsLogged, head, op_timing_exec_head);
+    log_profiling_data(logger, allgathervCalls, allgathervCallStart, allgathervCallsLogged, counts_head, displs_head, op_timing_exec_head);
 
     /*
 #if ENABLE_TIMING
@@ -1218,7 +1251,7 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
             int s_dt_size, r_dt_size;
             PMPI_Type_size(sendtype, &s_dt_size);
             PMPI_Type_size(recvtype, &r_dt_size);
-            if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
+            if (insert_sendrecv_count_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size))
             {
                 fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
                 PMPI_Abort(MPI_COMM_WORLD, 1);

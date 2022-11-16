@@ -44,18 +44,21 @@ int *lookup_rank_counters(int data_size, counts_data_t **data, int rank)
 }
 
 int log_counts(logger_t *logger,
-                FILE *fh,
-                uint64_t startcall,
-                uint64_t endcall,
-                int ctx,
-                uint64_t count,
-                uint64_t *calls,
-                uint64_t num_counts_data,
-                counts_data_t **counters,
-                int size,
-                int rank_vec_len,
-                int type_size)
+               uint64_t startcall,
+               uint64_t endcall,
+               int ctx,
+               uint64_t count,
+               uint64_t *calls,
+               uint64_t num_counts_data,
+               counts_data_t **counters,
+               int size,
+               int rank_vec_len,
+               int type_size)
 {
+    FILE *fh = NULL;
+    assert(logger);
+    assert(calls);
+    assert(counters);
     switch (ctx)
     {
     case RECV_CTX:
@@ -80,8 +83,8 @@ int log_counts(logger_t *logger,
         fh = logger->f;
         break;
     }
-
     assert(fh);
+
     fprintf(fh, "# Raw counters\n\n");
     fprintf(fh, "Number of ranks: %d\n", size);
     fprintf(fh, "Datatype size: %d\n", type_size);

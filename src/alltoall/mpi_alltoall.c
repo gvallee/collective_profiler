@@ -1,6 +1,6 @@
 /*************************************************************************
  * Copyright (c) 2019-2010, Mellanox Technologies, Inc. All rights reserved.
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -22,7 +22,8 @@
 #include "backtrace.h"
 #include "location.h"
 
-static avSRCountNode_t *head = NULL;
+static SRCountNode_t *counts_head = NULL;
+static SRDisplNode_t *displs_head = NULL;
 static avTimingsNode_t *op_timing_exec_head = NULL;
 static avTimingsNode_t *op_timing_exec_tail = NULL;
 static avPattern_t *spatterns = NULL;
@@ -76,19 +77,19 @@ void print_trace(FILE *f)
 	fprintf(f, "stack trace for %s pid=%s\n", name_buf, pid_buf);
 }
 
-static int *lookupRankSendCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankSendCounters(SRCountNode_t *call_data, int rank)
 {
 	return lookup_rank_counters(call_data->send_data_size, call_data->send_data, rank);  //TODO alltoallv coversion: send_data_size will =1 if it, where is that set?
 }
 
-static int *lookupRankRecvCounters(avSRCountNode_t *call_data, int rank)
+static int *lookupRankRecvCounters(SRCountNode_t *call_data, int rank)
 {
 	return lookup_rank_counters(call_data->recv_data_size, call_data->recv_data, rank); //TODO alltoallv coversion: send_data_size will =1?, where is that set?
 }
 
 // Compare if two arrays are identical.
 // Called with same_call_counters(temp, sbuf, rbuf, size) where temp is current CountNode in the linked list being worked through
-static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)  // size = size of communicator
+static bool same_call_counters(SRCountNode_t *call_data, int *send_counts, int *recv_counts, int size)  // size = size of communicator
 {
 	int num = 0;
 	int rank, count_num;
@@ -152,7 +153,7 @@ static bool same_call_counters(avSRCountNode_t *call_data, int *send_counts, int
 }
 
 // called with lookupCounters(call_data->size, call_data->send_data_size --> num, call_data->send_data, counts);
-// call_data is a avSRCountNode_t and size is the comm size, send_data_size is "Size of the array of unique series of send counters", send_data is counts_data_t ** the just said array 
+// call_data is a SRCountNode_t and size is the comm size, send_data_size is "Size of the array of unique series of send counters", send_data is counts_data_t ** the just said array 
 // and counts is &(rbuf[num * size])
 // returns list[i] where count[j] != list[i]->counters[j], list[i] is the counts_data argument, which is call_data->send_data, which is NewNode->senddata and if j == size, i.e. if they match 
 static counts_data_t *lookupCounters(int size, int num, counts_data_t **list, int *count)
@@ -337,12 +338,12 @@ static int commit_pattern_from_counts(int callID, int *send_counts, int *recv_co
 #endif
 }
 
-static counts_data_t *lookupSendCounters(int *counts, avSRCountNode_t *call_data)
+static counts_data_t *lookupSendCounters(int *counts, SRCountNode_t *call_data)
 {
 	return lookupCounters(call_data->size, call_data->send_data_size, call_data->send_data, counts);
 }
 
-static counts_data_t *lookupRecvCounters(int *counts, avSRCountNode_t *call_data)
+static counts_data_t *lookupRecvCounters(int *counts, SRCountNode_t *call_data)
 {
 	return lookupCounters(call_data->size, call_data->recv_data_size, call_data->recv_data, counts);
 }
@@ -400,7 +401,7 @@ static counts_data_t *new_counter_data(int size, int rank, int *counts)
 }
 
 // called with add_new_send_counters_to_counters_data(call_data, rank, counts), which are the newnode?, the rank and the relevant section of sbuf?
-static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)  //TODO alltoall mods fro alltoallv
+static int add_new_send_counters_to_counters_data(SRCountNode_t *call_data, int rank, int *counts)  //TODO alltoall mods fro alltoallv
 {
 	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
 	call_data->send_data[call_data->send_data_size] = new_data;
@@ -409,7 +410,7 @@ static int add_new_send_counters_to_counters_data(avSRCountNode_t *call_data, in
 	return 0;
 }
 
-static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, int rank, int *counts)
+static int add_new_recv_counters_to_counters_data(SRCountNode_t *call_data, int rank, int *counts)
 {
 	counts_data_t *new_data = new_counter_data(call_data->size, rank, counts);
 	call_data->recv_data[call_data->recv_data_size] = new_data;
@@ -420,7 +421,7 @@ static int add_new_recv_counters_to_counters_data(avSRCountNode_t *call_data, in
 
 // called with compareAndSaveSendCounters(_rank, &(sbuf[num * size]), newNode) in alltoallv
 // for alltoall called with compareAndSaveSendCounters(_rank, &(sbuf[num]), newNode) or compareAndSaveSendCounters(_rank, &(sbuf[0]), newNode)
-static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *call_data)
+static int compareAndSaveSendCounters(int rank, int *counts, SRCountNode_t *call_data)
 {
 	counts_data_t *ptr = lookupSendCounters(counts, call_data);
 	if (ptr)
@@ -445,7 +446,7 @@ static int compareAndSaveSendCounters(int rank, int *counts, avSRCountNode_t *ca
 	return 0;
 }
 
-static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *call_data)
+static int compareAndSaveRecvCounters(int rank, int *counts, SRCountNode_t *call_data)
 {
 	counts_data_t *ptr = lookupRecvCounters(counts, call_data);
 	if (ptr)
@@ -473,12 +474,12 @@ static int compareAndSaveRecvCounters(int rank, int *counts, avSRCountNode_t *ca
 // Compare new send count data with existing data.
 // If there is a match, increas the counter. Add new data, otherwise.
 // recv count was not compared.
-// called with insert_sendrecv_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype))
-static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)  // size = size of communicator
+// called with insert_sendrecv_count_data(sbuf, rbuf, comm_size, sizeof(sendtype), sizeof(recvtype))
+static int insert_sendrecv_count_data(int *sbuf, int *rbuf, int size, int sendtype_size, int recvtype_size)  // size = size of communicator
 {
 	int i, j, num = 0;
-	struct avSRCountNode *newNode = NULL;
-	struct avSRCountNode *temp;
+	struct SRCountNode *newNode = NULL;
+	struct SRCountNode *temp;
 
 	DEBUG_ALLTOALL_PROFILING("Insert data for a new alltoall call...\n");
 
@@ -486,7 +487,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 	assert(rbuf);
 	assert(logger);
 
-	temp = head;
+	temp = counts_head;
 	while (temp != NULL)
 	{
 		if (temp->size != size || temp->recvtype_size != recvtype_size || temp->sendtype_size != sendtype_size || !same_call_counters(temp, sbuf, rbuf, size))
@@ -524,7 +525,7 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 #if DEBUG
 	fprintf(logger->f, "no data: %d \n", size);
 #endif
-	newNode = (struct avSRCountNode *)malloc(sizeof(avSRCountNode_t));  // TODO Anaylse data structure written from here onwards 
+	newNode = (struct SRCountNode *)malloc(sizeof(SRCountNode_t));  // TODO Anaylse data structure written from here onwards 
 	assert(newNode);
 
 	newNode->size = size;
@@ -587,9 +588,9 @@ static int insert_sendrecv_data(int *sbuf, int *rbuf, int size, int sendtype_siz
 
 	DEBUG_ALLTOALL_PROFILING("Data for the new alltoall call has %d unique series for send counts and %d for recv counts\n", newNode->recv_data_size, newNode->send_data_size);
 
-	if (head == NULL)
+	if (counts_head == NULL)
 	{
-		head = newNode;
+		counts_head = newNode;
 	}
 	else
 	{
@@ -853,26 +854,26 @@ static int _release_counts_resources()
 {
 	// All data has been handled, now we can clean up
 	int i;
-	while (head != NULL)
+	while (counts_head != NULL)
 	{
-		avSRCountNode_t *c_ptr = head->next;
+		SRCountNode_t *c_ptr = counts_head->next;
 
-		for (i = 0; i < head->send_data_size; i++)
+		for (i = 0; i < counts_head->send_data_size; i++)
 		{
-			delete_counter_data(&(head->send_data[i]));
+			delete_counter_data(&(counts_head->send_data[i]));
 		}
 
-		for (i = 0; i < head->recv_data_size; i++)
+		for (i = 0; i < counts_head->recv_data_size; i++)
 		{
-			delete_counter_data(&(head->recv_data[i]));
+			delete_counter_data(&(counts_head->recv_data[i]));
 		}
 
-		free(head->recv_data);
-		free(head->send_data);
-		free(head->list_calls);
+		free(counts_head->recv_data);
+		free(counts_head->send_data);
+		free(counts_head->list_calls);
 
-		free(head);
-		head = c_ptr;
+		free(counts_head);
+		counts_head = c_ptr;
 	}
 	return 0;
 }
@@ -967,7 +968,7 @@ static int _finalize_profiling()
 
 static int _commit_data()
 {
-	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, head, op_timing_exec_head);
+	log_profiling_data(logger, avCalls, avCallStart, avCallsLogged, counts_head, displs_head, op_timing_exec_head);
 
 	/*
 #if ENABLE_TIMING
@@ -1112,7 +1113,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 #if ASSUME_COUNTS_EQUAL_ALL_RANKS != 1
 		// Gather a bunch of counters
 		// TODO this gather is to rank 0, but which rank does the noting and reporting. 
-		// insert_sendrecv_data is called within if my_comm_rank==0
+		// insert_sendrecv_count_data is called within if my_comm_rank==0
 		// parameters are int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 		// void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
 		// MPI_Comm comm)
@@ -1180,7 +1181,7 @@ int _mpi_alltoall(const void *sendbuf, const int sendcount, MPI_Datatype sendtyp
 			int s_dt_size, r_dt_size;
 			MPI_Type_size(sendtype, &s_dt_size);
 			MPI_Type_size(recvtype, &r_dt_size);
-			if (insert_sendrecv_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size)) // perhaps change comm_size => 1 here??? no
+			if (insert_sendrecv_count_data(sbuf, rbuf, comm_size, s_dt_size, r_dt_size)) // perhaps change comm_size => 1 here??? no
 			{
 				fprintf(stderr, "[%s:%d][ERROR] unable to insert send/recv counts\n", __FILE__, __LINE__);
 				MPI_Abort(MPI_COMM_WORLD, 1);
