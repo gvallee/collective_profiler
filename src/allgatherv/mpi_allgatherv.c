@@ -1713,6 +1713,7 @@ void mpi_allgatherv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sendtype,
 // if the app never calls MPI_Finalize().
 __attribute__((destructor)) void calledLast()
 {
-    _commit_data();
-    _finalize_profiling();
+        if( NULL == logger ) return;  /* nothing more to do, already done */
+        _commit_data();
+        _finalize_profiling();
 }

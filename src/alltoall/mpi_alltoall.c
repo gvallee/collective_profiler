@@ -1324,6 +1324,7 @@ void mpi_alltoall_(void *sendbuf, MPI_Fint sendcount,  MPI_Fint *sendtype,
 void __attribute__((destructor)) calledLast();
 void calledLast()
 {
+        if( NULL == logger ) return;  /* nothing more to do, already done */
 	_commit_data();
 	_finalize_profiling();
 }

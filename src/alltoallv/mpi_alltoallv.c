@@ -1511,6 +1511,7 @@ void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_F
 // if the app never calls MPI_Finalize().
 __attribute__((destructor)) void calledLast()
 {
+        if( NULL == logger ) return;  /* nothing more to do, already done */
 	_commit_data();
 	_finalize_profiling();
 }
