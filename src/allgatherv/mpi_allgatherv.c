@@ -53,6 +53,12 @@ double *late_arrival_timings = NULL;
 
 static logger_t *logger = NULL;
 
+#if ENABLE_EXEC_TIMING
+double timestamps_start[500];
+double timestamps_end[500];
+size_t num_timestamps = 0;
+#endif // ENABLE_EXEC_TIMING
+
 /* FORTRAN BINDINGS */
 extern int mpi_fortran_in_place_;
 #define OMPI_IS_FORTRAN_IN_PLACE(addr) \
@@ -1153,11 +1159,39 @@ static int _commit_data()
 {
     log_profiling_data(logger, allgathervCalls, allgathervCallStart, allgathervCallsLogged, counts_head, displs_head, op_timing_exec_head);
 
-    /*
+/*
 #if ENABLE_TIMING
-    log_timing_data(logger, op_timing_exec_head);
+    //log_timing_data(logger, op_timing_exec_head);
 #endif // ENABLE_TIMING
 */
+
+#if ENABLE_EXEC_TIMING
+    /* Save start & end timestamps */
+    {
+        int ret, rc;
+        size_t i;
+        char *filename = NULL;
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(filename, rc, "%s/timestamps.rank%d.md", getenv(OUTPUT_DIR_ENVVAR), logger->rank);
+        }
+        else
+        {
+            _asprintf(filename, rc, "timestamps.rank%d.md", logger->rank);
+        }
+        assert(rc > 0);
+
+        FILE *f = fopen(filename, "w");
+        assert(f);
+        
+        for (i = 0; i < num_timestamps; i++)
+        {
+            fprintf(f, "%lf %lf\n", timestamps_start[i], timestamps_end[i]);
+        }
+
+        fclose(f);
+    }
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
     save_patterns(world_rank);
@@ -1356,6 +1390,10 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 
 #if ENABLE_EXEC_TIMING
         double t_start = MPI_Wtime();
+        if (num_timestamps < 500)
+        {
+            timestamps_start[num_timestamps] = t_start;
+        }
 #endif // ENABLE_EXEC_TIMING
 
         ret = PMPI_Allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
@@ -1378,6 +1416,11 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 
 #if ENABLE_EXEC_TIMING
         double t_end = MPI_Wtime();
+        if (num_timestamps < 500)
+        {
+            timestamps_end[num_timestamps] = t_end;
+            num_timestamps++;
+        }
         double t_op = t_end - t_start;
 #endif // ENABLE_EXEC_TIMING
 
