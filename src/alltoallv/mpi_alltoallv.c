@@ -1,6 +1,6 @@
 /*************************************************************************
  * Copyright (c) 2019-2010, Mellanox Technologies, Inc. All rights reserved.
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -63,6 +63,16 @@ extern int mpi_fortran_bottom_;
 #define OMPI_FINT_2_INT(a) a
 #define OMPI_F2C_IN_PLACE(addr) (OMPI_IS_FORTRAN_IN_PLACE(addr) ? MPI_IN_PLACE : (addr))
 #define OMPI_F2C_BOTTOM(addr) (OMPI_IS_FORTRAN_BOTTOM(addr) ? MPI_BOTTOM : (addr))
+
+#if defined(HAVE_MPIX_HARMONIZE)
+#include <mpix_harmonize.h>
+
+/* The frequency of re-harmonization, counting MPI_Alltoallv on MPI_COMM_WORLD */
+#define TRAMPOLINE_FREQUENCY  50
+
+static int _trampoline_flag = 0;
+static int _trampoline_iterations = 0;
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
 
 static int _finalize_profiling();
 static int _commit_data();
@@ -893,12 +903,26 @@ int MPI_Finalize()
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
-	return _mpi_init_thread(argc, argv, required, provided);
+    int rc = _mpi_init_thread(argc, argv, required, provided);
+#if defined(HAVE_MPIX_HARMONIZE)
+    if( MPI_SUCCESS == rc ) {
+        /* harmonize the clocks across all ranks in MPI_COMM_WORLD */
+        rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+    return rc;
 }
 
 int MPI_Init(int *argc, char ***argv)
 {
-	return _mpi_init(argc, argv);
+    int rc = _mpi_init(argc, argv);
+#if defined(HAVE_MPIX_HARMONIZE)
+    if( MPI_SUCCESS == rc ) {
+        /* harmonize the clocks across all ranks in MPI_COMM_WORLD */
+        rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+    return rc;
 }
 
 int mpi_init_thread_(MPI_Fint *required, MPI_Fint *provided, MPI_Fint *ierr)
@@ -1438,7 +1462,21 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls
 				  MPI_Datatype sendtype, void *recvbuf, const int *recvcounts,
 				  const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
 {
-	return _mpi_alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
+#if defined(HAVE_MPIX_HARMONIZE)
+    /* From time to time we need to resynchronize the clocks, but we can only do it on MPI_Alltoallv on
+     * MPI_COMM_WORLD.
+     */
+    if( MPI_COMM_WORLD == comm ) {
+        _trampoline_iterations++;
+        if( 0 == (_trampoline_iterations % TRAMPOLINE_FREQUENCY) ) {
+            int rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+            if( MPI_SUCCESS != rc ) {
+                MPI_Abort(MPI_COMM_WORLD, -1);
+            }
+        }
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+    return _mpi_alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 }
 
 void mpi_alltoallv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sdispls, MPI_Fint *sendtype,
