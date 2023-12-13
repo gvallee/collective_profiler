@@ -1167,29 +1167,30 @@ static int _commit_data()
 
 #if ENABLE_EXEC_TIMING
     /* Save start & end timestamps */
+    if (num_timestamps > 0)
     {
         int ret, rc;
         size_t i;
         char *filename = NULL;
         if (getenv(OUTPUT_DIR_ENVVAR))
         {
-            _asprintf(filename, rc, "%s/timestamps.rank%d.md", getenv(OUTPUT_DIR_ENVVAR), logger->rank);
+            _asprintf(filename, rc, "%s/timestamps.rank%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank);
         }
         else
         {
-            _asprintf(filename, rc, "timestamps.rank%d.md", logger->rank);
+            _asprintf(filename, rc, "timestamps.rank%d.md", world_rank);
         }
         assert(rc > 0);
 
         FILE *f = fopen(filename, "w");
         assert(f);
-        
+
         for (i = 0; i < num_timestamps; i++)
         {
             fprintf(f, "%lf %lf\n", timestamps_start[i], timestamps_end[i]);
         }
-
         fclose(f);
+        num_timestamps = 0;
     }
 #endif // ENABLE_EXEC_TIMING
 
