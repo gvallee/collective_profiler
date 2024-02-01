@@ -1,6 +1,6 @@
 /*************************************************************************
  * Copyright (c) 2019-2010, Mellanox Technologies, Inc. All rights reserved.
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -52,6 +52,22 @@ double *op_exec_times = NULL;
 double *late_arrival_timings = NULL;
 
 static logger_t *logger = NULL;
+
+#if defined(HAVE_MPIX_HARMONIZE)
+#include <mpix_harmonize.h>
+
+/* The frequency of re-harmonization, counting MPI_Allgatherv on MPI_COMM_WORLD */
+#define TRAMPOLINE_FREQUENCY  50
+
+static int _trampoline_flag = 0;
+static int _trampoline_iterations = 0;
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+
+#if ENABLE_EXEC_TIMING
+double timestamps_start[500];
+double timestamps_end[500];
+size_t num_timestamps = 0;
+#endif // ENABLE_EXEC_TIMING
 
 /* FORTRAN BINDINGS */
 extern int mpi_fortran_in_place_;
@@ -975,12 +991,26 @@ int MPI_Finalize()
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
-    return _mpi_init_thread(argc, argv, required, provided);
+    int rc = _mpi_init_thread(argc, argv, required, provided);
+#if defined(HAVE_MPIX_HARMONIZE)
+    if( MPI_SUCCESS == rc ) {
+        /* harmonize the clocks across all ranks in MPI_COMM_WORLD */
+        rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+    return rc;
 }
 
 int MPI_Init(int *argc, char ***argv)
 {
-    return _mpi_init(argc, argv);
+    int rc = _mpi_init(argc, argv);
+#if defined(HAVE_MPIX_HARMONIZE)
+    if( MPI_SUCCESS == rc ) {
+        /* harmonize the clocks across all ranks in MPI_COMM_WORLD */
+        rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
+    return rc;
 }
 
 int mpi_init_thread_(MPI_Fint *required, MPI_Fint *provided, MPI_Fint *ierr)
@@ -1153,11 +1183,40 @@ static int _commit_data()
 {
     log_profiling_data(logger, allgathervCalls, allgathervCallStart, allgathervCallsLogged, counts_head, displs_head, op_timing_exec_head);
 
-    /*
+/*
 #if ENABLE_TIMING
-    log_timing_data(logger, op_timing_exec_head);
+    //log_timing_data(logger, op_timing_exec_head);
 #endif // ENABLE_TIMING
 */
+
+#if ENABLE_EXEC_TIMING
+    /* Save start & end timestamps */
+    if (num_timestamps > 0)
+    {
+        int ret, rc;
+        size_t i;
+        char *filename = NULL;
+        if (getenv(OUTPUT_DIR_ENVVAR))
+        {
+            _asprintf(filename, rc, "%s/timestamps.rank%d.md", getenv(OUTPUT_DIR_ENVVAR), world_rank);
+        }
+        else
+        {
+            _asprintf(filename, rc, "timestamps.rank%d.md", world_rank);
+        }
+        assert(rc > 0);
+
+        FILE *f = fopen(filename, "w");
+        assert(f);
+
+        for (i = 0; i < num_timestamps; i++)
+        {
+            fprintf(f, "%lf %lf\n", timestamps_start[i], timestamps_end[i]);
+        }
+        fclose(f);
+        num_timestamps = 0;
+    }
+#endif // ENABLE_EXEC_TIMING
 
 #if ENABLE_PATTERN_DETECTION && !TRACK_PATTERNS_ON_CALL_BASIS
     save_patterns(world_rank);
@@ -1356,6 +1415,10 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 
 #if ENABLE_EXEC_TIMING
         double t_start = MPI_Wtime();
+        if (num_timestamps < 500)
+        {
+            timestamps_start[num_timestamps] = t_start;
+        }
 #endif // ENABLE_EXEC_TIMING
 
         ret = PMPI_Allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
@@ -1378,6 +1441,11 @@ int _mpi_allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendt
 
 #if ENABLE_EXEC_TIMING
         double t_end = MPI_Wtime();
+        if (num_timestamps < 500)
+        {
+            timestamps_end[num_timestamps] = t_end;
+            num_timestamps++;
+        }
         double t_op = t_end - t_start;
 #endif // ENABLE_EXEC_TIMING
 
@@ -1598,6 +1666,20 @@ int MPI_Allgatherv(const void *sendbuf, const int sendcount, MPI_Datatype sendty
                    void *recvbuf, const int *recvcounts, const int *rdispls, MPI_Datatype recvtype,
                    MPI_Comm comm)
 {
+#if defined(HAVE_MPIX_HARMONIZE)
+    /* From time to time we need to resynchronize the clocks, but we can only do it on MPI_Allgatherv on
+     * MPI_COMM_WORLD.
+     */
+    if( MPI_COMM_WORLD == comm ) {
+        _trampoline_iterations++;
+	if( 0 == (_trampoline_iterations % TRAMPOLINE_FREQUENCY) ) {
+	    int rc = MPIX_Harmonize(MPI_COMM_WORLD, &_trampoline_flag);
+            if( MPI_SUCCESS != rc ) {
+	        MPI_Abort(MPI_COMM_WORLD, -1);
+            }
+        }
+    }
+#endif  /* defined(HAVE_MPIX_HARMONIZE) */
     return _mpi_allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm);
 }
 
@@ -1632,6 +1714,7 @@ void mpi_allgatherv_(void *sendbuf, MPI_Fint *sendcount, MPI_Fint *sendtype,
 // if the app never calls MPI_Finalize().
 __attribute__((destructor)) void calledLast()
 {
-    _commit_data();
-    _finalize_profiling();
+        if( NULL == logger ) return;  /* nothing more to do, already done */
+        _commit_data();
+        _finalize_profiling();
 }
