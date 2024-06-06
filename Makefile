@@ -36,7 +36,6 @@ tools:
 	@echo "Go not installed; skipping tools' compilation"
 else
 tools:
-	git submodule update --init --recursive
 	# We overwite CC because we discovered issues when CC=icc and in our context,
 	# the tools can always be compiled with gcc.
 	cd tools && make CC=gcc;
