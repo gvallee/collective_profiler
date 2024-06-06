@@ -12,6 +12,25 @@ the execution platform and compile the analysis tool on the system where post-mo
 analysis is performed. To only compile the shared libraries only, execute `make libraries`;
 to compile the post-mortem analysis tools, execute `make tool`.
 
+## Installation
+
+### Requirements
+
+After cloning the repository, it is required to initialization the Git submodules:
+```console
+git submodule update --init --recursive
+```
+
+It is adviced to compile the profiling tool with the same compilers than the ones
+used to compile the application, including MPI.
+
+## Compilation
+
+To compile the entire code base, it is recommended to execute the following command:
+```console
+make all
+```
+
 ## Documentation for the profiling of MPI applications
 
 More documentation about the MPI collective profiler itself, the one being used while profiling your application is available in [src/README.md](src/README.md).
