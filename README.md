@@ -23,6 +23,11 @@ MPI_Alltoallv operation executed.
 
 ### Requirements
 
+After cloning the repository, it is required to initialization the Git submodules:
+```console
+git submodule update --init --recursive
+```
+
 It is adviced to compile the profiling tool with the same compilers than the ones
 used to compile the application, including MPI.
 
