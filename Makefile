@@ -4,9 +4,12 @@
 # See LICENSE.txt for license information
 #
 
-all: libraries examples tools tests validation_libs
+all: libraries examples tools tests validation_libs doc
 
 .PHONY: libraries alltoallv alltoall examples tools check tests check_gnuplot
+
+doc:
+	cd tools; make doc
 
 alltoallv:
 	cd src && make alltoallv
