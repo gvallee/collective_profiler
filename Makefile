@@ -4,7 +4,7 @@
 # See LICENSE.txt for license information
 #
 
-all: libraries examples tools tests doc validation_libs
+all: libraries examples tools tests validation_libs
 
 .PHONY: libraries alltoallv alltoall examples tools check tests check_gnuplot
 
@@ -48,15 +48,11 @@ check: libraries
 tests:
 	cd tests && make
 
-doc:
-	cd doc && make
-
 clean:
 	cd examples && make clean
 	cd src && make clean
 	cd tools && make clean
 	cd tests && make clean
-	cd doc && make clean
 	cd validation/late_arrival && make clean
 
 validation_libs:
